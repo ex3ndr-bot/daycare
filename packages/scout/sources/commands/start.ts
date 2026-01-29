@@ -3,12 +3,16 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import pino from "pino";
 
+import type { ChronTaskConfig } from "../connectors/chron.js";
+import { ChronConnector } from "../connectors/chron.js";
 import { TelegramConnector } from "../connectors/telegram.js";
 import type {
   Connector,
   ConnectorMessage,
   MessageContext
 } from "../connectors/types.js";
+import { SessionManager } from "../sessions/manager.js";
+import type { SessionMessage } from "../sessions/types.js";
 
 const logger = pino();
 
@@ -32,10 +36,15 @@ type TelegramConfig = {
 type ScoutConfig = {
   connectors?: {
     telegram?: TelegramConfig;
+    chron?: ChronConfig;
   };
 };
 
 const DEFAULT_TELEGRAM_CONFIG_PATH = ".scout/telegram.json";
+
+type ChronConfig = {
+  tasks?: ChronTaskConfig[];
+};
 
 export async function startCommand(options: StartOptions): Promise<void> {
   intro("scout start");
@@ -63,11 +72,24 @@ export async function startCommand(options: StartOptions): Promise<void> {
 
   const telegramConfig =
     config.connectors?.telegram ?? telegramFallback ?? null;
+  const chronConfig = config.connectors?.chron ?? null;
 
   if (telegramConfig?.token) {
     connectors.push({
       name: "telegram",
       connector: new TelegramConnector(telegramConfig)
+    });
+  }
+
+  if (chronConfig?.tasks && chronConfig.tasks.length > 0) {
+    connectors.push({
+      name: "chron",
+      connector: new ChronConnector({
+        tasks: chronConfig.tasks,
+        onError: (error, task) => {
+          logger.warn({ task: task.id, error }, "Chron task failed");
+        }
+      })
     });
   }
 
@@ -79,10 +101,21 @@ export async function startCommand(options: StartOptions): Promise<void> {
     return;
   }
 
+  const sessions = new SessionManager({
+    onError: (error, session, entry) => {
+      logger.warn(
+        { sessionId: session.id, messageId: entry.id, error },
+        "Session handler failed"
+      );
+    }
+  });
+
   for (const { name, connector } of connectors) {
-    connector.onMessage((message: ConnectorMessage, context: MessageContext) =>
-      echoHandler(connector, message, context, name)
-    );
+    connector.onMessage((message: ConnectorMessage, context: MessageContext) => {
+      void sessions.handleMessage(name, message, context, (session, entry) =>
+        echoHandler(connector, entry, session, name)
+      );
+    });
   }
 
   logger.info(
@@ -94,16 +127,18 @@ export async function startCommand(options: StartOptions): Promise<void> {
 
 async function echoHandler(
   connector: Connector,
-  message: ConnectorMessage,
-  context: MessageContext,
+  entry: SessionMessage,
+  _session: { id: string },
   name: string
 ): Promise<void> {
-  if (!message.text) {
+  if (!entry.message.text) {
     return;
   }
 
   try {
-    await connector.sendMessage(context.channelId, { text: message.text });
+    await connector.sendMessage(entry.context.channelId, {
+      text: entry.message.text
+    });
   } catch (error) {
     logger.warn({ connector: name, error }, "Failed to echo message");
   }

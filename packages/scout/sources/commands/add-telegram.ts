@@ -2,17 +2,17 @@ import { confirm, intro, isCancel, outro, password } from "@clack/prompts";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-export type ConfigureTelegramOptions = {
+export type AddTelegramOptions = {
   token?: string;
   output: string;
 };
 
 const DEFAULT_OUTPUT = ".scout/telegram.json";
 
-export async function configureTelegramCommand(
-  options: ConfigureTelegramOptions
+export async function addTelegramCommand(
+  options: AddTelegramOptions
 ): Promise<void> {
-  intro("scout configure telegram");
+  intro("scout add telegram");
 
   const outputPath = path.resolve(options.output || DEFAULT_OUTPUT);
 
