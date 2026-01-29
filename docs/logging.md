@@ -1,6 +1,6 @@
 # Logging
 
-Logging is centralized in `sources/logging` and uses Pino.
+Logging is centralized in `sources/log.ts` and uses Pino.
 
 ## Configuration
 Environment variables:
