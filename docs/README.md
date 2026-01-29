@@ -5,7 +5,7 @@ This folder documents the current Scout CLI, connectors, sessions, and logging.
 ## Index
 - `architecture.md` - system overview and message flow
 - `cli.md` - CLI commands and runtime behavior
-- `connectors.md` - connector abstraction, telegram, and chron connector
+- `connectors.md` - connector abstraction and telegram connector
 - `cron.md` - cron scheduler tasks and actions
 - `auth.md` - auth tokens and helper commands
 - `inference.md` - inference runtime helpers

@@ -1,6 +1,7 @@
 # Connectors
 
 Connectors are the interface between Scout and external systems.
+Scheduled work is handled by the cron runtime (see `cron.md`).
 
 ## Connector interface
 Each connector exposes:
@@ -44,18 +45,4 @@ flowchart TD
   Poll -->|error| Retry[backoff + retry]
   Shutdown[SIGINT/SIGTERM] --> Stop[stopPolling]
   Stop --> Persist
-```
-
-## Chron connector
-Chron is a time-based connector that emits messages on a schedule.
-- Tasks can be one-off (`once`) or interval (`everyMs`).
-- `runOnStart` triggers a message immediately.
-- This connector is exported but not wired into `start` yet (cron scheduler is used there).
-
-```mermaid
-flowchart TD
-  Config[ChronTaskConfig] --> Scheduler[ChronConnector]
-  Scheduler -->|interval| Emit[ConnectorMessage]
-  Scheduler -->|once| Emit
-  Emit --> onMessage
 ```
