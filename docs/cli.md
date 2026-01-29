@@ -1,0 +1,37 @@
+# CLI
+
+The CLI is implemented with Commander in `sources/main.ts`. It always initializes logging first.
+
+## Commands
+- `start` - launches configured connectors and attaches the echo handler.
+- `status` - placeholder status command.
+- `add telegram` - prompts for a bot token and writes `.scout/telegram.json`.
+
+## Development
+- `yarn dev` runs the CLI directly via `tsx`.
+
+```mermaid
+flowchart TD
+  main[main.ts] --> start[start]
+  main --> status[status]
+  main --> add[add]
+  add --> telegram[telegram]
+```
+
+## start command flow
+```mermaid
+sequenceDiagram
+  participant User
+  participant CLI
+  participant Config
+  participant Cron
+  participant Connector
+  participant Sessions
+  User->>CLI: scout start
+  CLI->>Config: load scout.config.json
+  CLI->>Config: fallback .scout/telegram.json
+  CLI->>Connector: init connectors
+  CLI->>Cron: init cron tasks (optional)
+  Connector->>Sessions: onMessage
+  Sessions->>Connector: sendMessage (echo)
+```
