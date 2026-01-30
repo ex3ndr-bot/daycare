@@ -1,33 +1,30 @@
-# Secrets Store
+# Auth Store
 
-Grambot stores plugin credentials in `.scout/secrets.json`.
+Grambot stores credentials in `.scout/auth.json`.
 The file is read by the engine on startup and on demand by plugins.
 
 ## Structure
 ```json
 {
-  "version": 1,
-  "secrets": {
-    "telegram": { "token": "..." },
-    "brave-search": { "apiKey": "..." },
-    "openai-codex": { "apiKey": "..." },
-    "anthropic": { "apiKey": "..." },
-    "gpt-image": { "apiKey": "..." },
-    "nanobanana": { "apiKey": "..." }
-  }
+  "telegram": { "type": "token", "token": "..." },
+  "brave-search": { "type": "apiKey", "apiKey": "..." },
+  "openai": { "type": "apiKey", "apiKey": "..." },
+  "anthropic": { "type": "oauth", "refreshToken": "...", "accessToken": "..." },
+  "gpt-image": { "type": "apiKey", "apiKey": "..." },
+  "nanobanana": { "type": "apiKey", "apiKey": "..." }
 }
 ```
 
 ## CLI helpers
-- `gram secrets set <plugin> <key> <value>` updates the secrets store.
+- `gram auth set <id> <key> <value>` updates the auth store.
 
 ```mermaid
 flowchart TD
-  CLI[gram secrets set] --> Secrets[.scout/secrets.json]
-  Secrets --> Plugins
+  CLI[gram auth set] --> Auth[.scout/auth.json]
+  Auth --> Plugins
 ```
 
 ## Usage
-- Connectors read secrets for auth (e.g., Telegram token).
-- Inference providers read secrets for API keys.
-- Tool plugins read secrets for external services.
+- Connectors read auth for tokens (e.g., Telegram).
+- Inference providers read auth for API keys or OAuth credentials.
+- Tool plugins read auth for external services.

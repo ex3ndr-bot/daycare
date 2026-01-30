@@ -3,7 +3,8 @@ import { startCommand } from "./commands/start.js";
 import { statusCommand } from "./commands/status.js";
 import { initLogging } from "./log.js";
 import { loadPluginCommand, unloadPluginCommand } from "./commands/plugins.js";
-import { setSecretCommand } from "./commands/secrets.js";
+import { setAuthCommand } from "./commands/auth.js";
+import { addCommand } from "./commands/add.js";
 
 const program = new Command();
 
@@ -29,6 +30,16 @@ program
   .description("Show bot status")
   .action(statusCommand);
 
+program
+  .command("add")
+  .description("Add an inference provider")
+  .option(
+    "-s, --settings <path>",
+    "Path to settings file",
+    ".scout/settings.json"
+  )
+  .action(addCommand);
+
 const pluginCommand = program.command("plugins").description("Manage plugins");
 
 pluginCommand
@@ -43,15 +54,15 @@ pluginCommand
   .argument("<id>", "Plugin id")
   .action(unloadPluginCommand);
 
-const secretsCommand = program.command("secrets").description("Manage secrets");
+const authCommand = program.command("auth").description("Manage auth credentials");
 
-secretsCommand
+authCommand
   .command("set")
-  .description("Set a plugin secret")
-  .argument("<plugin>", "Plugin id")
-  .argument("<key>", "Secret key")
-  .argument("<value>", "Secret value")
-  .action(setSecretCommand);
+  .description("Set an auth credential")
+  .argument("<id>", "Auth entry id")
+  .argument("<key>", "Credential key")
+  .argument("<value>", "Credential value")
+  .action(setAuthCommand);
 
 if (process.argv.length <= 2) {
   program.outputHelp();

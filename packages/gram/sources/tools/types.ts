@@ -7,7 +7,7 @@ import type { ConnectorRegistry } from "../connectors/registry.js";
 import type { FileStore } from "../files/store.js";
 import type { MemoryEngine } from "../memory/engine.js";
 import type { Session } from "../sessions/session.js";
-import type { SecretsStore } from "../secrets/store.js";
+import type { AuthStore } from "../auth/store.js";
 import type { Logger } from "pino";
 import type { Pm2Runtime } from "../modules/runtime/pm2.js";
 import type { DockerRuntime } from "../modules/runtime/containers.js";
@@ -17,7 +17,7 @@ export type ToolExecutionContext<State = Record<string, unknown>> = {
   connectorRegistry: ConnectorRegistry | null;
   fileStore: FileStore;
   memory: MemoryEngine | null;
-  secrets: SecretsStore;
+  auth: AuthStore;
   logger: Logger;
   pm2Runtime: Pm2Runtime | null;
   dockerRuntime: DockerRuntime | null;

@@ -10,7 +10,7 @@ This folder documents the current Grambot CLI, plugins, sessions, and runtime.
 - `dashboard.md` - gram-dashboard SPA + proxy
 - `memory.md` - memory engine and search
 - `cron.md` - cron scheduler tasks and actions
-- `auth.md` - secrets store and helper commands
+- `auth.md` - auth store and helper commands
 - `inference.md` - inference runtime helpers
 - `containers.md` - container runtime management (Docker)
 - `pm2.md` - pm2 runtime process management

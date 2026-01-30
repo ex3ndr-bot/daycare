@@ -32,13 +32,13 @@ export async function startCommand(options: StartOptions): Promise<void> {
   logger.info({ settings: settingsPath }, "Starting grambot");
 
   const dataDir = path.resolve(settings.engine?.dataDir ?? ".scout");
-  const secretsPath = path.join(dataDir, "secrets.json");
+  const authPath = path.join(dataDir, "auth.json");
   const eventBus = new EngineEventBus();
 
   const runtime = new EngineRuntime({
     settings,
     dataDir,
-    secretsPath,
+    authPath,
     eventBus
   });
 

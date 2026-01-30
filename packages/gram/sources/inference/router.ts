@@ -2,7 +2,7 @@ import type { Context, AssistantMessage } from "@mariozechner/pi-ai";
 
 import type { InferenceRegistry } from "./registry.js";
 import type { InferenceProviderSettings } from "../settings.js";
-import type { SecretsStore } from "../secrets/store.js";
+import type { AuthStore } from "../auth/store.js";
 import { getLogger } from "../log.js";
 
 export type InferenceResult = {
@@ -14,7 +14,7 @@ export type InferenceResult = {
 export type InferenceRouterOptions = {
   providers: InferenceProviderSettings[];
   registry: InferenceRegistry;
-  secrets: SecretsStore;
+  auth: AuthStore;
   onAttempt?: (providerId: string, modelId: string) => void;
   onFallback?: (providerId: string, error: unknown) => void;
   onSuccess?: (providerId: string, modelId: string, message: AssistantMessage) => void;
@@ -24,13 +24,13 @@ export type InferenceRouterOptions = {
 export class InferenceRouter {
   private providers: InferenceProviderSettings[];
   private registry: InferenceRegistry;
-  private secrets: SecretsStore;
+  private auth: AuthStore;
   private logger = getLogger("inference.router");
 
   constructor(options: InferenceRouterOptions) {
     this.providers = options.providers;
     this.registry = options.registry;
-    this.secrets = options.secrets;
+    this.auth = options.auth;
   }
 
   updateProviders(providers: InferenceProviderSettings[]): void {
@@ -40,7 +40,7 @@ export class InferenceRouter {
   async complete(
     context: Context,
     sessionId: string,
-    options?: Omit<InferenceRouterOptions, "providers" | "registry" | "secrets">
+    options?: Omit<InferenceRouterOptions, "providers" | "registry" | "auth">
   ): Promise<InferenceResult> {
     let lastError: unknown = null;
 
@@ -56,7 +56,7 @@ export class InferenceRouter {
         client = await provider.createClient({
           model: providerConfig.model,
           config: providerConfig.options,
-          secrets: this.secrets,
+          auth: this.auth,
           logger: this.logger
         });
       } catch (error) {

@@ -41,9 +41,9 @@ export function createBraveSearchPlugin(): Plugin {
         },
         execute: async (args, _toolContext, toolCall) => {
           const payload = args as SearchArgs;
-          const apiKey = await context.secrets.get("brave-search", "apiKey");
+          const apiKey = await context.auth.getApiKey("brave-search");
           if (!apiKey) {
-            throw new Error("Missing brave-search apiKey in secrets store");
+            throw new Error("Missing brave-search apiKey in auth store");
           }
 
           const url = new URL("https://api.search.brave.com/res/v1/web/search");

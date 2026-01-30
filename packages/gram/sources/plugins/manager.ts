@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 
 import { getLogger } from "../log.js";
 import type { FileStore } from "../files/store.js";
-import type { SecretsStore } from "../secrets/store.js";
+import type { AuthStore } from "../auth/store.js";
 import type { PluginSettings, SettingsConfig } from "../settings.js";
 import type { Plugin, PluginContext } from "./types.js";
 import type { PluginRegistry } from "./registry.js";
@@ -13,7 +13,7 @@ export type PluginFactory = () => Plugin;
 export type PluginManagerOptions = {
   settings: SettingsConfig;
   registry: PluginRegistry;
-  secrets: SecretsStore;
+  auth: AuthStore;
   fileStore: FileStore;
   pluginFactories: Map<string, PluginFactory>;
   dataDir: string;
@@ -29,7 +29,7 @@ type LoadedPlugin = {
 export class PluginManager {
   private settings: SettingsConfig;
   private registry: PluginRegistry;
-  private secrets: SecretsStore;
+  private auth: AuthStore;
   private fileStore: FileStore;
   private pluginFactories: Map<string, PluginFactory>;
   private dataDir: string;
@@ -39,7 +39,7 @@ export class PluginManager {
   constructor(options: PluginManagerOptions) {
     this.settings = options.settings;
     this.registry = options.registry;
-    this.secrets = options.secrets;
+    this.auth = options.auth;
     this.fileStore = options.fileStore;
     this.pluginFactories = options.pluginFactories;
     this.dataDir = options.dataDir;
@@ -74,7 +74,7 @@ export class PluginManager {
       config: pluginConfig,
       settings: this.settings,
       logger: getLogger(`plugin.${id}`),
-      secrets: this.secrets,
+      auth: this.auth,
       dataDir,
       registrar,
       fileStore: this.fileStore
@@ -94,7 +94,7 @@ export class PluginManager {
       config: entry.config,
       settings: this.settings,
       logger: getLogger(`plugin.${id}`),
-      secrets: this.secrets,
+      auth: this.auth,
       dataDir: entry.dataDir,
       registrar: entry.registrar,
       fileStore: this.fileStore

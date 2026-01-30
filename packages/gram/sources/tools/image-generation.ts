@@ -52,7 +52,7 @@ export function buildImageGenerationTool(
         },
         {
           fileStore: toolContext.fileStore,
-          secrets: toolContext.secrets,
+          auth: toolContext.auth,
           logger: toolContext.logger
         }
       );

@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@clack/prompts": "^0.10.0",
+    "@inquirer/prompts": "^8.2.0",
     "@mariozechner/pi-ai": "0.50.3",
     "@paralleldrive/cuid2": "^2.2.2",
     "@sinclair/typebox": "^0.34.41",

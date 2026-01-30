@@ -1,14 +1,14 @@
 # Configuration
 
-Grambot now reads from a single settings file plus the secrets store.
+Grambot now reads from a single settings file plus the auth store.
 
 - `.scout/settings.json` (or the path passed to `gram start --settings`)
-- `.scout/secrets.json` for plugin secrets
+- `.scout/auth.json` for credentials
 
 ```mermaid
 flowchart TD
   Start[gram start] --> Settings[.scout/settings.json]
-  Start --> Secrets[.scout/secrets.json]
+  Start --> Auth[.scout/auth.json]
   Settings --> Plugins
   Settings --> Inference
   Settings --> Cron
@@ -27,13 +27,11 @@ flowchart TD
     { "id": "brave-search", "enabled": true },
     { "id": "gpt-image", "enabled": true },
     { "id": "nanobanana", "enabled": false, "config": { "endpoint": "https://api.example.com/images" } },
-    { "id": "openai-codex", "enabled": true },
-    { "id": "anthropic", "enabled": true }
+    { "id": "openai", "enabled": true }
   ],
   "inference": {
     "providers": [
-      { "id": "openai-codex", "model": "gpt-5.1-codex-mini" },
-      { "id": "anthropic", "model": "claude-3-7-sonnet-latest" }
+      { "id": "openai", "model": "gpt-4o-mini" }
     ]
   },
   "cron": {
@@ -78,19 +76,16 @@ flowchart TD
 }
 ```
 
-## `.scout/secrets.json`
-Secrets are stored per plugin id:
+## `.scout/auth.json`
+Credentials are stored per provider id:
 
 ```json
 {
-  "version": 1,
-  "secrets": {
-    "telegram": { "token": "..." },
-    "brave-search": { "apiKey": "..." },
-    "openai-codex": { "apiKey": "..." },
-    "anthropic": { "apiKey": "..." },
-    "gpt-image": { "apiKey": "..." },
-    "nanobanana": { "apiKey": "..." }
-  }
+  "telegram": { "type": "token", "token": "..." },
+  "brave-search": { "type": "apiKey", "apiKey": "..." },
+  "openai": { "type": "apiKey", "apiKey": "..." },
+  "openai": { "type": "apiKey", "apiKey": "..." },
+  "gpt-image": { "type": "apiKey", "apiKey": "..." },
+  "nanobanana": { "type": "apiKey", "apiKey": "..." }
 }
 ```

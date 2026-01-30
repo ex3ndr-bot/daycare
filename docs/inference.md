@@ -4,16 +4,25 @@ Inference is now a plugin capability. Providers register with the `InferenceRegi
 and the `InferenceRouter` selects them based on `.scout/settings.json`.
 
 ## Providers
-Configured in settings:
+Configured in settings (in priority order):
 ```json
 {
   "inference": {
     "providers": [
-      { "id": "openai-codex", "model": "gpt-5.1-codex-mini" },
-      { "id": "anthropic", "model": "claude-3-7-sonnet-latest" }
+      { "id": "openai", "model": "gpt-4o-mini" }
     ]
   }
 }
+```
+
+New providers are appended to the end of the list unless you set them as primary in `gram add`.
+
+```mermaid
+flowchart LR
+  CLI[gram add] --> Auth[.scout/auth.json]
+  CLI --> Settings[.scout/settings.json]
+  Settings --> Inference[InferenceRouter]
+  Auth --> Inference
 ```
 
 ## Tools
@@ -41,11 +50,11 @@ sequenceDiagram
 sequenceDiagram
   participant Engine
   participant Settings
-  participant Secrets
+  participant Auth
   participant Inference
   participant Tools
   Engine->>Settings: read providers
-  Engine->>Secrets: read apiKey
+  Engine->>Auth: read credentials
   Engine->>Inference: complete(context + tools)
   Inference-->>Tools: tool call(s)
   Tools-->>Inference: tool result(s)

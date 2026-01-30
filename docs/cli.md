@@ -5,9 +5,10 @@ The CLI is implemented with Commander in `sources/main.ts`. It always initialize
 ## Commands
 - `start` - launches the engine (default settings `.scout/settings.json`).
 - `status` - prints engine status if the socket is live.
+- `add` - interactive setup for an inference provider.
 - `plugins load <id>` - loads a plugin (updates settings if engine is down).
 - `plugins unload <id>` - unloads a plugin.
-- `secrets set <plugin> <key> <value>` - stores a plugin secret.
+- `auth set <id> <key> <value>` - stores an auth credential.
 
 ## Development
 - `yarn dev` runs the CLI directly via `tsx`.
@@ -16,8 +17,9 @@ The CLI is implemented with Commander in `sources/main.ts`. It always initialize
 flowchart TD
   main[main.ts] --> start[start]
   main --> status[status]
+  main --> add[add]
   main --> plugins[plugins]
-  main --> secrets[secrets]
+  main --> auth[auth]
 ```
 
 ## start command flow
@@ -26,12 +28,12 @@ sequenceDiagram
   participant User
   participant CLI
   participant Settings
-  participant Secrets
+  participant Auth
   participant Plugins
   participant Engine
   User->>CLI: gram start
   CLI->>Settings: read .scout/settings.json
-  CLI->>Secrets: read .scout/secrets.json
+  CLI->>Auth: read .scout/auth.json
   CLI->>Plugins: load enabled plugins
   CLI->>Engine: start local socket + SSE
 ```

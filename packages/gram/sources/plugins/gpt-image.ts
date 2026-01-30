@@ -22,9 +22,9 @@ export function createGptImagePlugin(): Plugin {
         id: "gpt-image",
         label: "OpenAI Images",
         generate: async (request, generationContext) => {
-          const apiKey = await generationContext.secrets.get("gpt-image", "apiKey");
+          const apiKey = await generationContext.auth.getApiKey("gpt-image");
           if (!apiKey) {
-            throw new Error("Missing gpt-image apiKey in secrets store");
+            throw new Error("Missing gpt-image apiKey in auth store");
           }
           const config = (context.config.config ?? {}) as GptImageConfig;
           const payload: Record<string, unknown> = {

@@ -61,14 +61,11 @@ Grambot uses two configuration files in `.scout/`:
 }
 ```
 
-**secrets.json** - API keys and tokens
+**auth.json** - API keys and tokens
 ```json
 {
-  "version": 1,
-  "secrets": {
-    "telegram": { "token": "..." },
-    "anthropic": { "apiKey": "..." }
-  }
+  "telegram": { "type": "token", "token": "..." },
+  "openai": { "type": "apiKey", "apiKey": "..." }
 }
 ```
 
@@ -77,8 +74,7 @@ Grambot uses two configuration files in `.scout/`:
 | Plugin | Type | Description |
 |--------|------|-------------|
 | telegram | Connector | Telegram bot with long polling |
-| anthropic | Inference | Claude models via Anthropic API |
-| openai-codex | Inference | GPT models via OpenAI API |
+| openai | Inference | GPT models via OpenAI API |
 | brave-search | Tool | Web search integration |
 | gpt-image | Image | OpenAI image generation |
 | nanobanana | Image | Alternative image provider |
@@ -100,9 +96,10 @@ The AI agent has access to these tools:
 ```sh
 gram start                    # Launch the engine
 gram status                   # Check engine status
+gram add                      # Add an inference provider
 gram plugins load <id>        # Load a plugin
 gram plugins unload <id>      # Unload a plugin
-gram secrets set <plugin> <key> <value>  # Store a secret
+gram auth set <id> <key> <value>         # Store a credential
 ```
 
 ## Development

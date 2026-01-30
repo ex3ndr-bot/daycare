@@ -2,7 +2,7 @@ import http from "node:http";
 import { promises as fs } from "node:fs";
 
 import { DEFAULT_SETTINGS_PATH, updateSettingsFile, upsertPlugin } from "../settings.js";
-import { DEFAULT_SECRETS_PATH, SecretsStore } from "../secrets/store.js";
+import { AuthStore, DEFAULT_AUTH_PATH } from "../auth/store.js";
 import { resolveEngineSocketPath, resolveRemoteEngineUrl } from "./socket.js";
 
 export type EngineWriteResult = {
@@ -53,20 +53,20 @@ export async function unloadPlugin(
   });
 }
 
-export async function setSecret(
-  pluginId: string,
+export async function setAuth(
+  id: string,
   key: string,
   value: string,
   options: EngineClientOptions = {}
 ): Promise<EngineWriteResult> {
   return writeEngineMutation({
     options,
-    endpoint: "/v1/engine/secrets",
+    endpoint: "/v1/engine/auth",
     method: "POST",
-    payload: { pluginId, key, value },
+    payload: { id, key, value },
     applyLocal: async () => {
-      const store = new SecretsStore(DEFAULT_SECRETS_PATH);
-      await store.set(pluginId, key, value);
+      const store = new AuthStore(DEFAULT_AUTH_PATH);
+      await store.setField(id, key, value);
     }
   });
 }

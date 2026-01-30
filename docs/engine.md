@@ -5,7 +5,7 @@ Grambot updates engine settings using a three-step strategy:
 1. **Local server running**: send a mutation request over the local HTTP socket
    at `.scout/scout.sock`.
 2. **Local server not running**: write directly to local files
-   (settings + secrets).
+   (settings + auth).
 3. **Remote server configured**: reserved for future use.
 
 ## Local socket
@@ -20,7 +20,7 @@ Current endpoints:
 - `GET /v1/engine/plugins`
 - `POST /v1/engine/plugins/load`
 - `POST /v1/engine/plugins/unload`
-- `POST /v1/engine/secrets`
+- `POST /v1/engine/auth`
 - `GET /v1/engine/events` (SSE)
 
 ```mermaid

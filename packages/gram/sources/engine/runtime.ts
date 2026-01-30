@@ -19,7 +19,7 @@ import { listInferenceProviders } from "../settings.js";
 import { SessionManager } from "../sessions/manager.js";
 import { SessionStore } from "../sessions/store.js";
 import type { SessionMessage } from "../sessions/types.js";
-import { SecretsStore } from "../secrets/store.js";
+import { AuthStore } from "../auth/store.js";
 import { ToolRegistry } from "../tools/registry.js";
 import { buildCronTool } from "../tools/cron.js";
 import { buildMemoryTool } from "../tools/memory.js";
@@ -42,14 +42,14 @@ type SessionState = {
 export type EngineRuntimeOptions = {
   settings: SettingsConfig;
   dataDir: string;
-  secretsPath: string;
+  authPath: string;
   eventBus: EngineEventBus;
 };
 
 export class EngineRuntime {
   private settings: SettingsConfig;
   private dataDir: string;
-  private secretsStore: SecretsStore;
+  private authStore: AuthStore;
   private fileStore: FileStore;
   private connectorRegistry: ConnectorRegistry;
   private inferenceRegistry: InferenceRegistry;
@@ -70,7 +70,7 @@ export class EngineRuntime {
     this.settings = options.settings;
     this.dataDir = options.dataDir;
     this.eventBus = options.eventBus;
-    this.secretsStore = new SecretsStore(options.secretsPath);
+    this.authStore = new AuthStore(options.authPath);
     this.fileStore = new FileStore({ basePath: `${this.dataDir}/files` });
 
     this.connectorRegistry = new ConnectorRegistry({
@@ -98,7 +98,7 @@ export class EngineRuntime {
     this.pluginManager = new PluginManager({
       settings: this.settings,
       registry: this.pluginRegistry,
-      secrets: this.secretsStore,
+      auth: this.authStore,
       fileStore: this.fileStore,
       pluginFactories: buildPluginCatalog(),
       dataDir: this.dataDir
@@ -184,7 +184,7 @@ export class EngineRuntime {
     this.inferenceRouter = new InferenceRouter({
       providers: listInferenceProviders(this.settings),
       registry: this.inferenceRegistry,
-      secrets: this.secretsStore
+      auth: this.authStore
     });
   }
 
@@ -286,8 +286,8 @@ export class EngineRuntime {
     return this.settings;
   }
 
-  getSecretsStore(): SecretsStore {
-    return this.secretsStore;
+  getAuthStore(): AuthStore {
+    return this.authStore;
   }
 
   getFileStore(): FileStore {
@@ -440,7 +440,7 @@ export class EngineRuntime {
             connectorRegistry: this.connectorRegistry,
             fileStore: this.fileStore,
             memory: this.memoryEngine,
-            secrets: this.secretsStore,
+            auth: this.authStore,
             logger,
             pm2Runtime: this.pm2Runtime,
             dockerRuntime: this.dockerRuntime,

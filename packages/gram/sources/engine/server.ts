@@ -25,8 +25,8 @@ export type EngineServer = {
 const pluginSchema = z.object({
   id: z.string().min(1)
 });
-const secretSchema = z.object({
-  pluginId: z.string().min(1),
+const authSchema = z.object({
+  id: z.string().min(1),
   key: z.string().min(1),
   value: z.string().min(1)
 });
@@ -128,16 +128,12 @@ export async function startEngineServer(
     return reply.send({ ok: true });
   });
 
-  app.post("/v1/engine/secrets", async (request, reply) => {
-    const payload = parseBody(secretSchema, request.body, reply);
+  app.post("/v1/engine/auth", async (request, reply) => {
+    const payload = parseBody(authSchema, request.body, reply);
     if (!payload) {
       return;
     }
-    await options.runtime.getSecretsStore().set(
-      payload.pluginId,
-      payload.key,
-      payload.value
-    );
+    await options.runtime.getAuthStore().setField(payload.id, payload.key, payload.value);
     return reply.send({ ok: true });
   });
 

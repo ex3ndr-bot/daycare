@@ -9,9 +9,9 @@ export function createTelegramPlugin(): Plugin {
     id: "telegram",
     kind: "connector",
     load: async (context) => {
-      const token = await context.secrets.get("telegram", "token");
+      const token = await context.auth.getToken("telegram");
       if (!token) {
-        throw new Error("Missing telegram token in secrets store");
+        throw new Error("Missing telegram token in auth store");
       }
       const config = (context.config.config ?? {}) as TelegramPluginConfig;
       const statePath =

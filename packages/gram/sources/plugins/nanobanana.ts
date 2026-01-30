@@ -34,9 +34,9 @@ export function createNanobananaPlugin(): Plugin {
           if (!config.endpoint) {
             throw new Error("nanobanana endpoint missing in settings config");
           }
-          const apiKey = await generationContext.secrets.get("nanobanana", "apiKey");
+          const apiKey = await generationContext.auth.getApiKey("nanobanana");
           if (!apiKey) {
-            throw new Error("Missing nanobanana apiKey in secrets store");
+            throw new Error("Missing nanobanana apiKey in auth store");
           }
           const headers: Record<string, string> = {
             "Content-Type": "application/json"
