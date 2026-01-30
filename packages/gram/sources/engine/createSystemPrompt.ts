@@ -1,9 +1,33 @@
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import Handlebars from "handlebars";
 
 import { DEFAULT_SOUL_PATH } from "../paths.js";
 
-export async function createSystemPrompt(): Promise<string> {
+export type SystemPromptContext = {
+  model?: string;
+  provider?: string;
+};
+
+export async function createSystemPrompt(context: SystemPromptContext = {}): Promise<string> {
+  const soul = await readSoul();
+  const systemTemplate = await readSystemTemplate();
+
+  const template = Handlebars.compile(systemTemplate);
+  const rendered = template({
+    date: new Date().toISOString().split("T")[0],
+    os: `${os.type()} ${os.release()}`,
+    arch: os.arch(),
+    model: context.model ?? "unknown",
+    provider: context.provider ?? "unknown",
+    soul
+  });
+
+  return rendered.trim();
+}
+
+async function readSoul(): Promise<string> {
   const resolvedPath = path.resolve(DEFAULT_SOUL_PATH);
   try {
     const content = await fs.readFile(resolvedPath, "utf8");
@@ -18,14 +42,18 @@ export async function createSystemPrompt(): Promise<string> {
   }
 
   // File missing or empty - create from bundled default
-  const defaultContent = await readDefaultSoulPrompt();
+  const defaultContent = await readBundledPrompt("SOUL.md");
   const dir = path.dirname(resolvedPath);
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(resolvedPath, defaultContent, "utf8");
   return defaultContent.trim();
 }
 
-async function readDefaultSoulPrompt(): Promise<string> {
-  const promptsDir = new URL("../prompts/SOUL.md", import.meta.url);
-  return fs.readFile(promptsDir, "utf8");
+async function readSystemTemplate(): Promise<string> {
+  return readBundledPrompt("SYSTEM.md");
+}
+
+async function readBundledPrompt(filename: string): Promise<string> {
+  const promptPath = new URL(`../prompts/${filename}`, import.meta.url);
+  return fs.readFile(promptPath, "utf8");
 }

@@ -70,8 +70,7 @@ Credentials are stored per plugin or provider id:
 ```
 
 ## `.scout/SOUL.md`
-The system prompt defines the assistant's personality and behavior. A default SOUL.md
-is created automatically on first run:
+The soul file defines the assistant's personality. A default is created on first run:
 
 ```markdown
 # System Prompt
@@ -86,3 +85,25 @@ You are a helpful assistant. Be concise and direct in your responses.
 ```
 
 Edit SOUL.md to customize the assistant. Changes take effect on the next message.
+
+The soul is embedded into a system prompt template (`SYSTEM.md`) that includes
+runtime context:
+
+```markdown
+You are an AI assistant.
+
+Current date: {{date}}
+
+## Runtime
+
+- OS: {{os}}
+- Architecture: {{arch}}
+- Model: {{model}}
+- Provider: {{provider}}
+
+## Personality
+
+{{{soul}}}
+```
+
+The template uses Handlebars syntax. `{{{soul}}}` (triple braces) preserves markdown formatting.

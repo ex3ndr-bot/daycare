@@ -609,7 +609,13 @@ export class Engine {
     const codexPrompt = resolveCodexSystemPrompt(sessionContext, providerId);
     logger.debug(`Building context sessionId=${session.id} existingMessageCount=${sessionContext.messages.length}`);
 
-    const systemPrompt = await createSystemPrompt();
+    const providerSettings = providerId
+      ? listActiveInferenceProviders(this.settings).find((p) => p.id === providerId)
+      : listActiveInferenceProviders(this.settings)[0];
+    const systemPrompt = await createSystemPrompt({
+      provider: providerSettings?.id,
+      model: providerSettings?.model
+    });
     const context: Context = {
       ...sessionContext,
       tools: this.listContextTools(),
