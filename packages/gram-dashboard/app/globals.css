@@ -1,0 +1,47 @@
+@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-plex: "IBM Plex Sans";
+  --font-space: "Space Grotesk";
+  --background: 30 33% 98%;
+  --foreground: 24 12% 15%;
+  --card: 0 0% 100%;
+  --card-foreground: 24 12% 15%;
+  --primary: 22 89% 52%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 220 18% 95%;
+  --secondary-foreground: 220 16% 18%;
+  --muted: 30 18% 92%;
+  --muted-foreground: 24 8% 45%;
+  --accent: 195 82% 56%;
+  --accent-foreground: 210 30% 15%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 20 12% 88%;
+  --input: 20 12% 88%;
+  --ring: 22 89% 52%;
+  --radius: 18px;
+}
+
+* {
+  border-color: hsl(var(--border));
+}
+
+body {
+  min-height: 100vh;
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(circle at top right, hsl(var(--accent) / 0.15), transparent 45%),
+    radial-gradient(circle at 20% 20%, hsl(var(--primary) / 0.12), transparent 55%),
+    linear-gradient(160deg, hsl(var(--background)) 0%, hsl(var(--muted)) 100%);
+  color: hsl(var(--foreground));
+  font-feature-settings: "rlig" 1, "calt" 1;
+}
+
+::selection {
+  background: hsl(var(--primary) / 0.2);
+}

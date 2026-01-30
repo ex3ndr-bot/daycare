@@ -1,16 +1,17 @@
 # Grambot dashboard
 
-`gram-dashboard` is a static SPA served by a lightweight Node proxy.
-The proxy serves the UI and forwards `/api/*` to the local engine socket.
+`gram-dashboard` is a Next.js app router UI styled with shadcn components.
+API route handlers proxy `/api/*` requests to the local engine socket.
 
-Default port: `7331`.
+Default port: `7331` (set via `PORT` in the workspace scripts).
 
 ```mermaid
 flowchart LR
-  Browser[Browser] --> Dashboard[gram-dashboard]
-  Dashboard -->|/api| Socket[.scout/scout.sock]
+  Browser[Browser] --> NextApp[Next.js App Router]
+  NextApp -->|/api/* route handler| Proxy[API Proxy]
+  Proxy --> Socket[.scout/scout.sock]
   Socket --> Engine[Engine server]
-  Dashboard -->|static files| UI[SPA]
+  NextApp -->|Server-rendered UI + client data| UI[Dashboard]
 ```
 
 ## Engine socket resolution
