@@ -8,7 +8,7 @@
   "scripts": {
     "build": "yarn workspace gram run build",
     "dashboard": "yarn workspace gram-dashboard dev",
-    "dev": "yarn workspace gram run dev",
+    "dev": "SCOUT_ROOT_DIR=~/.dev yarn workspace gram run dev",
     "test": "yarn workspaces run test",
     "test:watch": "yarn workspaces run test:watch",
     "typecheck": "yarn workspaces run typecheck"
