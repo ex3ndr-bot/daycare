@@ -9,8 +9,8 @@ import { AuthStore } from "../../auth/store.js";
 import type { PluginApi } from "./types.js";
 import type { PluginRegistrar } from "./registry.js";
 
-import { plugin as openaiCodex } from "../../plugins/openai-codex/index.js";
-import { plugin as anthropic } from "../../plugins/anthropic/index.js";
+import { plugin as openaiCodex } from "../../plugins/providers/openai-codex/index.js";
+import { plugin as anthropic } from "../../plugins/providers/anthropic/index.js";
 import { plugin as braveSearch } from "../../plugins/brave-search/index.js";
 import { plugin as gptImage } from "../../plugins/gpt-image/index.js";
 import { plugin as nanobanana } from "../../plugins/nanobanana/index.js";
