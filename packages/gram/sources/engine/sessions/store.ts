@@ -227,6 +227,8 @@ export class SessionStore<State = Record<string, unknown>> {
         if (parsed.type === "state") {
           state = parsed.state;
           updatedAt = new Date(parsed.updatedAt);
+          // State entry means processing completed successfully, clear pending status
+          lastEntryType = undefined;
         }
       }
 
