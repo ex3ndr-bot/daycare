@@ -1,3 +1,4 @@
+import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import { promptSelect } from "./prompts.js";
@@ -30,10 +31,7 @@ export async function setDefaultProviderCommand(
   const settingsPath = path.resolve(options.settings ?? DEFAULT_SETTINGS_PATH);
   const settings = await readSettingsFile(settingsPath);
 
-  const connected = await fetchConnectedProviders(settings);
-  if (!connected) {
-    console.log("Engine not running; using configured providers.");
-  }
+  const connected = await fetchConnectedProviders(settings, settingsPath);
 
   const configuredProviders = listProviders(settings).filter(
     (provider) => provider.enabled !== false
@@ -75,13 +73,19 @@ export async function setDefaultProviderCommand(
     };
   });
 
-  outro(`Default provider set to ${selected}. Restart the engine to apply changes.`);
+  outro("Default provider updated.");
 }
 
 async function fetchConnectedProviders(
-  settings: SettingsConfig
+  settings: SettingsConfig,
+  settingsPath: string
 ): Promise<ConnectedProvider[] | null> {
   const socketPath = resolveEngineSocketPath(settings.engine?.socketPath);
+  const pidPath = path.join(path.dirname(settingsPath), "engine.pid");
+  const pid = await readPidFile(pidPath);
+  if (!pid || !isProcessRunning(pid)) {
+    return null;
+  }
   try {
     const response = await requestSocket({
       socketPath,
@@ -108,6 +112,30 @@ async function fetchConnectedProviders(
     return Array.from(loaded).map((id) => ({ id, label: id }));
   } catch (error) {
     return null;
+  }
+}
+
+async function readPidFile(pidPath: string): Promise<number | null> {
+  try {
+    const raw = await fs.readFile(pidPath, "utf8");
+    const parsed = Number.parseInt(raw.trim(), 10);
+    return Number.isFinite(parsed) ? parsed : null;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function isProcessRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    return code !== "ESRCH";
   }
 }
 
