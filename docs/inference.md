@@ -51,6 +51,7 @@ sequenceDiagram
   participant Tools
   Engine->>Settings: read providers
   Engine->>Auth: read credentials
+  Engine->>Inference: ensure systemPrompt (Codex)
   Engine->>Inference: complete(context + tools)
   Inference-->>Tools: tool call(s)
   Tools-->>Inference: tool result(s)
