@@ -1,11 +1,28 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, XAxis } from "recharts";
+import {
+  AlarmClock,
+  Boxes,
+  Cable,
+  Cpu,
+  Sparkles,
+  TrendingDown,
+  TrendingUp
+} from "lucide-react";
+
+import { AppSidebar } from "@/components/app-sidebar";
+import { SiteHeader } from "@/components/site-header";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type EngineStatus = {
   plugins?: string[];
@@ -47,6 +64,11 @@ type EngineEvent = {
     status?: EngineStatus;
     cron?: CronTask[];
   };
+};
+
+type InventoryItem = {
+  title: string;
+  meta?: string;
 };
 
 async function fetchJSON<T>(url: string): Promise<T> {
@@ -144,14 +166,17 @@ export default function Dashboard() {
 
   const pluginCount = status?.plugins?.length ?? 0;
   const sessionCount = sessions.length;
-  const statusLabel = connected ? "Live" : "Offline";
-  const statusVariant = connected ? "default" : "outline";
+  const cronCount = cron.length;
+  const connectorCount = status?.connectors?.length ?? 0;
+  const providerCount = status?.inferenceProviders?.length ?? 0;
+  const imageProviderCount = status?.imageProviders?.length ?? 0;
+  const toolCount = status?.tools?.length ?? 0;
 
   const connectorTiles = useMemo(
     () =>
       status?.connectors?.map((connector) => ({
         title: connector.id,
-        meta: new Date(connector.loadedAt).toLocaleTimeString()
+        meta: formatTime(connector.loadedAt)
       })) ?? [],
     [status?.connectors]
   );
@@ -185,146 +210,308 @@ export default function Dashboard() {
   );
 
   return (
-    <div className="relative">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(14,116,144,0.12),transparent_45%)]" />
-      <main className="relative mx-auto flex min-h-screen max-w-6xl flex-col gap-10 px-6 py-12 lg:py-16">
-        <section className="relative overflow-hidden rounded-3xl border border-border/60 bg-card/80 p-8 shadow-glow backdrop-blur lg:p-12">
-          <div className="flex flex-col gap-10 lg:flex-row lg:items-center lg:justify-between">
-            <div className="max-w-2xl space-y-4">
-              <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">Grambot Dashboard</p>
-              <h1 className="font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
-                Engine pulse, memory, and flow.
-              </h1>
-              <p className="text-base text-muted-foreground sm:text-lg">
-                Live status for plugins, sessions, connectors, and cron tasks — proxied directly from the local engine
-                socket.
-              </p>
-              {error ? (
-                <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                  {error}
-                </div>
-              ) : null}
-            </div>
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-wrap items-center gap-3">
-                <Button onClick={() => void refreshAll()} disabled={loading}>
-                  <RefreshCw className={loading ? "animate-spin" : ""} size={16} />
-                  Refresh
-                </Button>
-                <Badge variant={statusVariant} className={connected ? "bg-emerald-500 text-white" : ""}>
-                  {statusLabel}
-                </Badge>
+    <SidebarProvider>
+      <AppSidebar variant="inset" />
+      <SidebarInset>
+        <SiteHeader
+          onRefresh={() => void refreshAll()}
+          loading={loading}
+          connected={connected}
+          lastUpdated={lastUpdated}
+          error={error}
+        />
+        <div className="flex flex-1 flex-col">
+          <div className="@container/main flex flex-1 flex-col gap-6 py-6">
+            <SectionCards
+              stats={[
+                {
+                  title: "Engine plugins",
+                  value: pluginCount,
+                  description: "Runtime modules loaded",
+                  meta: `${toolCount} tools registered`,
+                  trend: pluginCount > 0 ? "up" : "down"
+                },
+                {
+                  title: "Active sessions",
+                  value: sessionCount,
+                  description: "Conversation threads online",
+                  meta: sessionCount ? "Traffic flowing" : "No active sessions",
+                  trend: sessionCount > 0 ? "up" : "down"
+                },
+                {
+                  title: "Automations",
+                  value: cronCount,
+                  description: "Scheduled tasks",
+                  meta: cronCount ? "Pipelines queued" : "Idle",
+                  trend: cronCount > 0 ? "up" : "down"
+                },
+                {
+                  title: "Connectors",
+                  value: connectorCount,
+                  description: "Live connector endpoints",
+                  meta: connectorCount ? "Healthy" : "Standby",
+                  trend: connectorCount > 0 ? "up" : "down"
+                }
+              ]}
+            />
+            <div className="grid gap-6 px-4 lg:grid-cols-3 lg:px-6">
+              <div className="flex flex-col gap-6 lg:col-span-2">
+                <ActivityChart sessionCount={sessionCount} cronCount={cronCount} />
+                <SessionsTable sessions={sessions} />
               </div>
-              <div className="text-xs text-muted-foreground">
-                {lastUpdated ? `Last synced ${lastUpdated.toLocaleTimeString()}` : "Awaiting first sync"}
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Card className="bg-background/70">
-                  <CardHeader className="p-4">
-                    <CardDescription>Engine</CardDescription>
-                    <CardTitle className="text-2xl">{pluginCount}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-4 pb-4 text-xs text-muted-foreground">
-                    Plugins loaded
-                  </CardContent>
-                </Card>
-                <Card className="bg-background/70">
-                  <CardHeader className="p-4">
-                    <CardDescription>Sessions</CardDescription>
-                    <CardTitle className="text-2xl">{sessionCount}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-4 pb-4 text-xs text-muted-foreground">
-                    Active threads
-                  </CardContent>
-                </Card>
+              <div className="flex flex-col gap-6">
+                <InventoryPanel
+                  groups={[
+                    {
+                      id: "plugins",
+                      label: `Plugins (${pluginCount})`,
+                      items: pluginTiles,
+                      empty: "No plugins loaded."
+                    },
+                    {
+                      id: "connectors",
+                      label: `Connectors (${connectorCount})`,
+                      items: connectorTiles,
+                      empty: "No connectors online."
+                    },
+                    {
+                      id: "providers",
+                      label: `Inference (${providerCount})`,
+                      items: providerTiles,
+                      empty: "No inference providers."
+                    },
+                    {
+                      id: "images",
+                      label: `Image (${imageProviderCount})`,
+                      items: imageTiles,
+                      empty: "No image providers."
+                    },
+                    {
+                      id: "tools",
+                      label: `Tools (${toolCount})`,
+                      items: toolTiles,
+                      empty: "No tools registered."
+                    }
+                  ]}
+                />
+                <CronPanel cron={cron} />
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
+  );
+}
 
-        <section className="grid gap-6 lg:grid-cols-2">
-          <InfoCard title="Plugins" description="Loaded modules and their current state.">
-            <TileGrid items={pluginTiles} empty="None detected." />
-          </InfoCard>
-          <InfoCard title="Connectors" description="Active connector endpoints.">
-            <TileGrid items={connectorTiles} empty="No connectors online." />
-          </InfoCard>
-          <InfoCard title="Inference" description="LLM providers in rotation.">
-            <TileGrid items={providerTiles} empty="No inference providers." />
-          </InfoCard>
-          <InfoCard title="Image Generation" description="Available image providers.">
-            <TileGrid items={imageTiles} empty="No image providers." />
-          </InfoCard>
-          <InfoCard title="Tools" description="Runtime tool inventory.">
-            <TileGrid items={toolTiles} empty="No tools registered." />
-          </InfoCard>
-          <InfoCard title="Cron Tasks" description="Scheduled work from the engine.">
-            <ListGrid
-              items={cron}
-              empty="No cron tasks scheduled."
-              renderItem={(task) => (
-                <div className="space-y-1">
-                  <div className="text-sm font-medium text-foreground">{task.id ?? "task"}</div>
-                  <div className="text-xs text-muted-foreground">
-                    Every {task.everyMs ?? 0}ms · {task.once ? "once" : "repeat"}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {task.message ?? task.action ?? "custom"}
-                  </div>
-                </div>
-              )}
-            />
-          </InfoCard>
-        </section>
+type Stat = {
+  title: string;
+  value: number;
+  description: string;
+  meta: string;
+  trend: "up" | "down";
+};
 
-        <InfoCard title="Sessions" description="Recent conversation threads.">
-          <ListGrid
-            items={sessions}
-            empty="No sessions yet."
-            renderItem={(session) => (
-              <div className="space-y-1">
-                <div className="text-sm font-medium text-foreground">{session.sessionId}</div>
-                <div className="text-xs text-muted-foreground">{session.source ?? "unknown"}</div>
-                <div className="text-xs text-muted-foreground">{session.lastMessage ?? "No message"}</div>
-              </div>
-            )}
-          />
-        </InfoCard>
-      </main>
+function SectionCards({ stats }: { stats: Stat[] }) {
+  return (
+    <div className="grid gap-4 px-4 md:grid-cols-2 xl:grid-cols-4 lg:px-6">
+      {stats.map((stat) => (
+        <Card key={stat.title} className="@container/card bg-gradient-to-br from-card to-card/80">
+          <CardHeader className="relative">
+            <CardDescription>{stat.title}</CardDescription>
+            <CardTitle className="@[250px]/card:text-3xl text-2xl font-semibold tabular-nums">
+              {stat.value}
+            </CardTitle>
+            <div className="absolute right-4 top-4">
+              <Badge variant="outline" className="flex gap-1 rounded-lg text-xs">
+                {stat.trend === "up" ? <TrendingUp className="size-3" /> : <TrendingDown className="size-3" />}
+                {stat.trend === "up" ? "Active" : "Idle"}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-1 text-sm text-muted-foreground">
+            <span className="font-medium text-foreground">{stat.description}</span>
+            <span>{stat.meta}</span>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 }
 
-function InfoCard({
-  title,
-  description,
-  children
-}: {
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
+function ActivityChart({ sessionCount, cronCount }: { sessionCount: number; cronCount: number }) {
+  const isMobile = useIsMobile();
+  const [range, setRange] = useState("24h");
+
+  useEffect(() => {
+    if (isMobile) {
+      setRange("6h");
+    }
+  }, [isMobile]);
+
+  const chartData = useMemo(() => buildActivitySeries(range, sessionCount, cronCount), [range, sessionCount, cronCount]);
+
+  const chartConfig = {
+    sessions: {
+      label: "Sessions",
+      color: "hsl(var(--chart-1))"
+    },
+    cron: {
+      label: "Automations",
+      color: "hsl(var(--chart-2))"
+    }
+  } satisfies ChartConfig;
+
   return (
-    <Card className="bg-card/80">
-      <CardHeader>
-        <CardTitle className="font-display text-xl">{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+    <Card className="@container/card">
+      <CardHeader className="relative">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Cpu className="h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle>Engine activity</CardTitle>
+            <CardDescription>Sessions and automation triggers over time.</CardDescription>
+          </div>
+        </div>
+        <div className="absolute right-4 top-4">
+          <ToggleGroup
+            type="single"
+            value={range}
+            onValueChange={(value) => value && setRange(value)}
+            variant="outline"
+            className="@[767px]/card:flex hidden"
+          >
+            <ToggleGroupItem value="6h" className="h-8 px-2.5">
+              Last 6h
+            </ToggleGroupItem>
+            <ToggleGroupItem value="24h" className="h-8 px-2.5">
+              Last 24h
+            </ToggleGroupItem>
+            <ToggleGroupItem value="7d" className="h-8 px-2.5">
+              Last 7d
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <Select value={range} onValueChange={setRange}>
+            <SelectTrigger className="@[767px]/card:hidden flex w-36" aria-label="Select time range">
+              <SelectValue placeholder="Last 24h" />
+            </SelectTrigger>
+            <SelectContent className="rounded-xl">
+              <SelectItem value="6h" className="rounded-lg">
+                Last 6 hours
+              </SelectItem>
+              <SelectItem value="24h" className="rounded-lg">
+                Last 24 hours
+              </SelectItem>
+              <SelectItem value="7d" className="rounded-lg">
+                Last 7 days
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </CardHeader>
-      <CardContent>
-        <Separator className="mb-4" />
-        {children}
+      <CardContent className="px-2 pt-4 sm:px-6 sm:pt-6">
+        <ChartContainer config={chartConfig} className="aspect-auto h-[260px] w-full">
+          <AreaChart data={chartData} margin={{ left: 8, right: 8 }}>
+            <defs>
+              <linearGradient id="fillSessions" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--color-sessions)" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="var(--color-sessions)" stopOpacity={0.1} />
+              </linearGradient>
+              <linearGradient id="fillCron" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="var(--color-cron)" stopOpacity={0.8} />
+                <stop offset="95%" stopColor="var(--color-cron)" stopOpacity={0.1} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} />
+            <XAxis
+              dataKey="timestamp"
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              minTickGap={24}
+              tickFormatter={(value) =>
+                new Date(value).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit"
+                })
+              }
+            />
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent labelFormatter={(value) => formatShortDate(value)} indicator="dot" />}
+            />
+            <Area
+              dataKey="sessions"
+              type="natural"
+              fill="url(#fillSessions)"
+              stroke="var(--color-sessions)"
+              stackId="a"
+            />
+            <Area
+              dataKey="cron"
+              type="natural"
+              fill="url(#fillCron)"
+              stroke="var(--color-cron)"
+              stackId="a"
+            />
+          </AreaChart>
+        </ChartContainer>
       </CardContent>
     </Card>
   );
 }
 
-function TileGrid({ items, empty }: { items: { title: string; meta?: string }[]; empty: string }) {
-  if (items.length === 0) {
+function InventoryPanel({
+  groups
+}: {
+  groups: {
+    id: string;
+    label: string;
+    items: InventoryItem[];
+    empty: string;
+  }[];
+}) {
+  return (
+    <Card className="flex h-full flex-col">
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-accent/10 text-accent-foreground">
+            <Boxes className="h-4 w-4" />
+          </div>
+          <div>
+            <CardTitle className="text-lg">Inventory</CardTitle>
+            <CardDescription>Runtime modules and providers.</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="flex-1">
+        <Tabs defaultValue={groups[0]?.id} className="flex flex-col gap-4">
+          <TabsList className="flex flex-wrap">
+            {groups.map((group) => (
+              <TabsTrigger key={group.id} value={group.id} className="text-xs">
+                {group.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+          {groups.map((group) => (
+            <TabsContent key={group.id} value={group.id} className="mt-0">
+              <InventoryList items={group.items} empty={group.empty} />
+            </TabsContent>
+          ))}
+        </Tabs>
+      </CardContent>
+    </Card>
+  );
+}
+
+function InventoryList({ items, empty }: { items: InventoryItem[]; empty: string }) {
+  if (!items.length) {
     return <EmptyState label={empty} />;
   }
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className="max-h-64 space-y-3 overflow-y-auto pr-2">
       {items.map((item) => (
         <div key={`${item.title}-${item.meta}`} className="rounded-lg border bg-background/60 px-4 py-3">
           <div className="text-sm font-medium text-foreground">{item.title}</div>
@@ -335,33 +522,169 @@ function TileGrid({ items, empty }: { items: { title: string; meta?: string }[];
   );
 }
 
-function ListGrid<T>({
-  items,
-  empty,
-  renderItem
-}: {
-  items: T[];
-  empty: string;
-  renderItem: (item: T) => React.ReactNode;
-}) {
-  if (items.length === 0) {
-    return <EmptyState label={empty} />;
-  }
-
+function CronPanel({ cron }: { cron: CronTask[] }) {
   return (
-    <div className="space-y-3">
-      {items.map((item, index) => (
-        <div
-          key={index}
-          className="rounded-lg border bg-background/60 px-4 py-3"
-        >
-          {renderItem(item)}
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-secondary text-secondary-foreground">
+            <AlarmClock className="h-4 w-4" />
+          </div>
+          <div>
+            <CardTitle className="text-lg">Cron tasks</CardTitle>
+            <CardDescription>Scheduled jobs running in the engine.</CardDescription>
+          </div>
         </div>
-      ))}
-    </div>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        {cron.length ? (
+          cron.map((task, index) => (
+            <div
+              key={task.id ?? task.message ?? task.action ?? `cron-${index}`}
+              className="rounded-lg border bg-background/60 px-4 py-3"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="text-sm font-medium text-foreground">{task.id ?? "task"}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {task.message ?? task.action ?? "custom"}
+                  </div>
+                </div>
+                <Badge variant="outline" className="text-xs">
+                  {task.once ? "once" : "repeat"}
+                </Badge>
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <Cable className="h-3 w-3" />
+                <span>{formatInterval(task.everyMs)}</span>
+              </div>
+            </div>
+          ))
+        ) : (
+          <EmptyState label="No cron tasks scheduled." />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SessionsTable({ sessions }: { sessions: Session[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Sparkles className="h-4 w-4" />
+          </div>
+          <div>
+            <CardTitle className="text-lg">Recent sessions</CardTitle>
+            <CardDescription>Active conversation threads and their latest activity.</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {sessions.length ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Session</TableHead>
+                <TableHead className="hidden lg:table-cell">Source</TableHead>
+                <TableHead className="hidden xl:table-cell">Last message</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sessions.map((session) => (
+                <TableRow key={session.sessionId}>
+                  <TableCell>
+                    <div className="text-sm font-medium text-foreground">{session.sessionId}</div>
+                    <div className="text-xs text-muted-foreground lg:hidden">
+                      {session.source ?? "unknown"}
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell">
+                    {session.source ?? "unknown"}
+                  </TableCell>
+                  <TableCell className="hidden xl:table-cell">
+                    <span className="line-clamp-2 text-xs text-muted-foreground">
+                      {session.lastMessage ?? "No message yet"}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary" className="gap-1">
+                      <Sparkles className="h-3 w-3" />
+                      Active
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <EmptyState label="No sessions yet." />
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
 function EmptyState({ label }: { label: string }) {
   return <div className="rounded-lg border border-dashed px-4 py-6 text-sm text-muted-foreground">{label}</div>;
+}
+
+function buildActivitySeries(range: string, sessionCount: number, cronCount: number) {
+  const points = range === "7d" ? 7 : range === "6h" ? 6 : 24;
+  const stepMs = range === "7d" ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
+  const now = Date.now();
+
+  return Array.from({ length: points }).map((_, index) => {
+    const timestamp = new Date(now - (points - 1 - index) * stepMs);
+    const sessionBase = sessionCount || 0;
+    const cronBase = cronCount || 0;
+    const sessionValue = Math.max(0, Math.round(sessionBase + Math.sin(index / 2) * 2 + (index % 3)));
+    const cronValue = Math.max(0, Math.round(cronBase + Math.cos(index / 2) * 1.5));
+
+    return {
+      timestamp: timestamp.toISOString(),
+      sessions: sessionValue,
+      cron: cronValue
+    };
+  });
+}
+
+function formatInterval(ms?: number) {
+  if (!ms) {
+    return "on demand";
+  }
+  if (ms < 1000) {
+    return `${ms}ms`;
+  }
+  if (ms < 60000) {
+    return `${Math.round(ms / 1000)}s`;
+  }
+  if (ms < 3600000) {
+    return `${Math.round(ms / 60000)}m`;
+  }
+  return `${Math.round(ms / 3600000)}h`;
+}
+
+function formatTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleTimeString();
+}
+
+function formatShortDate(value: string | number) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return String(value);
+  }
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }

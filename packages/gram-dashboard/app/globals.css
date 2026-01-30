@@ -11,6 +11,8 @@
   --foreground: 24 12% 15%;
   --card: 0 0% 100%;
   --card-foreground: 24 12% 15%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 24 12% 15%;
   --primary: 22 89% 52%;
   --primary-foreground: 0 0% 98%;
   --secondary: 220 18% 95%;
@@ -24,6 +26,17 @@
   --border: 20 12% 88%;
   --input: 20 12% 88%;
   --ring: 22 89% 52%;
+  --sidebar: 24 32% 94%;
+  --sidebar-foreground: 24 18% 18%;
+  --sidebar-border: 24 16% 86%;
+  --sidebar-accent: 22 90% 58%;
+  --sidebar-accent-foreground: 0 0% 98%;
+  --sidebar-ring: 22 89% 52%;
+  --chart-1: 22 89% 52%;
+  --chart-2: 195 82% 46%;
+  --chart-3: 270 70% 55%;
+  --chart-4: 40 90% 55%;
+  --chart-5: 160 65% 45%;
   --radius: 18px;
 }
 
