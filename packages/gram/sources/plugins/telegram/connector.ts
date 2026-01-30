@@ -78,6 +78,10 @@ export class TelegramConnector implements Connector {
     };
 
     this.bot.on("message", async (message) => {
+      if (message.chat?.type !== "private") {
+        logger.debug(`Skipping non-private chat type=${message.chat?.type} chatId=${message.chat?.id}`);
+        return;
+      }
       logger.debug(`Received Telegram message chatId=${message.chat.id} fromId=${message.from?.id} messageId=${message.message_id} hasText=${!!message.text} hasCaption=${!!message.caption} hasPhoto=${!!message.photo} hasDocument=${!!message.document}`);
       const files = await this.extractFiles(message);
       logger.debug(`Extracted files from message fileCount=${files.length}`);
