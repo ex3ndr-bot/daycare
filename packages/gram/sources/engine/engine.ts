@@ -712,6 +712,40 @@ export class Engine {
       return;
     }
 
+    if (response.message.stopReason === "error" || response.message.stopReason === "aborted") {
+      const message = "Inference failed.";
+      logger.warn(
+        {
+          sessionId: session.id,
+          messageId: entry.id,
+          provider: response.providerId,
+          model: response.modelId,
+          stopReason: response.message.stopReason,
+          errorMessage: response.message.errorMessage
+        },
+        "Inference returned error response"
+      );
+      try {
+        await connector.sendMessage(entry.context.channelId, {
+          text: message,
+          replyToMessageId: entry.context.messageId
+        });
+        await recordOutgoingEntry(this.sessionStore, session, source, entry.context, message);
+        this.eventBus.emit("session.outgoing", {
+          sessionId: session.id,
+          source,
+          message: { text: message },
+          context: entry.context
+        });
+      } catch (error) {
+        logger.warn({ connector: source, error }, "Failed to send error response");
+      } finally {
+        await recordSessionState(this.sessionStore, session, source);
+        logger.debug("handleSessionMessage completed with error stop reason");
+      }
+      return;
+    }
+
     const responseText = extractAssistantText(response.message);
     logger.debug(`Extracted assistant text hasText=${!!responseText} textLength=${responseText?.length ?? 0} generatedFileCount=${generatedFiles.length}`);
 
