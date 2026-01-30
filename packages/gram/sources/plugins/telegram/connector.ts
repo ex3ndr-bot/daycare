@@ -128,11 +128,11 @@ export class TelegramConnector implements Connector {
   }
 
   async sendMessage(targetId: string, message: ConnectorMessage): Promise<void> {
-    logger.debug(`sendMessage() called targetId=${targetId} hasText=${!!message.text} textLength=${message.text?.length ?? 0} fileCount=${message.files?.length ?? 0} replyTo=${message.replyToMessageId}`);
+    logger.debug(`sendMessage() called targetId=${targetId} hasText=${!!message.text} textLength=${message.text?.length ?? 0} fileCount=${message.files?.length ?? 0}`);
     const files = message.files ?? [];
     if (files.length === 0) {
       logger.debug(`Sending text-only message targetId=${targetId}`);
-      await this.bot.sendMessage(targetId, message.text ?? "", buildReplyOptions(message));
+      await this.bot.sendMessage(targetId, message.text ?? "");
       logger.debug(`Text message sent targetId=${targetId}`);
       return;
     }
@@ -145,7 +145,7 @@ export class TelegramConnector implements Connector {
     const rest = files.slice(1);
     const caption = message.text ?? undefined;
     logger.debug(`Sending first file targetId=${targetId} fileName=${first.name} mimeType=${first.mimeType} hasCaption=${!!caption}`);
-    await this.sendFile(targetId, first, caption, buildReplyOptions(message));
+    await this.sendFile(targetId, first, caption);
     for (const file of rest) {
       logger.debug(`Sending additional file targetId=${targetId} fileName=${file.name} mimeType=${file.mimeType}`);
       await this.sendFile(targetId, file);
@@ -190,19 +190,14 @@ export class TelegramConnector implements Connector {
   private async sendFile(
     targetId: string,
     file: FileReference,
-    caption?: string,
-    replyOptions?: TelegramBot.SendMessageOptions
+    caption?: string
   ): Promise<void> {
-    const options = replyOptions && caption
-      ? { ...replyOptions, caption }
-      : caption
-        ? { caption }
-        : replyOptions;
+    const options = caption ? { caption } : undefined;
     if (file.mimeType.startsWith("image/")) {
-      await this.bot.sendPhoto(targetId, file.path, options as TelegramBot.SendPhotoOptions | undefined);
+      await this.bot.sendPhoto(targetId, file.path, options);
       return;
     }
-    await this.bot.sendDocument(targetId, file.path, options as TelegramBot.SendDocumentOptions | undefined);
+    await this.bot.sendDocument(targetId, file.path, options);
   }
 
   private async initialize(): Promise<void> {
@@ -551,16 +546,3 @@ function isTelegramConflictError(error: unknown): boolean {
   return maybe.code === "ETELEGRAM" && status === 409;
 }
 
-function buildReplyOptions(message: ConnectorMessage): TelegramBot.SendMessageOptions | undefined {
-  if (!message.replyToMessageId) {
-    return undefined;
-  }
-  const replyTo = Number(message.replyToMessageId);
-  if (!Number.isFinite(replyTo)) {
-    return undefined;
-  }
-  return {
-    reply_to_message_id: replyTo,
-    allow_sending_without_reply: true
-  };
-}
