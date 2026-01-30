@@ -6,8 +6,13 @@ export type ProviderDefinition = {
   label: string;
   auth: ProviderAuth;
   kind: ProviderKind;
+  optionalApiKey?: boolean;
 };
 
 export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
   { id: "openai", label: "OpenAI", auth: "apiKey", kind: "pi-ai" }
 ];
+
+export function getProviderDefinition(id: string): ProviderDefinition | null {
+  return PROVIDER_DEFINITIONS.find((provider) => provider.id === id) ?? null;
+}

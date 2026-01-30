@@ -41,7 +41,11 @@ export async function addCommand(options: AddOptions): Promise<void> {
           ? "OAuth"
           : provider.auth === "none"
             ? "No API key"
-            : "API key"
+            : provider.auth === "mixed"
+              ? "API key or OAuth"
+              : provider.optionalApiKey
+                ? "API key (optional)"
+                : "API key"
       }))
     })
   );
@@ -138,11 +142,20 @@ async function configureAuth(provider: ProviderDefinition, authStore: AuthStore)
 
   const apiKey = await promptValue(
     password({
-      message: `${provider.label} API key`
+      message: provider.optionalApiKey
+        ? `${provider.label} API key (optional)`
+        : `${provider.label} API key`
     })
   );
 
+  if (apiKey === null) {
+    throw new Error("Cancelled");
+  }
+
   if (!apiKey) {
+    if (provider.optionalApiKey) {
+      return;
+    }
     throw new Error("Cancelled");
   }
 
