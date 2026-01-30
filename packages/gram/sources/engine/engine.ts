@@ -645,7 +645,6 @@ export class Engine {
     const providerSettings = providerId
       ? listActiveInferenceProviders(this.settings).find((p) => p.id === providerId)
       : listActiveInferenceProviders(this.settings)[0];
-    const connector = this.connectorRegistry.get(source);
     const connectorCapabilities = connector?.capabilities ?? null;
     const fileSendModes = connectorCapabilities?.sendFiles?.modes ?? [];
     const channelType = entry.context.channelType;
@@ -958,12 +957,12 @@ function extractToolCalls(message: Context["messages"][number]): ToolCall[] {
   );
 }
 
-function filterConnectorTools(
-  tools: Array<{ name: string }>,
+function filterConnectorTools<T extends { name: string }>(
+  tools: T[],
   supportsFiles: boolean,
   supportsReactions: boolean
-) {
-  let filtered = tools;
+): T[] {
+  let filtered: T[] = tools;
   if (!supportsFiles) {
     filtered = filtered.filter((tool) => tool.name !== "send_file");
   }

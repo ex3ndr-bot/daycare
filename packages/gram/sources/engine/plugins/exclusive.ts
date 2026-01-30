@@ -20,6 +20,9 @@ export function resolveExclusivePlugins(
   }
 
   const primary = exclusive[0];
+  if (!primary) {
+    return { allowed: enabled, exclusive: null, skipped: [] };
+  }
   if (enabled.length <= 1) {
     return { allowed: enabled, exclusive: primary, skipped: [] };
   }
