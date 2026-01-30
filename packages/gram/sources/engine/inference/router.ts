@@ -31,14 +31,12 @@ export class InferenceRouter {
     this.providers = options.providers;
     this.registry = options.registry;
     this.auth = options.auth;
-    this.logger.debug({ providerCount: options.providers.length }, "[VERBOSE] InferenceRouter initialized");
+    this.logger.debug(`InferenceRouter initialized providerCount=${options.providers.length}`);
   }
 
   updateProviders(providers: ProviderSettings[]): void {
-    this.logger.debug(
-      { oldCount: this.providers.length, newCount: providers.length, providerIds: providers.map(p => p.id) },
-      "[VERBOSE] Updating providers"
-    );
+    const providerIds = providers.map(p => p.id).join(",");
+    this.logger.debug(`Updating providers oldCount=${this.providers.length} newCount=${providers.length} providerIds=${providerIds}`);
     this.providers = providers;
   }
 
@@ -47,37 +45,31 @@ export class InferenceRouter {
     sessionId: string,
     options?: Omit<InferenceRouterOptions, "providers" | "registry" | "auth">
   ): Promise<InferenceResult> {
-    this.logger.debug(
-      { sessionId, messageCount: context.messages.length, toolCount: context.tools?.length ?? 0, providerCount: this.providers.length },
-      "[VERBOSE] InferenceRouter.complete() starting"
-    );
+    this.logger.debug(`InferenceRouter.complete() starting sessionId=${sessionId} messageCount=${context.messages.length} toolCount=${context.tools?.length ?? 0} providerCount=${this.providers.length}`);
     let lastError: unknown = null;
 
     for (const [index, providerConfig] of this.providers.entries()) {
-      this.logger.debug(
-        { providerIndex: index, providerId: providerConfig.id, model: providerConfig.model },
-        "[VERBOSE] Trying provider"
-      );
+      this.logger.debug(`Trying provider providerIndex=${index} providerId=${providerConfig.id} model=${providerConfig.model}`);
 
       const provider = this.registry.get(providerConfig.id);
       if (!provider) {
         this.logger.warn({ provider: providerConfig.id }, "Missing inference provider");
-        this.logger.debug({ providerId: providerConfig.id }, "[VERBOSE] Provider not found in registry, skipping");
+        this.logger.debug(`Provider not found in registry, skipping providerId=${providerConfig.id}`);
         continue;
       }
 
       let client;
       try {
-        this.logger.debug({ providerId: providerConfig.id, model: providerConfig.model }, "[VERBOSE] Creating inference client");
+        this.logger.debug(`Creating inference client providerId=${providerConfig.id} model=${providerConfig.model}`);
         client = await provider.createClient({
           model: providerConfig.model,
           config: providerConfig.options,
           auth: this.auth,
           logger: this.logger
         });
-        this.logger.debug({ providerId: providerConfig.id, modelId: client.modelId }, "[VERBOSE] Inference client created");
+        this.logger.debug(`Inference client created providerId=${providerConfig.id} modelId=${client.modelId}`);
       } catch (error) {
-        this.logger.debug({ providerId: providerConfig.id, error: String(error) }, "[VERBOSE] Failed to create client, falling back");
+        this.logger.debug(`Failed to create client, falling back providerId=${providerConfig.id} error=${String(error)}`);
         lastError = error;
         options?.onFallback?.(providerConfig.id, error);
         continue;
@@ -85,32 +77,19 @@ export class InferenceRouter {
 
       options?.onAttempt?.(providerConfig.id, client.modelId);
       try {
-        this.logger.debug(
-          { providerId: providerConfig.id, modelId: client.modelId, sessionId },
-          "[VERBOSE] Calling client.complete()"
-        );
+        this.logger.debug(`Calling client.complete() providerId=${providerConfig.id} modelId=${client.modelId} sessionId=${sessionId}`);
         const message = await client.complete(context, { sessionId });
-        this.logger.debug(
-          {
-            providerId: providerConfig.id,
-            modelId: client.modelId,
-            stopReason: message.stopReason,
-            contentBlocks: message.content.length,
-            inputTokens: message.usage?.input,
-            outputTokens: message.usage?.output
-          },
-          "[VERBOSE] Inference completed successfully"
-        );
+        this.logger.debug(`Inference completed successfully providerId=${providerConfig.id} modelId=${client.modelId} stopReason=${message.stopReason} contentBlocks=${message.content.length} inputTokens=${message.usage?.input} outputTokens=${message.usage?.output}`);
         options?.onSuccess?.(providerConfig.id, client.modelId, message);
         return { message, providerId: providerConfig.id, modelId: client.modelId };
       } catch (error) {
-        this.logger.debug({ providerId: providerConfig.id, error: String(error) }, "[VERBOSE] Inference call failed");
+        this.logger.debug(`Inference call failed providerId=${providerConfig.id} error=${String(error)}`);
         options?.onFailure?.(providerConfig.id, error);
         throw error;
       }
     }
 
-    this.logger.debug({ lastError: String(lastError) }, "[VERBOSE] All providers exhausted");
+    this.logger.debug(`All providers exhausted lastError=${String(lastError)}`);
     if (lastError instanceof Error) {
       throw lastError;
     }

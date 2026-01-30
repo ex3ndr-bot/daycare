@@ -47,20 +47,20 @@ export async function startEngineServer(
   options: EngineServerOptions
 ): Promise<EngineServer> {
   const logger = getLogger("engine.server");
-  logger.debug({ settingsPath: options.settingsPath }, "[VERBOSE] startEngineServer() called");
+  logger.debug(`startEngineServer() called settingsPath=${options.settingsPath}`);
   const socketPath = resolveEngineSocketPath(options.socketPath);
-  logger.debug({ socketPath }, "[VERBOSE] Socket path resolved");
+  logger.debug(`Socket path resolved socketPath=${socketPath}`);
   await fs.mkdir(path.dirname(socketPath), { recursive: true });
   await fs.rm(socketPath, { force: true });
-  logger.debug("[VERBOSE] Socket directory prepared");
+  logger.debug("Socket directory prepared");
 
   const app = fastify({ logger: false });
-  logger.debug("[VERBOSE] Fastify app created");
+  logger.debug("Fastify app created");
 
   app.get("/v1/engine/status", async (_request, reply) => {
-    logger.debug("[VERBOSE] GET /v1/engine/status");
+    logger.debug("GET /v1/engine/status");
     const status = options.runtime.getStatus();
-    logger.debug({ pluginCount: status.plugins.length, connectorCount: status.connectors.length }, "[VERBOSE] Status retrieved");
+    logger.debug(`Status retrieved pluginCount=${status.plugins.length} connectorCount=${status.connectors.length}`);
     return reply.send({
       ok: true,
       status
@@ -68,46 +68,46 @@ export async function startEngineServer(
   });
 
   app.get("/v1/engine/cron/tasks", async (_request, reply) => {
-    logger.debug("[VERBOSE] GET /v1/engine/cron/tasks");
+    logger.debug("GET /v1/engine/cron/tasks");
     const tasks = options.runtime.getCronTasks();
-    logger.debug({ taskCount: tasks.length }, "[VERBOSE] Cron tasks retrieved");
+    logger.debug(`Cron tasks retrieved taskCount=${tasks.length}`);
     return reply.send({ ok: true, tasks });
   });
 
   app.get("/v1/engine/sessions", async (_request, reply) => {
-    logger.debug("[VERBOSE] GET /v1/engine/sessions");
+    logger.debug("GET /v1/engine/sessions");
     const sessions = await options.runtime.getSessionStore().listSessions();
-    logger.debug({ sessionCount: sessions.length }, "[VERBOSE] Sessions retrieved");
+    logger.debug(`Sessions retrieved sessionCount=${sessions.length}`);
     return reply.send({ ok: true, sessions });
   });
 
   app.get("/v1/engine/sessions/:storageId", async (request, reply) => {
     const storageId = (request.params as { storageId: string }).storageId;
-    logger.debug({ storageId }, "[VERBOSE] GET /v1/engine/sessions/:storageId");
+    logger.debug(`GET /v1/engine/sessions/:storageId storageId=${storageId}`);
     const entries = await options.runtime.getSessionStore().readSessionEntries(storageId);
-    logger.debug({ storageId, entryCount: entries?.length ?? 0 }, "[VERBOSE] Session entries retrieved");
+    logger.debug(`Session entries retrieved storageId=${storageId} entryCount=${entries?.length ?? 0}`);
     return reply.send({ ok: true, entries });
   });
 
   app.get("/v1/engine/memory/search", async (request, reply) => {
     const query = (request.query as { query?: string }).query ?? "";
-    logger.debug({ queryLength: query.length }, "[VERBOSE] GET /v1/engine/memory/search");
+    logger.debug(`GET /v1/engine/memory/search queryLength=${query.length}`);
     const result = await options.runtime.executeTool("memory_search", { query });
     if (result.toolMessage.isError) {
-      logger.debug("[VERBOSE] Memory tool unavailable");
+      logger.debug("Memory tool unavailable");
       return reply.status(400).send({ error: "Memory tool unavailable" });
     }
     const details = result.toolMessage.details as { entries?: unknown[] } | undefined;
-    logger.debug({ resultCount: details?.entries?.length ?? 0 }, "[VERBOSE] Memory search completed");
+    logger.debug(`Memory search completed resultCount=${details?.entries?.length ?? 0}`);
     return reply.send({ ok: true, results: details?.entries ?? [] });
   });
 
   app.get("/v1/engine/plugins", async (_request, reply) => {
-    logger.debug("[VERBOSE] GET /v1/engine/plugins");
+    logger.debug("GET /v1/engine/plugins");
     const settings = await readSettingsFile(options.settingsPath);
     const loaded = options.runtime.getPluginManager().listLoaded();
     const configured = listPlugins(settings);
-    logger.debug({ loadedCount: loaded.length, configuredCount: configured.length }, "[VERBOSE] Plugin list retrieved");
+    logger.debug(`Plugin list retrieved loadedCount=${loaded.length} configuredCount=${configured.length}`);
     return reply.send({
       ok: true,
       loaded,
@@ -116,23 +116,23 @@ export async function startEngineServer(
   });
 
   app.post("/v1/engine/plugins/load", async (request, reply) => {
-    logger.debug("[VERBOSE] POST /v1/engine/plugins/load");
+    logger.debug("POST /v1/engine/plugins/load");
     const payload = parseBody(pluginLoadSchema, request.body, reply);
     if (!payload) {
-      logger.debug("[VERBOSE] Invalid payload for plugin load");
+      logger.debug("Invalid payload for plugin load");
       return;
     }
 
     const pluginId = payload.pluginId ?? payload.id ?? payload.instanceId;
     const instanceId = payload.instanceId ?? payload.id ?? pluginId;
     if (!pluginId || !instanceId) {
-      logger.debug("[VERBOSE] Missing pluginId or instanceId");
+      logger.debug("Missing pluginId or instanceId");
       reply.status(400).send({ error: "pluginId or instanceId required" });
       return;
     }
 
     logger.info({ plugin: pluginId, instance: instanceId }, "Plugin load requested");
-    logger.debug({ pluginId, instanceId, hasSettings: !!payload.settings }, "[VERBOSE] Processing plugin load");
+    logger.debug(`Processing plugin load pluginId=${pluginId} instanceId=${instanceId} hasSettings=${!!payload.settings}`);
 
     const settings = await updateSettingsFile(options.settingsPath, (current) => {
       const existing = listPlugins(current).find(
@@ -143,7 +143,7 @@ export async function startEngineServer(
         pluginId,
         enabled: true
       };
-      logger.debug({ existing: !!existing }, "[VERBOSE] Updating settings file");
+      logger.debug(`Updating settings file existing=${!!existing}`);
       return {
         ...current,
         plugins: upsertPlugin(current.plugins, {
@@ -154,32 +154,32 @@ export async function startEngineServer(
       };
     });
 
-    logger.debug("[VERBOSE] Updating runtime settings");
+    logger.debug("Updating runtime settings");
     await options.runtime.updateSettings(settings);
 
     options.eventBus.emit("plugin.loaded", { id: instanceId });
-    logger.debug({ instanceId }, "[VERBOSE] Plugin load completed");
+    logger.debug(`Plugin load completed instanceId=${instanceId}`);
     return reply.send({ ok: true });
   });
 
   app.post("/v1/engine/plugins/unload", async (request, reply) => {
-    logger.debug("[VERBOSE] POST /v1/engine/plugins/unload");
+    logger.debug("POST /v1/engine/plugins/unload");
     const payload = parseBody(pluginUnloadSchema, request.body, reply);
     if (!payload) {
-      logger.debug("[VERBOSE] Invalid payload for plugin unload");
+      logger.debug("Invalid payload for plugin unload");
       return;
     }
 
     const instanceId = payload.instanceId ?? payload.id;
     if (!instanceId) {
-      logger.debug("[VERBOSE] Missing instanceId");
+      logger.debug("Missing instanceId");
       reply.status(400).send({ error: "instanceId required" });
       return;
     }
 
     logger.info({ instance: instanceId }, "Plugin unload requested");
 
-    logger.debug({ instanceId }, "[VERBOSE] Updating settings file for unload");
+    logger.debug(`Updating settings file for unload instanceId=${instanceId}`);
     const settings = await updateSettingsFile(options.settingsPath, (current) => ({
       ...current,
       plugins: upsertPlugin(current.plugins, {
@@ -191,28 +191,28 @@ export async function startEngineServer(
       })
     }));
 
-    logger.debug("[VERBOSE] Updating runtime settings for unload");
+    logger.debug("Updating runtime settings for unload");
     await options.runtime.updateSettings(settings);
     options.eventBus.emit("plugin.unloaded", { id: instanceId });
-    logger.debug({ instanceId }, "[VERBOSE] Plugin unload completed");
+    logger.debug(`Plugin unload completed instanceId=${instanceId}`);
     return reply.send({ ok: true });
   });
 
   app.post("/v1/engine/auth", async (request, reply) => {
-    logger.debug("[VERBOSE] POST /v1/engine/auth");
+    logger.debug("POST /v1/engine/auth");
     const payload = parseBody(authSchema, request.body, reply);
     if (!payload) {
-      logger.debug("[VERBOSE] Invalid payload for auth");
+      logger.debug("Invalid payload for auth");
       return;
     }
-    logger.debug({ id: payload.id, key: payload.key }, "[VERBOSE] Setting auth field");
+    logger.debug(`Setting auth field id=${payload.id} key=${payload.key}`);
     await options.runtime.getAuthStore().setField(payload.id, payload.key, payload.value);
-    logger.debug("[VERBOSE] Auth field set");
+    logger.debug("Auth field set");
     return reply.send({ ok: true });
   });
 
   app.get("/v1/engine/events", async (request, reply) => {
-    logger.debug("[VERBOSE] GET /v1/engine/events (SSE connection)");
+    logger.debug("GET /v1/engine/events (SSE connection)");
     reply.raw.setHeader("Content-Type", "text/event-stream");
     reply.raw.setHeader("Cache-Control", "no-cache");
     reply.raw.setHeader("Connection", "keep-alive");
@@ -222,7 +222,7 @@ export async function startEngineServer(
       reply.raw.write(`data: ${JSON.stringify(event)}\n\n`);
     };
 
-    logger.debug("[VERBOSE] Sending init event");
+    logger.debug("Sending init event");
     sendEvent({
       type: "init",
       payload: {
@@ -233,28 +233,28 @@ export async function startEngineServer(
     });
 
     const unsubscribe = options.eventBus.onEvent((event) => {
-      logger.debug({ eventType: (event as { type?: string }).type }, "[VERBOSE] Forwarding event to SSE client");
+      logger.debug(`Forwarding event to SSE client eventType=${(event as { type?: string }).type}`);
       sendEvent(event);
     });
 
     request.raw.on("close", () => {
-      logger.debug("[VERBOSE] SSE connection closed");
+      logger.debug("SSE connection closed");
       unsubscribe();
     });
   });
 
-  logger.debug("[VERBOSE] Starting server listen");
+  logger.debug("Starting server listen");
   await app.listen({ path: socketPath });
   logger.info({ socket: socketPath }, "Engine server ready");
-  logger.debug("[VERBOSE] Server listening on socket");
+  logger.debug("Server listening on socket");
 
   return {
     socketPath,
     close: async () => {
-      logger.debug("[VERBOSE] Closing engine server");
+      logger.debug("Closing engine server");
       await closeServer(app);
       await fs.rm(socketPath, { force: true });
-      logger.debug("[VERBOSE] Engine server closed");
+      logger.debug("Engine server closed");
     }
   };
 }

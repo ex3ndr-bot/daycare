@@ -56,63 +56,60 @@ export class CronScheduler {
     this.onMessage = options.onMessage;
     this.actions = options.actions ?? {};
     this.onError = options.onError;
-    logger.debug(
-      { taskCount: this.tasks.length, actionCount: Object.keys(this.actions).length },
-      "[VERBOSE] CronScheduler initialized"
-    );
+    logger.debug(`CronScheduler initialized taskCount=${this.tasks.length} actionCount=${Object.keys(this.actions).length}`);
   }
 
   start(): void {
-    logger.debug({ started: this.started, stopped: this.stopped }, "[VERBOSE] start() called");
+    logger.debug(`start() called started=${this.started} stopped=${this.stopped}`);
     if (this.started || this.stopped) {
-      logger.debug("[VERBOSE] Already started or stopped, returning");
+      logger.debug("Already started or stopped, returning");
       return;
     }
 
     this.started = true;
-    logger.debug({ taskCount: this.tasks.length }, "[VERBOSE] Scheduling tasks");
+    logger.debug(`Scheduling tasks taskCount=${this.tasks.length}`);
 
     for (const task of this.tasks) {
       if (task.enabled === false) {
-        logger.debug({ taskId: task.id }, "[VERBOSE] Task disabled, skipping");
+        logger.debug(`Task disabled, skipping taskId=${task.id}`);
         continue;
       }
 
       this.scheduleTask(task);
     }
-    logger.debug("[VERBOSE] All tasks scheduled");
+    logger.debug("All tasks scheduled");
   }
 
   stop(): void {
-    logger.debug({ stopped: this.stopped }, "[VERBOSE] stop() called");
+    logger.debug(`stop() called stopped=${this.stopped}`);
     if (this.stopped) {
-      logger.debug("[VERBOSE] Already stopped, returning");
+      logger.debug("Already stopped, returning");
       return;
     }
 
     this.stopped = true;
-    logger.debug({ timerCount: this.timers.size }, "[VERBOSE] Clearing timers");
+    logger.debug(`Clearing timers timerCount=${this.timers.size}`);
     for (const timer of this.timers.values()) {
       clearInterval(timer);
     }
     this.timers.clear();
-    logger.debug("[VERBOSE] CronScheduler stopped");
+    logger.debug("CronScheduler stopped");
   }
 
   addTask(task: CronTaskConfig): CronTask {
-    logger.debug({ taskId: task.id, everyMs: task.everyMs, action: task.action }, "[VERBOSE] addTask() called");
+    logger.debug(`addTask() called taskId=${task.id} everyMs=${task.everyMs} action=${task.action}`);
     const normalized = this.normalizeTask(task);
 
     if (this.tasks.some((existing) => existing.id === normalized.id)) {
-      logger.debug({ taskId: normalized.id }, "[VERBOSE] Task already exists");
+      logger.debug(`Task already exists taskId=${normalized.id}`);
       throw new Error(`Cron task already exists: ${normalized.id}`);
     }
 
     this.tasks.push(normalized);
-    logger.debug({ taskId: normalized.id, totalTasks: this.tasks.length }, "[VERBOSE] Task added");
+    logger.debug(`Task added taskId=${normalized.id} totalTasks=${this.tasks.length}`);
 
     if (this.started && !this.stopped && normalized.enabled !== false) {
-      logger.debug({ taskId: normalized.id }, "[VERBOSE] Scheduling newly added task");
+      logger.debug(`Scheduling newly added task taskId=${normalized.id}`);
       this.scheduleTask(normalized);
     }
 
@@ -124,9 +121,9 @@ export class CronScheduler {
   }
 
   private async dispatchTask(task: CronTask): Promise<void> {
-    logger.debug({ taskId: task.id, stopped: this.stopped }, "[VERBOSE] dispatchTask() called");
+    logger.debug(`dispatchTask() called taskId=${task.id} stopped=${this.stopped}`);
     if (this.stopped) {
-      logger.debug("[VERBOSE] Scheduler stopped, not dispatching");
+      logger.debug("Scheduler stopped, not dispatching");
       return;
     }
 
@@ -135,27 +132,27 @@ export class CronScheduler {
       userId: task.userId ?? null,
       sessionId: task.sessionId
     };
-    logger.debug({ taskId: task.id, channelId: context.channelId, sessionId: context.sessionId }, "[VERBOSE] Built message context");
+    logger.debug(`Built message context taskId=${task.id} channelId=${context.channelId} sessionId=${context.sessionId}`);
 
     if (task.action) {
-      logger.debug({ taskId: task.id, action: task.action }, "[VERBOSE] Dispatching action task");
+      logger.debug(`Dispatching action task taskId=${task.id} action=${task.action}`);
       const handler = this.actions[task.action];
       if (!handler) {
-        logger.debug({ taskId: task.id, action: task.action }, "[VERBOSE] Action handler not found");
+        logger.debug(`Action handler not found taskId=${task.id} action=${task.action}`);
         await this.reportError(
           new Error(`Missing cron action handler: ${task.action}`),
           task
         );
         return;
       }
-      logger.debug({ taskId: task.id, action: task.action }, "[VERBOSE] Calling action handler");
+      logger.debug(`Calling action handler taskId=${task.id} action=${task.action}`);
       await handler(task, context);
-      logger.debug({ taskId: task.id }, "[VERBOSE] Action handler completed");
+      logger.debug(`Action handler completed taskId=${task.id}`);
       return;
     }
 
     if (typeof task.message !== "string") {
-      logger.debug({ taskId: task.id }, "[VERBOSE] No message for task");
+      logger.debug(`No message for task taskId=${task.id}`);
       await this.reportError(
         new Error(`Missing message for cron task ${task.id}`),
         task
@@ -167,9 +164,9 @@ export class CronScheduler {
       text: task.message
     };
 
-    logger.debug({ taskId: task.id, messageLength: task.message.length }, "[VERBOSE] Dispatching message task");
+    logger.debug(`Dispatching message task taskId=${task.id} messageLength=${task.message.length}`);
     await this.onMessage(message, context, task);
-    logger.debug({ taskId: task.id }, "[VERBOSE] Message task dispatched");
+    logger.debug(`Message task dispatched taskId=${task.id}`);
   }
 
   private async reportError(
@@ -183,9 +180,9 @@ export class CronScheduler {
   }
 
   private scheduleTask(task: CronTask): void {
-    logger.debug({ taskId: task.id, everyMs: task.everyMs, once: task.once, runOnStart: task.runOnStart }, "[VERBOSE] scheduleTask() called");
+    logger.debug(`scheduleTask() called taskId=${task.id} everyMs=${task.everyMs} once=${task.once} runOnStart=${task.runOnStart}`);
     if (!this.isValidInterval(task.everyMs)) {
-      logger.debug({ taskId: task.id, everyMs: task.everyMs }, "[VERBOSE] Invalid interval");
+      logger.debug(`Invalid interval taskId=${task.id} everyMs=${task.everyMs}`);
       void this.reportError(
         new Error(`Invalid interval for task ${task.id}`),
         task
@@ -194,31 +191,31 @@ export class CronScheduler {
     }
 
     if (task.runOnStart) {
-      logger.debug({ taskId: task.id }, "[VERBOSE] Running task on start");
+      logger.debug(`Running task on start taskId=${task.id}`);
       void this.dispatchTask(task);
     }
 
     if (task.once) {
       if (!task.runOnStart) {
-        logger.debug({ taskId: task.id, delayMs: task.everyMs }, "[VERBOSE] Scheduling one-time task");
+        logger.debug(`Scheduling one-time task taskId=${task.id} delayMs=${task.everyMs}`);
         const timer = setTimeout(() => {
-          logger.debug({ taskId: task.id }, "[VERBOSE] One-time task timer fired");
+          logger.debug(`One-time task timer fired taskId=${task.id}`);
           void this.dispatchTask(task).finally(() => {
             this.timers.delete(task.id);
-            logger.debug({ taskId: task.id }, "[VERBOSE] One-time task timer removed");
+            logger.debug(`One-time task timer removed taskId=${task.id}`);
           });
         }, task.everyMs);
         this.timers.set(task.id, timer);
       }
     } else {
-      logger.debug({ taskId: task.id, intervalMs: task.everyMs }, "[VERBOSE] Scheduling recurring task");
+      logger.debug(`Scheduling recurring task taskId=${task.id} intervalMs=${task.everyMs}`);
       const timer = setInterval(() => {
-        logger.debug({ taskId: task.id }, "[VERBOSE] Recurring task timer fired");
+        logger.debug(`Recurring task timer fired taskId=${task.id}`);
         void this.dispatchTask(task);
       }, task.everyMs);
       this.timers.set(task.id, timer);
     }
-    logger.debug({ taskId: task.id, timerCount: this.timers.size }, "[VERBOSE] Task scheduled");
+    logger.debug(`Task scheduled taskId=${task.id} timerCount=${this.timers.size}`);
   }
 
   private isValidInterval(value: number): boolean {

@@ -36,11 +36,6 @@ import { ProviderManager } from "../providers/manager.js";
 const logger = getLogger("engine.runtime");
 const MAX_TOOL_ITERATIONS = 5;
 
-// Verbose logging helper for detailed tracing
-function verbose(msg: string, data?: Record<string, unknown>): void {
-  logger.debug(data ?? {}, `[VERBOSE] ${msg}`);
-}
-
 type SessionState = {
   context: Context;
 };
@@ -73,32 +68,25 @@ export class Engine {
   private eventBus: EngineEventBus;
 
   constructor(options: EngineOptions) {
-    verbose("Engine constructor starting", { dataDir: options.dataDir });
+    logger.debug(`Engine constructor starting, dataDir=${options.dataDir}`);
     this.settings = options.settings;
     this.dataDir = options.dataDir;
     this.eventBus = options.eventBus;
     this.authStore = new AuthStore(options.authPath);
     this.fileStore = new FileStore({ basePath: `${this.dataDir}/files` });
-    verbose("AuthStore and FileStore initialized", { authPath: options.authPath, filesPath: `${this.dataDir}/files` });
+    logger.debug(`AuthStore and FileStore initialized`);
 
     this.pluginEventQueue = new PluginEventQueue();
     this.pluginEventEngine = new PluginEventEngine(this.pluginEventQueue);
 
     this.connectorRegistry = new ConnectorRegistry({
       onMessage: (source, message, context) => {
-        verbose("ConnectorRegistry.onMessage received", {
-          source,
-          channelId: context.channelId,
-          userId: context.userId,
-          hasText: !!message.text,
-          textLength: message.text?.length ?? 0,
-          fileCount: message.files?.length ?? 0
-        });
+        logger.debug(`Connector message received: source=${source} channel=${context.channelId} text=${message.text?.length ?? 0}chars files=${message.files?.length ?? 0}`);
         this.pluginEventQueue.emit(
           { pluginId: source, instanceId: source },
           { type: "connector.message", payload: { source, message, context } }
         );
-        verbose("ConnectorRegistry.onMessage emitted to plugin event queue", { source });
+        logger.debug(`Connector message emitted to event queue: source=${source}`);
       },
       onFatal: (source, reason, error) => {
         logger.warn({ source, reason, error }, "Connector requested shutdown");
@@ -203,28 +191,24 @@ export class Engine {
     });
 
     this.pluginEventEngine.register("connector.message", async (event) => {
-      verbose("PluginEventEngine handling connector.message event", { eventType: event.type });
+      logger.debug(`Handling connector.message event`);
       const payload = event.payload as {
         source: string;
         message: ConnectorMessage;
         context: MessageContext;
       };
       if (!payload) {
-        verbose("connector.message event has no payload, skipping");
+        logger.debug(`connector.message event has no payload, skipping`);
         return;
       }
-      verbose("Dispatching to SessionManager.handleMessage", {
-        source: payload.source,
-        channelId: payload.context.channelId,
-        userId: payload.context.userId
-      });
+      logger.debug(`Dispatching to session manager: source=${payload.source} channel=${payload.context.channelId}`);
       await this.sessionManager.handleMessage(
         payload.source,
         payload.message,
         payload.context,
         (session, entry) => this.handleSessionMessage(entry, session, payload.source)
       );
-      verbose("SessionManager.handleMessage completed", { source: payload.source });
+      logger.debug(`Session manager completed: source=${payload.source}`);
     });
 
     this.inferenceRouter = new InferenceRouter({
@@ -235,29 +219,30 @@ export class Engine {
   }
 
   async start(): Promise<void> {
-    verbose("Engine.start() beginning");
-    verbose("Syncing provider manager with settings");
+    logger.debug("Engine.start() beginning");
+    logger.debug("Syncing provider manager with settings");
     await this.providerManager.sync(this.settings);
-    verbose("Provider manager sync complete");
-    verbose("Loading enabled plugins");
+    logger.debug("Provider manager sync complete");
+    logger.debug("Loading enabled plugins");
     await this.pluginManager.loadEnabled(this.settings);
-    verbose("Plugins loaded, starting plugin event engine");
+    logger.debug("Plugins loaded, starting plugin event engine");
     this.pluginEventEngine.start();
-    verbose("Plugin event engine started");
+    logger.debug("Plugin event engine started");
 
-    verbose("Initializing CronScheduler", { taskCount: this.settings.cron?.tasks?.length ?? 0 });
+    const taskCount = this.settings.cron?.tasks?.length ?? 0;
+    logger.debug(`Initializing CronScheduler taskCount=${taskCount}`);
     this.cron = new CronScheduler({
       tasks: this.settings.cron?.tasks ?? [],
       onMessage: (message, context) => {
-        verbose("CronScheduler.onMessage triggered", { channelId: context.channelId, sessionId: context.sessionId });
+        logger.debug(`CronScheduler.onMessage triggered channelId=${context.channelId} sessionId=${context.sessionId}`);
         void this.sessionManager.handleMessage("cron", message, context, (session, entry) =>
           this.handleSessionMessage(entry, session, "cron")
         );
       },
       actions: {
         "send-message": async (task, context) => {
-          verbose("Cron send-message action executing", { taskId: task.id, source: task.source, channelId: context.channelId });
           const source = task.source ?? "telegram";
+          logger.debug(`Cron send-message action executing taskId=${task.id} source=${source} channelId=${context.channelId}`);
           const connector = this.connectorRegistry.get(source);
           if (!connector) {
             logger.warn({ task: task.id, source }, "Cron action skipped: connector not loaded");
@@ -270,9 +255,9 @@ export class Engine {
             return;
           }
           try {
-            verbose("Cron sending message via connector", { taskId: task.id, source, channelId: context.channelId });
+            logger.debug(`Cron sending message via connector taskId=${task.id} source=${source} channelId=${context.channelId}`);
             await connector.sendMessage(context.channelId, { text });
-            verbose("Cron message sent successfully", { taskId: task.id });
+            logger.debug(`Cron message sent successfully taskId=${task.id}`);
           } catch (error) {
             logger.warn({ task: task.id, error }, "Cron message send failed");
           }
@@ -283,26 +268,26 @@ export class Engine {
       }
     });
 
-    verbose("Registering core tools");
+    logger.debug("Registering core tools");
     this.toolResolver.register(
       "core",
       buildCronTool(this.cron, (task) => {
-        verbose("Cron task added via tool", { taskId: task.id });
+        logger.debug(`Cron task added via tool taskId=${task.id}`);
         this.eventBus.emit("cron.task.added", { task });
       })
     );
     this.toolResolver.register("core", buildImageGenerationTool(this.imageRegistry));
     this.toolResolver.register("core", buildReactionTool());
-    verbose("Core tools registered: cron, image_generation, reaction");
+    logger.debug("Core tools registered: cron, image_generation, reaction");
 
-    verbose("Restoring sessions from disk");
+    logger.debug("Restoring sessions from disk");
     await this.restoreSessions();
-    verbose("Sessions restored");
+    logger.debug("Sessions restored");
 
-    verbose("Starting cron scheduler");
+    logger.debug("Starting cron scheduler");
     this.cron.start();
     this.eventBus.emit("cron.started", { tasks: this.cron.listTasks() });
-    verbose("Engine.start() complete");
+    logger.debug("Engine.start() complete");
   }
 
   async shutdown(): Promise<void> {
@@ -484,83 +469,69 @@ export class Engine {
     session: import("./sessions/session.js").Session<SessionState>,
     source: string
   ): Promise<void> {
-    verbose("handleSessionMessage started", {
-      sessionId: session.id,
-      messageId: entry.id,
-      source,
-      hasText: !!entry.message.text,
-      textLength: entry.message.text?.length ?? 0,
-      fileCount: entry.message.files?.length ?? 0
-    });
+    const textLen = entry.message.text?.length ?? 0;
+    const fileCount = entry.message.files?.length ?? 0;
+    logger.debug(`handleSessionMessage started sessionId=${session.id} messageId=${entry.id} source=${source} hasText=${!!entry.message.text} textLength=${textLen} fileCount=${fileCount}`);
 
     if (!entry.message.text && (!entry.message.files || entry.message.files.length === 0)) {
-      verbose("handleSessionMessage skipping - no text or files", { sessionId: session.id, messageId: entry.id });
+      logger.debug(`handleSessionMessage skipping - no text or files sessionId=${session.id} messageId=${entry.id}`);
       return;
     }
 
     const connector = this.connectorRegistry.get(source);
     if (!connector) {
-      verbose("handleSessionMessage skipping - connector not found", { sessionId: session.id, source });
+      logger.debug(`handleSessionMessage skipping - connector not found sessionId=${session.id} source=${source}`);
       return;
     }
-    verbose("Connector found", { source });
+    logger.debug(`Connector found source=${source}`);
 
     const sessionContext = session.context.state.context;
-    verbose("Building context", {
-      sessionId: session.id,
-      existingMessageCount: sessionContext.messages.length
-    });
+    logger.debug(`Building context sessionId=${session.id} existingMessageCount=${sessionContext.messages.length}`);
     const context: Context = {
       ...sessionContext,
       tools: this.listContextTools()
     };
-    verbose("Context built", { toolCount: context.tools?.length ?? 0 });
+    logger.debug(`Context built toolCount=${context.tools?.length ?? 0}`);
 
-    verbose("Building user message from entry");
+    logger.debug("Building user message from entry");
     const userMessage = await buildUserMessage(entry);
     context.messages.push(userMessage);
-    verbose("User message added to context", { totalMessages: context.messages.length });
+    logger.debug(`User message added to context totalMessages=${context.messages.length}`);
 
     let response: Awaited<ReturnType<InferenceRouter["complete"]>> | null = null;
     let toolLoopExceeded = false;
     const generatedFiles: FileReference[] = [];
-    verbose("Starting typing indicator", { channelId: entry.context.channelId });
+    logger.debug(`Starting typing indicator channelId=${entry.context.channelId}`);
     const stopTyping = connector.startTyping?.(entry.context.channelId);
 
     try {
-      verbose("Starting inference loop", { maxIterations: MAX_TOOL_ITERATIONS });
+      logger.debug(`Starting inference loop maxIterations=${MAX_TOOL_ITERATIONS}`);
       for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
-        verbose("Inference loop iteration", { iteration, sessionId: session.id, messageCount: context.messages.length });
+        logger.debug(`Inference loop iteration=${iteration} sessionId=${session.id} messageCount=${context.messages.length}`);
         response = await this.inferenceRouter.complete(context, session.id, {
           onAttempt: (providerId, modelId) => {
-            verbose("Inference attempt starting", { providerId, modelId, sessionId: session.id });
+            logger.debug(`Inference attempt starting providerId=${providerId} modelId=${modelId} sessionId=${session.id}`);
             logger.info(
               { sessionId: session.id, messageId: entry.id, provider: providerId, model: modelId },
               "Inference started"
             );
           },
           onFallback: (providerId, error) => {
-            verbose("Inference falling back to next provider", { providerId, error: String(error) });
+            logger.debug(`Inference falling back to next provider providerId=${providerId} error=${String(error)}`);
             logger.warn(
               { sessionId: session.id, messageId: entry.id, provider: providerId, error },
               "Inference fallback"
             );
           },
           onSuccess: (providerId, modelId, message) => {
-            verbose("Inference succeeded", {
-              providerId,
-              modelId,
-              stopReason: message.stopReason,
-              inputTokens: message.usage?.input,
-              outputTokens: message.usage?.output
-            });
+            logger.debug(`Inference succeeded providerId=${providerId} modelId=${modelId} stopReason=${message.stopReason} inputTokens=${message.usage?.input} outputTokens=${message.usage?.output}`);
             logger.info(
               { sessionId: session.id, messageId: entry.id, provider: providerId, model: modelId, stopReason: message.stopReason, usage: message.usage },
               "Inference completed"
             );
           },
           onFailure: (providerId, error) => {
-            verbose("Inference failed completely", { providerId, error: String(error) });
+            logger.debug(`Inference failed completely providerId=${providerId} error=${String(error)}`);
             logger.warn(
               { sessionId: session.id, messageId: entry.id, provider: providerId, error },
               "Inference failed"
@@ -568,26 +539,19 @@ export class Engine {
           }
         });
 
-        verbose("Inference response received", {
-          providerId: response.providerId,
-          modelId: response.modelId,
-          stopReason: response.message.stopReason
-        });
+        logger.debug(`Inference response received providerId=${response.providerId} modelId=${response.modelId} stopReason=${response.message.stopReason}`);
         context.messages.push(response.message);
 
         const toolCalls = extractToolCalls(response.message);
-        verbose("Extracted tool calls from response", { toolCallCount: toolCalls.length });
+        logger.debug(`Extracted tool calls from response toolCallCount=${toolCalls.length}`);
         if (toolCalls.length === 0) {
-          verbose("No tool calls, breaking inference loop", { iteration });
+          logger.debug(`No tool calls, breaking inference loop iteration=${iteration}`);
           break;
         }
 
         for (const toolCall of toolCalls) {
-          verbose("Executing tool call", {
-            toolName: toolCall.name,
-            toolCallId: toolCall.id,
-            args: JSON.stringify(toolCall.arguments).slice(0, 200)
-          });
+          const argsPreview = JSON.stringify(toolCall.arguments).slice(0, 200);
+          logger.debug(`Executing tool call toolName=${toolCall.name} toolCallId=${toolCall.id} args=${argsPreview}`);
           const toolResult = await this.toolResolver.execute(toolCall, {
             connectorRegistry: this.connectorRegistry,
             fileStore: this.fileStore,
@@ -598,62 +562,54 @@ export class Engine {
             source,
             messageContext: entry.context
           });
-          verbose("Tool execution completed", {
-            toolName: toolCall.name,
-            isError: toolResult.toolMessage.isError,
-            fileCount: toolResult.files?.length ?? 0
-          });
+          logger.debug(`Tool execution completed toolName=${toolCall.name} isError=${toolResult.toolMessage.isError} fileCount=${toolResult.files?.length ?? 0}`);
           context.messages.push(toolResult.toolMessage);
           if (toolResult.files?.length) {
             generatedFiles.push(...toolResult.files);
-            verbose("Tool generated files", { count: toolResult.files.length });
+            logger.debug(`Tool generated files count=${toolResult.files.length}`);
           }
         }
 
         if (iteration === MAX_TOOL_ITERATIONS - 1) {
-          verbose("Tool loop limit reached", { iteration });
+          logger.debug(`Tool loop limit reached iteration=${iteration}`);
           toolLoopExceeded = true;
         }
       }
-      verbose("Inference loop completed");
+      logger.debug("Inference loop completed");
     } catch (error) {
-      verbose("Inference loop caught error", { error: String(error) });
+      logger.debug(`Inference loop caught error error=${String(error)}`);
       logger.warn({ connector: source, error }, "Inference failed");
       const message =
         error instanceof Error && error.message === "No inference provider available"
           ? "No inference provider available."
           : "Inference failed.";
-      verbose("Sending error message to user", { message });
+      logger.debug(`Sending error message to user message=${message}`);
       await connector.sendMessage(entry.context.channelId, {
         text: message,
         replyToMessageId: entry.context.messageId
       });
       await recordOutgoingEntry(this.sessionStore, session, source, entry.context, message);
       await recordSessionState(this.sessionStore, session, source);
-      verbose("handleSessionMessage completed with error");
+      logger.debug("handleSessionMessage completed with error");
       return;
     } finally {
-      verbose("Stopping typing indicator");
+      logger.debug("Stopping typing indicator");
       stopTyping?.();
     }
 
     if (!response) {
-      verbose("No response received, recording session state only");
+      logger.debug("No response received, recording session state only");
       await recordSessionState(this.sessionStore, session, source);
       return;
     }
 
     const responseText = extractAssistantText(response.message);
-    verbose("Extracted assistant text", {
-      hasText: !!responseText,
-      textLength: responseText?.length ?? 0,
-      generatedFileCount: generatedFiles.length
-    });
+    logger.debug(`Extracted assistant text hasText=${!!responseText} textLength=${responseText?.length ?? 0} generatedFileCount=${generatedFiles.length}`);
 
     if (!responseText && generatedFiles.length === 0) {
       if (toolLoopExceeded) {
         const message = "Tool execution limit reached.";
-        verbose("Tool loop exceeded, sending error message");
+        logger.debug("Tool loop exceeded, sending error message");
         try {
           await connector.sendMessage(entry.context.channelId, {
             text: message,
@@ -665,23 +621,19 @@ export class Engine {
         }
       }
       await recordSessionState(this.sessionStore, session, source);
-      verbose("handleSessionMessage completed with no response text");
+      logger.debug("handleSessionMessage completed with no response text");
       return;
     }
 
     const outgoingText = responseText ?? (generatedFiles.length > 0 ? "Generated files." : null);
-    verbose("Sending response to user", {
-      textLength: outgoingText?.length ?? 0,
-      fileCount: generatedFiles.length,
-      channelId: entry.context.channelId
-    });
+    logger.debug(`Sending response to user textLength=${outgoingText?.length ?? 0} fileCount=${generatedFiles.length} channelId=${entry.context.channelId}`);
     try {
       await connector.sendMessage(entry.context.channelId, {
         text: outgoingText,
         files: generatedFiles.length > 0 ? generatedFiles : undefined,
         replyToMessageId: entry.context.messageId
       });
-      verbose("Response sent successfully");
+      logger.debug("Response sent successfully");
       await recordOutgoingEntry(this.sessionStore, session, source, entry.context, outgoingText, generatedFiles);
       this.eventBus.emit("session.outgoing", {
         sessionId: session.id,
@@ -692,13 +644,13 @@ export class Engine {
         },
         context: entry.context
       });
-      verbose("Session outgoing event emitted");
+      logger.debug("Session outgoing event emitted");
     } catch (error) {
-      verbose("Failed to send response", { error: String(error) });
+      logger.debug(`Failed to send response error=${String(error)}`);
       logger.warn({ connector: source, error }, "Failed to send response");
     } finally {
       await recordSessionState(this.sessionStore, session, source);
-      verbose("handleSessionMessage completed successfully");
+      logger.debug("handleSessionMessage completed successfully");
     }
   }
 }

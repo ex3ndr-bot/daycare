@@ -83,14 +83,14 @@ export class SessionManager<State = Record<string, unknown>> {
 
   getSession(source: string, context: MessageContext): Session<State> {
     const id = this.sessionIdFor(source, context);
-    logger.debug({ sessionId: id, source, channelId: context.channelId }, "[VERBOSE] getSession() called");
+    logger.debug(`getSession() called sessionId=${id} source=${source} channelId=${context.channelId}`);
     const existing = this.sessions.get(id);
     if (existing) {
-      logger.debug({ sessionId: id }, "[VERBOSE] Returning existing session");
+      logger.debug(`Returning existing session sessionId=${id}`);
       return existing;
     }
 
-    logger.debug({ sessionId: id }, "[VERBOSE] Creating new session");
+    logger.debug(`Creating new session sessionId=${id}`);
     const now = this.now();
     const storageId = this.storageIdFactory();
     const session = new Session<State>(id, {
@@ -101,7 +101,7 @@ export class SessionManager<State = Record<string, unknown>> {
     }, storageId);
 
     this.sessions.set(id, session);
-    logger.debug({ sessionId: id, storageId, totalSessions: this.sessions.size }, "[VERBOSE] New session created");
+    logger.debug(`New session created sessionId=${id} storageId=${storageId} totalSessions=${this.sessions.size}`);
     if (this.onSessionCreated) {
       void this.onSessionCreated(session, source, context);
     }
@@ -115,10 +115,10 @@ export class SessionManager<State = Record<string, unknown>> {
     createdAt?: Date,
     updatedAt?: Date
   ): Session<State> {
-    logger.debug({ sessionId: id, storageId }, "[VERBOSE] restoreSession() called");
+    logger.debug(`restoreSession() called sessionId=${id} storageId=${storageId}`);
     const existing = this.sessions.get(id);
     if (existing) {
-      logger.debug({ sessionId: id }, "[VERBOSE] Session already exists, returning existing");
+      logger.debug(`Session already exists, returning existing sessionId=${id}`);
       return existing;
     }
 
@@ -131,7 +131,7 @@ export class SessionManager<State = Record<string, unknown>> {
     }, storageId);
 
     this.sessions.set(id, session);
-    logger.debug({ sessionId: id, totalSessions: this.sessions.size }, "[VERBOSE] Session restored");
+    logger.debug(`Session restored sessionId=${id} totalSessions=${this.sessions.size}`);
     return session;
   }
 
@@ -141,42 +141,36 @@ export class SessionManager<State = Record<string, unknown>> {
     context: MessageContext,
     handler: SessionHandler<State>
   ): Promise<SessionMessage> {
-    logger.debug(
-      { source, channelId: context.channelId, hasText: !!message.text, fileCount: message.files?.length ?? 0 },
-      "[VERBOSE] handleMessage() called"
-    );
+    logger.debug(`handleMessage() called source=${source} channelId=${context.channelId} hasText=${!!message.text} fileCount=${message.files?.length ?? 0}`);
     const session = this.getSession(source, context);
     const entry = session.enqueue(message, context, this.now(), this.idFactory());
-    logger.debug({ sessionId: session.id, messageId: entry.id, queueSize: session.size }, "[VERBOSE] Message enqueued");
+    logger.debug(`Message enqueued sessionId=${session.id} messageId=${entry.id} queueSize=${session.size}`);
 
     if (this.onSessionUpdated) {
       void this.onSessionUpdated(session, entry, source);
     }
 
     if (session.isProcessing()) {
-      logger.debug({ sessionId: session.id, messageId: entry.id }, "[VERBOSE] Session already processing, message queued");
+      logger.debug(`Session already processing, message queued sessionId=${session.id} messageId=${entry.id}`);
       return entry;
     }
 
-    logger.debug({ sessionId: session.id }, "[VERBOSE] Starting session processing loop");
+    logger.debug(`Starting session processing loop sessionId=${session.id}`);
     session.setProcessing(true);
 
     try {
       let processedCount = 0;
       while (session.peek()) {
         const current = session.peek()!;
-        logger.debug(
-          { sessionId: session.id, messageId: current.id, processedCount, remaining: session.size },
-          "[VERBOSE] Processing message from queue"
-        );
+        logger.debug(`Processing message from queue sessionId=${session.id} messageId=${current.id} processedCount=${processedCount} remaining=${session.size}`);
         try {
           if (this.onMessageStart) {
             await this.onMessageStart(session, current, source);
           }
           await handler(session, current);
-          logger.debug({ sessionId: session.id, messageId: current.id }, "[VERBOSE] Message handler completed");
+          logger.debug(`Message handler completed sessionId=${session.id} messageId=${current.id}`);
         } catch (error) {
-          logger.debug({ sessionId: session.id, messageId: current.id, error: String(error) }, "[VERBOSE] Message handler threw error");
+          logger.debug(`Message handler threw error sessionId=${session.id} messageId=${current.id} error=${String(error)}`);
           if (this.onError) {
             await this.onError(error, session, current);
           }
@@ -188,10 +182,10 @@ export class SessionManager<State = Record<string, unknown>> {
           processedCount++;
         }
       }
-      logger.debug({ sessionId: session.id, processedCount }, "[VERBOSE] Session processing loop complete");
+      logger.debug(`Session processing loop complete sessionId=${session.id} processedCount=${processedCount}`);
     } finally {
       session.setProcessing(false);
-      logger.debug({ sessionId: session.id }, "[VERBOSE] Session processing stopped");
+      logger.debug(`Session processing stopped sessionId=${session.id}`);
     }
 
     return entry;

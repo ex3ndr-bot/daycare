@@ -32,7 +32,7 @@ SCOUT_LOG_LEVEL=debug yarn dev
 
 ### Verbose Log Components
 
-Verbose logs are prefixed with `[VERBOSE]` for easy filtering and include:
+Debug logs include key data embedded in the message text using `key=value` format:
 
 | Component | Scope | What it logs |
 |-----------|-------|--------------|
@@ -59,31 +59,32 @@ SCOUT_LOG_LEVEL=debug yarn dev
 
 Example output tracing a message:
 ```
-[VERBOSE] Received Telegram message { chatId: 123, messageId: 456 }
-[VERBOSE] ConnectorRegistry.onMessage received { source: "telegram", channelId: "123" }
-[VERBOSE] PluginEventEngine handling connector.message event
-[VERBOSE] SessionManager.handleMessage() called
-[VERBOSE] Creating new session { sessionId: "telegram:123" }
-[VERBOSE] handleSessionMessage started { sessionId: "...", hasText: true }
-[VERBOSE] Inference loop iteration { iteration: 0 }
-[VERBOSE] Trying provider { providerId: "anthropic", model: "claude-sonnet-4-20250514" }
-[VERBOSE] Creating inference client
-[VERBOSE] Calling client.complete()
-[VERBOSE] Inference completed successfully { stopReason: "end_turn", inputTokens: 50, outputTokens: 100 }
-[VERBOSE] No tool calls, breaking inference loop
-[VERBOSE] Sending response to user { textLength: 200 }
-[VERBOSE] Response sent successfully
-[VERBOSE] handleSessionMessage completed successfully
+Received Telegram message chatId=123 messageId=456
+Dispatching to handlers handlerCount=1 channelId=123
+Handling connector.message event
+handleMessage() called source=telegram channelId=123 hasText=true fileCount=0
+Creating new session sessionId=telegram:123
+handleSessionMessage started sessionId=telegram:123 messageId=abc hasText=true textLength=15 fileCount=0
+Inference loop iteration=0 sessionId=telegram:123 messageCount=1
+Trying provider providerIndex=0 providerId=anthropic model=claude-sonnet-4-20250514
+Creating inference client providerId=anthropic model=claude-sonnet-4-20250514
+Calling client.complete() providerId=anthropic modelId=claude-sonnet-4-20250514 sessionId=telegram:123
+Inference completed successfully providerId=anthropic modelId=claude-sonnet-4-20250514 stopReason=end_turn contentBlocks=1 inputTokens=50 outputTokens=100
+Extracted tool calls from response toolCallCount=0
+No tool calls, breaking inference loop iteration=0
+Sending response to user textLength=200 fileCount=0 channelId=123
+Response sent successfully
+handleSessionMessage completed successfully
 ```
 
-### Filtering Verbose Logs
+### Filtering Logs
 
-To filter only verbose logs:
-```bash
-SCOUT_LOG_LEVEL=debug yarn dev 2>&1 | grep "\[VERBOSE\]"
-```
-
-To filter by component:
+To filter by component scope:
 ```bash
 SCOUT_LOG_LEVEL=debug yarn dev 2>&1 | grep "inference.router"
+```
+
+To filter by specific key:
+```bash
+SCOUT_LOG_LEVEL=debug yarn dev 2>&1 | grep "sessionId="
 ```
