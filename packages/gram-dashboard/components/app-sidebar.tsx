@@ -37,37 +37,37 @@ const data = {
   navMain: [
     {
       title: "Overview",
-      url: "#",
+      url: "/",
       icon: LayoutDashboard
     },
     {
       title: "Sessions",
-      url: "#",
+      url: "/sessions",
       icon: MessageSquare
     },
     {
       title: "Automations",
-      url: "#",
+      url: "/automations",
       icon: Clock
     },
     {
       title: "Providers",
-      url: "#",
+      url: "/providers",
       icon: Bot
     },
     {
       title: "Connectors",
-      url: "#",
+      url: "/connectors",
       icon: Plug
     },
     {
       title: "Tools",
-      url: "#",
+      url: "/tools",
       icon: Wrench
     },
     {
       title: "Telemetry",
-      url: "#",
+      url: "/telemetry",
       icon: Activity
     }
   ],

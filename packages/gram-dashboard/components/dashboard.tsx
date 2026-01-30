@@ -7,77 +7,28 @@ import {
   Boxes,
   Cable,
   Cpu,
+  RefreshCw,
   Sparkles,
   TrendingDown,
   TrendingUp
 } from "lucide-react";
 
-import { AppSidebar } from "@/components/app-sidebar";
-import { SiteHeader } from "@/components/site-header";
+import { DashboardShell } from "@/components/dashboard-shell";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useIsMobile } from "@/hooks/use-mobile";
-
-type EngineStatus = {
-  plugins?: string[];
-  connectors?: { id: string; loadedAt: string }[];
-  inferenceProviders?: { id: string; label?: string }[];
-  imageProviders?: { id: string; label?: string }[];
-  tools?: string[];
-};
-
-type CronTask = {
-  id?: string;
-  everyMs?: number;
-  once?: boolean;
-  message?: string;
-  action?: string;
-};
-
-type Session = {
-  sessionId: string;
-  source?: string;
-  lastMessage?: string;
-};
-
-type EngineStatusResponse = {
-  status: EngineStatus;
-};
-
-type CronResponse = {
-  tasks?: CronTask[];
-};
-
-type SessionsResponse = {
-  sessions?: Session[];
-};
-
-type EngineEvent = {
-  type: string;
-  payload?: {
-    status?: EngineStatus;
-    cron?: CronTask[];
-  };
-};
+import { fetchCronTasks, fetchEngineStatus, fetchSessions, type CronTask, type EngineEvent, type EngineStatus, type Session } from "@/lib/engine-client";
 
 type InventoryItem = {
   title: string;
   meta?: string;
 };
-
-async function fetchJSON<T>(url: string): Promise<T> {
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`Request failed: ${response.status}`);
-  }
-  return (await response.json()) as T;
-}
 
 export default function Dashboard() {
   const [status, setStatus] = useState<EngineStatus | null>(null);
@@ -89,25 +40,25 @@ export default function Dashboard() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const fetchStatus = useCallback(async () => {
-    const data = await fetchJSON<EngineStatusResponse>("/api/v1/engine/status");
-    setStatus(data.status ?? null);
+    const nextStatus = await fetchEngineStatus();
+    setStatus(nextStatus ?? null);
   }, []);
 
   const fetchCron = useCallback(async () => {
-    const data = await fetchJSON<CronResponse>("/api/v1/engine/cron/tasks");
-    setCron(data.tasks ?? []);
+    const tasks = await fetchCronTasks();
+    setCron(tasks);
   }, []);
 
-  const fetchSessions = useCallback(async () => {
-    const data = await fetchJSON<SessionsResponse>("/api/v1/engine/sessions");
-    setSessions(data.sessions ?? []);
+  const fetchSessionsData = useCallback(async () => {
+    const data = await fetchSessions();
+    setSessions(data);
   }, []);
 
   const refreshAll = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      await Promise.all([fetchStatus(), fetchCron(), fetchSessions()]);
+      await Promise.all([fetchStatus(), fetchCron(), fetchSessionsData()]);
       setLastUpdated(new Date());
     } catch (err) {
       const message = err instanceof Error ? err.message : "Refresh failed";
@@ -115,7 +66,7 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, [fetchCron, fetchSessions, fetchStatus]);
+  }, [fetchCron, fetchSessionsData, fetchStatus]);
 
   useEffect(() => {
     void refreshAll();
@@ -137,14 +88,14 @@ export default function Dashboard() {
       if (payload.type === "init") {
         setStatus(payload.payload?.status ?? null);
         setCron(payload.payload?.cron ?? []);
-        void fetchSessions();
+        void fetchSessionsData();
         return;
       }
 
       switch (payload.type) {
         case "session.created":
         case "session.updated":
-          void fetchSessions();
+          void fetchSessionsData();
           break;
         case "cron.task.added":
         case "cron.started":
@@ -162,7 +113,7 @@ export default function Dashboard() {
     return () => {
       source.close();
     };
-  }, [fetchCron, fetchSessions, fetchStatus]);
+  }, [fetchCron, fetchSessionsData, fetchStatus]);
 
   const pluginCount = status?.plugins?.length ?? 0;
   const sessionCount = sessions.length;
@@ -210,97 +161,113 @@ export default function Dashboard() {
   );
 
   return (
-    <SidebarProvider>
-      <AppSidebar variant="inset" />
-      <SidebarInset>
-        <SiteHeader
-          onRefresh={() => void refreshAll()}
-          loading={loading}
-          connected={connected}
-          lastUpdated={lastUpdated}
-          error={error}
-        />
-        <div className="flex flex-1 flex-col">
-          <div className="@container/main flex flex-1 flex-col gap-6 py-6">
-            <SectionCards
-              stats={[
-                {
-                  title: "Engine plugins",
-                  value: pluginCount,
-                  description: "Runtime modules loaded",
-                  meta: `${toolCount} tools registered`,
-                  trend: pluginCount > 0 ? "up" : "down"
-                },
-                {
-                  title: "Active sessions",
-                  value: sessionCount,
-                  description: "Conversation threads online",
-                  meta: sessionCount ? "Traffic flowing" : "No active sessions",
-                  trend: sessionCount > 0 ? "up" : "down"
-                },
-                {
-                  title: "Automations",
-                  value: cronCount,
-                  description: "Scheduled tasks",
-                  meta: cronCount ? "Pipelines queued" : "Idle",
-                  trend: cronCount > 0 ? "up" : "down"
-                },
-                {
-                  title: "Connectors",
-                  value: connectorCount,
-                  description: "Live connector endpoints",
-                  meta: connectorCount ? "Healthy" : "Standby",
-                  trend: connectorCount > 0 ? "up" : "down"
-                }
-              ]}
-            />
-            <div className="grid gap-6 px-4 lg:grid-cols-3 lg:px-6">
-              <div className="flex flex-col gap-6 lg:col-span-2">
-                <ActivityChart sessionCount={sessionCount} cronCount={cronCount} />
-                <SessionsTable sessions={sessions} />
-              </div>
-              <div className="flex flex-col gap-6">
-                <InventoryPanel
-                  groups={[
-                    {
-                      id: "plugins",
-                      label: `Plugins (${pluginCount})`,
-                      items: pluginTiles,
-                      empty: "No plugins loaded."
-                    },
-                    {
-                      id: "connectors",
-                      label: `Connectors (${connectorCount})`,
-                      items: connectorTiles,
-                      empty: "No connectors online."
-                    },
-                    {
-                      id: "providers",
-                      label: `Inference (${providerCount})`,
-                      items: providerTiles,
-                      empty: "No inference providers."
-                    },
-                    {
-                      id: "images",
-                      label: `Image (${imageProviderCount})`,
-                      items: imageTiles,
-                      empty: "No image providers."
-                    },
-                    {
-                      id: "tools",
-                      label: `Tools (${toolCount})`,
-                      items: toolTiles,
-                      empty: "No tools registered."
-                    }
-                  ]}
-                />
-                <CronPanel cron={cron} />
-              </div>
+    <DashboardShell
+      title="Engine Overview"
+      subtitle="Monitor the Grambot runtime, providers, and sessions."
+      toolbar={
+        <>
+          <Badge variant={connected ? "default" : "outline"} className={connected ? "bg-emerald-500 text-white" : ""}>
+            {connected ? "Live" : "Offline"}
+          </Badge>
+          <Button onClick={() => void refreshAll()} disabled={loading} className="gap-2">
+            <RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+            {loading ? "Refreshing" : "Refresh"}
+          </Button>
+        </>
+      }
+      status={
+        <>
+          <span>{lastUpdated ? `Last synced ${lastUpdated.toLocaleTimeString()}` : "Awaiting first sync"}</span>
+          {error ? (
+            <span className="rounded-full border border-destructive/40 bg-destructive/10 px-2.5 py-1 text-destructive">
+              {error}
+            </span>
+          ) : (
+            <span>Streaming engine events from local socket</span>
+          )}
+        </>
+      }
+    >
+      <div className="flex flex-1 flex-col">
+        <div className="@container/main flex flex-1 flex-col gap-6 py-6">
+          <SectionCards
+            stats={[
+              {
+                title: "Engine plugins",
+                value: pluginCount,
+                description: "Runtime modules loaded",
+                meta: `${toolCount} tools registered`,
+                trend: pluginCount > 0 ? "up" : "down"
+              },
+              {
+                title: "Active sessions",
+                value: sessionCount,
+                description: "Conversation threads online",
+                meta: sessionCount ? "Traffic flowing" : "No active sessions",
+                trend: sessionCount > 0 ? "up" : "down"
+              },
+              {
+                title: "Automations",
+                value: cronCount,
+                description: "Scheduled tasks",
+                meta: cronCount ? "Pipelines queued" : "Idle",
+                trend: cronCount > 0 ? "up" : "down"
+              },
+              {
+                title: "Connectors",
+                value: connectorCount,
+                description: "Live connector endpoints",
+                meta: connectorCount ? "Healthy" : "Standby",
+                trend: connectorCount > 0 ? "up" : "down"
+              }
+            ]}
+          />
+          <div className="grid gap-6 px-4 lg:grid-cols-3 lg:px-6">
+            <div className="flex flex-col gap-6 lg:col-span-2">
+              <ActivityChart sessionCount={sessionCount} cronCount={cronCount} />
+              <SessionsTable sessions={sessions} />
+            </div>
+            <div className="flex flex-col gap-6">
+              <InventoryPanel
+                groups={[
+                  {
+                    id: "plugins",
+                    label: `Plugins (${pluginCount})`,
+                    items: pluginTiles,
+                    empty: "No plugins loaded."
+                  },
+                  {
+                    id: "connectors",
+                    label: `Connectors (${connectorCount})`,
+                    items: connectorTiles,
+                    empty: "No connectors online."
+                  },
+                  {
+                    id: "providers",
+                    label: `Inference (${providerCount})`,
+                    items: providerTiles,
+                    empty: "No inference providers."
+                  },
+                  {
+                    id: "images",
+                    label: `Image (${imageProviderCount})`,
+                    items: imageTiles,
+                    empty: "No image providers."
+                  },
+                  {
+                    id: "tools",
+                    label: `Tools (${toolCount})`,
+                    items: toolTiles,
+                    empty: "No tools registered."
+                  }
+                ]}
+              />
+              <CronPanel cron={cron} />
             </div>
           </div>
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+      </div>
+    </DashboardShell>
   );
 }
 

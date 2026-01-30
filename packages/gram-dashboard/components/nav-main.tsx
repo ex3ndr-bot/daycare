@@ -1,5 +1,6 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { PlusCircle, Terminal, type LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,8 @@ export function NavMain({
     icon?: LucideIcon;
   }[];
 }) {
+  const pathname = usePathname();
+
   return (
     <SidebarGroup>
       <SidebarGroupContent className="flex flex-col gap-2">
@@ -45,9 +48,15 @@ export function NavMain({
         <SidebarMenu>
           {items.map((item) => (
             <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton tooltip={item.title}>
-                {item.icon ? <item.icon /> : null}
-                <span>{item.title}</span>
+              <SidebarMenuButton
+                tooltip={item.title}
+                asChild
+                isActive={item.url === "/" ? pathname === "/" : pathname.startsWith(item.url)}
+              >
+                <a href={item.url}>
+                  {item.icon ? <item.icon /> : null}
+                  <span>{item.title}</span>
+                </a>
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
