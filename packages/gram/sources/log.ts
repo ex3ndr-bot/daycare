@@ -30,7 +30,7 @@ const DEFAULT_REDACT = [
 ];
 
 const VALID_FORMATS = new Set<LogFormat>(["pretty", "json"]);
-const require = createRequire(import.meta.url);
+const nodeRequire = createRequire(import.meta.url);
 
 let rootLogger: Logger | null = null;
 
@@ -194,7 +194,7 @@ function isStdDestination(destination: LogDestination): boolean {
 
 function resolvePrettyTarget(): string | null {
   try {
-    return require.resolve("pino-pretty");
+    return nodeRequire.resolve("pino-pretty");
   } catch {
     return null;
   }
