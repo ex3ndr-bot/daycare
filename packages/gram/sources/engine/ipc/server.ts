@@ -9,10 +9,13 @@ import { resolveEngineSocketPath } from "./socket.js";
 import type { Engine } from "../engine.js";
 import {
   listPlugins,
+  listEnabledPlugins,
   readSettingsFile,
   updateSettingsFile,
   upsertPlugin
 } from "../../settings.js";
+import { buildPluginCatalog } from "../plugins/catalog.js";
+import { resolveExclusivePlugins } from "../plugins/exclusive.js";
 import type { EngineEventBus } from "./events.js";
 import { requestShutdown } from "../../util/shutdown.js";
 
@@ -57,6 +60,7 @@ export async function startEngineServer(
 
   const app = fastify({ logger: false });
   logger.debug("Fastify app created");
+  const pluginCatalog = buildPluginCatalog();
 
   app.get("/v1/engine/status", async (_request, reply) => {
     logger.debug("GET /v1/engine/status");
@@ -147,25 +151,48 @@ export async function startEngineServer(
     logger.info({ plugin: pluginId, instance: instanceId }, "Plugin load requested");
     logger.debug(`Processing plugin load pluginId=${pluginId} instanceId=${instanceId} hasSettings=${!!payload.settings}`);
 
-    const settings = await updateSettingsFile(options.settingsPath, (current) => {
-      const existing = listPlugins(current).find(
-        (plugin) => plugin.instanceId === instanceId
-      );
-      const config = existing ?? {
-        instanceId,
-        pluginId,
-        enabled: true
-      };
-      logger.debug(`Updating settings file existing=${!!existing}`);
-      return {
-        ...current,
-        plugins: upsertPlugin(current.plugins, {
+    let settings;
+    try {
+      settings = await updateSettingsFile(options.settingsPath, (current) => {
+        const existing = listPlugins(current).find(
+          (plugin) => plugin.instanceId === instanceId
+        );
+        const config = existing ?? {
+          instanceId,
+          pluginId,
+          enabled: true
+        };
+        logger.debug(`Updating settings file existing=${!!existing}`);
+        const nextPlugins = upsertPlugin(current.plugins, {
           ...config,
           enabled: true,
           settings: payload.settings ?? config.settings
-        })
-      };
-    });
+        });
+        const nextSettings = {
+          ...current,
+          plugins: nextPlugins
+        };
+        const resolution = resolveExclusivePlugins(
+          listEnabledPlugins(nextSettings),
+          pluginCatalog
+        );
+        if (resolution.skipped.length > 0) {
+          const exclusiveId = resolution.exclusive?.pluginId;
+          const exclusiveName =
+            (exclusiveId && pluginCatalog.get(exclusiveId)?.descriptor.name) ??
+            exclusiveId ??
+            "Exclusive plugin";
+          throw new Error(
+            `${exclusiveName} is marked exclusive, so only one plugin can be enabled at a time.`
+          );
+        }
+        return nextSettings;
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Plugin enable failed.";
+      reply.status(400).send({ error: message });
+      return;
+    }
 
     logger.debug("Updating runtime settings");
     await options.runtime.updateSettings(settings);

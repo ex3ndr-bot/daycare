@@ -37,9 +37,12 @@ Load/unload is internal: the plugin manager reconciles enabled instances from
   "id": "telegram",
   "name": "Telegram",
   "description": "Telegram connector and incoming message adapter.",
-  "entry": "./plugin.js"
+  "entry": "./plugin.js",
+  "exclusive": false
 }
 ```
+
+When `exclusive` is true, the engine will only allow that plugin to be enabled by itself.
 
 ### Settings format
 ```json

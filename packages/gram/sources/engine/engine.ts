@@ -624,7 +624,8 @@ export class Engine {
       : listActiveInferenceProviders(this.settings)[0];
     const systemPrompt = await createSystemPrompt({
       provider: providerSettings?.id,
-      model: providerSettings?.model
+      model: providerSettings?.model,
+      workspace: session.context.state.permissions.workingDir
     });
     const context: Context = {
       ...sessionContext,

@@ -16,6 +16,7 @@ import {
   readSettingsFile,
   updateSettingsFile,
   upsertPlugin,
+  listEnabledPlugins,
   listProviders,
   upsertProviderSettings,
   type PluginInstanceSettings,
@@ -25,6 +26,7 @@ import { listProviderDefinitions, getProviderDefinition } from "../providers/cat
 import type { ProviderDefinition } from "../providers/types.js";
 import { getLogger } from "../log.js";
 import { DEFAULT_SCOUT_DIR } from "../paths.js";
+import { resolveExclusivePlugins } from "../engine/plugins/exclusive.js";
 
 export type AddOptions = {
   settings?: string;
@@ -96,6 +98,28 @@ async function addPlugin(
 
   const instanceId = createInstanceId();
   let settingsConfig: Record<string, unknown> = {};
+
+  const exclusiveCheck = resolveExclusivePlugins(
+    listEnabledPlugins({
+      ...settings,
+      plugins: upsertPlugin(settings.plugins, {
+        instanceId,
+        pluginId,
+        enabled: true
+      })
+    }),
+    catalog
+  );
+
+  if (exclusiveCheck.skipped.length > 0) {
+    const exclusiveId = exclusiveCheck.exclusive?.pluginId;
+    const exclusiveName =
+      (exclusiveId && catalog.get(exclusiveId)?.descriptor.name) ?? exclusiveId ?? "Exclusive plugin";
+    outro(
+      `Cannot enable ${definition.descriptor.name}. ${exclusiveName} is marked exclusive, so only one plugin can be enabled at a time.`
+    );
+    return;
+  }
 
   const loader = new PluginModuleLoader(`onboarding:${instanceId}`);
   const { module } = await loader.load(definition.entryPath);

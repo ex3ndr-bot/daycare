@@ -8,6 +8,7 @@ Current date: {{date}}
 - Architecture: {{arch}}
 - Model: {{model}}
 - Provider: {{provider}}
+- Workspace: {{workspace}}
 
 ## Personality
 

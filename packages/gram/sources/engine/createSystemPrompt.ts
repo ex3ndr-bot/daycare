@@ -8,6 +8,7 @@ import { DEFAULT_SOUL_PATH } from "../paths.js";
 export type SystemPromptContext = {
   model?: string;
   provider?: string;
+  workspace?: string;
 };
 
 export async function createSystemPrompt(context: SystemPromptContext = {}): Promise<string> {
@@ -21,6 +22,7 @@ export async function createSystemPrompt(context: SystemPromptContext = {}): Pro
     arch: os.arch(),
     model: context.model ?? "unknown",
     provider: context.provider ?? "unknown",
+    workspace: context.workspace ?? "unknown",
     soul
   });
 

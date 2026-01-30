@@ -69,7 +69,7 @@ export function buildWorkspaceReadTool(): ToolDefinition {
     tool: {
       name: "read",
       description:
-        "Read a UTF-8 text file from the session workspace. The path may be relative to the workspace or an absolute path that still resolves inside it. Access outside the workspace is rejected. Large files are truncated.",
+        "Read a UTF-8 text file from the session workspace. The path must be an absolute path that resolves inside the workspace. Large files are truncated.",
       parameters: readSchema
     },
     execute: async (args, toolContext, toolCall) => {
@@ -78,6 +78,7 @@ export function buildWorkspaceReadTool(): ToolDefinition {
       if (!workingDir) {
         throw new Error("Session workspace is not configured.");
       }
+      ensureAbsolutePath(payload.path);
       return handleRead(payload.path, workingDir, toolCall);
     }
   };
@@ -88,7 +89,7 @@ export function buildWorkspaceWriteTool(): ToolDefinition {
     tool: {
       name: "write",
       description:
-        "Write UTF-8 text to a file within the session workspace. Creates parent directories as needed. If append is true, appends to the file. Paths must stay inside the workspace.",
+        "Write UTF-8 text to a file within the session workspace. Creates parent directories as needed. If append is true, appends to the file. Paths must be absolute and resolve inside the workspace.",
       parameters: writeSchema
     },
     execute: async (args, toolContext, toolCall) => {
@@ -97,6 +98,7 @@ export function buildWorkspaceWriteTool(): ToolDefinition {
       if (!workingDir) {
         throw new Error("Session workspace is not configured.");
       }
+      ensureAbsolutePath(payload.path);
       return handleWrite(
         payload.path,
         payload.content,
@@ -113,7 +115,7 @@ export function buildWorkspaceEditTool(): ToolDefinition {
     tool: {
       name: "edit",
       description:
-        "Apply one or more find/replace edits to a file in the session workspace. Edits are applied sequentially and must match at least once. Paths must stay inside the workspace.",
+        "Apply one or more find/replace edits to a file in the session workspace. Edits are applied sequentially and must match at least once. Paths must be absolute and resolve inside the workspace.",
       parameters: editSchema
     },
     execute: async (args, toolContext, toolCall) => {
@@ -122,6 +124,7 @@ export function buildWorkspaceEditTool(): ToolDefinition {
       if (!workingDir) {
         throw new Error("Session workspace is not configured.");
       }
+      ensureAbsolutePath(payload.path);
       return handleEdit(payload.path, payload.edits, workingDir, toolCall);
     }
   };
@@ -132,7 +135,7 @@ export function buildExecTool(): ToolDefinition {
     tool: {
       name: "exec",
       description:
-        "Execute a shell command inside the session workspace (or a subdirectory). The cwd must resolve inside the workspace. Returns stdout/stderr and failure details.",
+        "Execute a shell command inside the session workspace (or a subdirectory). The cwd, if provided, must be an absolute path that resolves inside the workspace. Returns stdout/stderr and failure details.",
       parameters: execSchema
     },
     execute: async (args, toolContext, toolCall) => {
@@ -140,6 +143,9 @@ export function buildExecTool(): ToolDefinition {
       const workingDir = toolContext.permissions.workingDir;
       if (!workingDir) {
         throw new Error("Session workspace is not configured.");
+      }
+      if (payload.cwd) {
+        ensureAbsolutePath(payload.cwd);
       }
       const cwd = payload.cwd
         ? resolveWorkspacePath(workingDir, payload.cwd)
@@ -339,4 +345,10 @@ function formatExecOutput(stdout: string, stderr: string, failed: boolean): stri
     return failed ? "Command failed with no output." : "Command completed with no output.";
   }
   return parts.join("\n\n");
+}
+
+function ensureAbsolutePath(target: string): void {
+  if (!path.isAbsolute(target)) {
+    throw new Error("Path must be absolute.");
+  }
 }

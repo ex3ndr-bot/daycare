@@ -12,6 +12,7 @@ import type { PluginDefinition } from "./catalog.js";
 import type { PluginApi, PluginInstance, PluginModule } from "./types.js";
 import type { PluginRegistry } from "./registry.js";
 import type { EngineEventBus } from "../ipc/events.js";
+import { resolveExclusivePlugins } from "./exclusive.js";
 
 export type PluginManagerOptions = {
   settings: SettingsConfig;
@@ -75,7 +76,7 @@ export class PluginManager {
   async syncWithSettings(settings: SettingsConfig): Promise<void> {
     this.logger.debug(`syncWithSettings starting loadedCount=${this.loaded.size}`);
     this.settings = settings;
-    const desired = listEnabledPlugins(settings);
+    const desired = this.resolveEnabledPlugins(settings);
     const desiredMap = new Map(desired.map((plugin) => [plugin.instanceId, plugin]));
     const desiredIds = desired.map(p => p.instanceId).join(",");
     this.logger.debug(`Desired plugins from settings desiredCount=${desired.length} desiredIds=${desiredIds}`);
@@ -241,7 +242,7 @@ export class PluginManager {
 
   async loadEnabled(settings: SettingsConfig): Promise<void> {
     this.settings = settings;
-    const enabled = listEnabledPlugins(settings);
+    const enabled = this.resolveEnabledPlugins(settings);
     const enabledIds = enabled.map(p => p.instanceId).join(",");
     this.logger.debug(`loadEnabled() starting enabledCount=${enabled.length} enabledIds=${enabledIds}`);
     for (const plugin of enabled) {
@@ -263,6 +264,23 @@ export class PluginManager {
     const dir = path.join(this.dataDir, "plugins", instanceId);
     await fs.mkdir(dir, { recursive: true });
     return dir;
+  }
+
+  private resolveEnabledPlugins(settings: SettingsConfig): PluginInstanceSettings[] {
+    const enabled = listEnabledPlugins(settings);
+    const resolution = resolveExclusivePlugins(enabled, this.pluginCatalog);
+    if (resolution.skipped.length > 0) {
+      const exclusive = resolution.exclusive;
+      const skippedIds = resolution.skipped.map((plugin) => plugin.instanceId).join(",");
+      this.logger.warn(
+        {
+          exclusive: exclusive?.instanceId,
+          skipped: skippedIds
+        },
+        "Exclusive plugin enabled; skipping other plugins"
+      );
+    }
+    return resolution.allowed;
   }
 }
 
