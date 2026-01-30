@@ -658,7 +658,11 @@ export class Engine {
       fileSendModes: fileSendModes.length > 0 ? fileSendModes.join(", ") : "",
       channelId: entry.context.channelId,
       channelType,
-      channelIsPrivate
+      channelIsPrivate,
+      userId: entry.context.userId,
+      userFirstName: entry.context.userFirstName,
+      userLastName: entry.context.userLastName,
+      username: entry.context.username
     });
     const context: Context = {
       ...sessionContext,

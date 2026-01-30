@@ -26,6 +26,9 @@ export type MessageContext = {
   channelId: string;
   channelType?: "private" | "group" | "supergroup" | "channel" | "unknown";
   userId: string | null;
+  userFirstName?: string;
+  userLastName?: string;
+  username?: string;
   sessionId?: string;
   messageId?: string;
   providerId?: string;

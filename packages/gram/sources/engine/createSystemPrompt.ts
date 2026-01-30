@@ -15,6 +15,10 @@ export type SystemPromptContext = {
   channelId?: string;
   channelType?: string;
   channelIsPrivate?: boolean | null;
+  userId?: string | null;
+  userFirstName?: string;
+  userLastName?: string;
+  username?: string;
 };
 
 export async function createSystemPrompt(context: SystemPromptContext = {}): Promise<string> {
@@ -35,6 +39,10 @@ export async function createSystemPrompt(context: SystemPromptContext = {}): Pro
     channelId: context.channelId ?? "unknown",
     channelType: context.channelType ?? "",
     channelIsPrivate: context.channelIsPrivate ?? null,
+    userId: context.userId ?? "unknown",
+    userFirstName: context.userFirstName ?? "",
+    userLastName: context.userLastName ?? "",
+    username: context.username ?? "",
     soul
   });
 

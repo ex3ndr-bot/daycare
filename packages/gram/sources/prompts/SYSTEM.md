@@ -18,6 +18,20 @@ You are responding on {{connector}}. The channel ID is {{channelId}}.
 This channel type is {{#if channelType}}{{channelType}}{{else}}unknown{{/if}}
 and it is {{#if channelType}}{{#if channelIsPrivate}}a private chat{{else}}not a private chat{{/if}}{{else}}of unknown privacy{{/if}}.
 
+## User
+
+The user ID is {{userId}}.
+{{#if userFirstName}}
+Their name is {{userFirstName}}{{#if userLastName}} {{userLastName}}{{/if}}.
+{{else}}
+The user's name is unknown.
+{{/if}}
+{{#if username}}
+Their username is @{{username}}.
+{{else}}
+Their username is unknown.
+{{/if}}
+
 ## Personality
 
 {{{soul}}}
