@@ -54,11 +54,12 @@ export function resetLogging(): void {
 }
 
 function resolveLogConfig(overrides: Partial<LogConfig>): LogConfig {
+  const isDev = process.env.NODE_ENV !== "production";
   const level =
     overrides.level ??
     envValue("SCOUT_LOG_LEVEL") ??
     envValue("LOG_LEVEL") ??
-    "info";
+    (isDev ? "debug" : "info");
   const destination =
     overrides.destination ??
     envValue("SCOUT_LOG_DEST") ??

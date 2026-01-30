@@ -10,6 +10,7 @@ Environment variables:
 - `SCOUT_LOG_REDACT` (comma-separated paths)
 
 Defaults:
+- `debug` level in development, `info` in production
 - `pretty` format in TTY + non-production
 - `json` otherwise
 - redaction for `token`, `password`, `secret`, `apiKey` and dotted variants
@@ -24,10 +25,11 @@ flowchart TD
 
 ## Verbose Logging
 
-The codebase includes extensive verbose logging at the `debug` level. To enable verbose logging for deep visibility into server operations, set:
+The codebase includes extensive verbose logging at the `debug` level. Debug logging is enabled by default in development mode (`yarn dev`).
 
+To disable verbose logging in dev mode:
 ```bash
-SCOUT_LOG_LEVEL=debug yarn dev
+SCOUT_LOG_LEVEL=info yarn dev
 ```
 
 ### Verbose Log Components
@@ -53,8 +55,8 @@ Debug logs include key data embedded in the message text using `key=value` forma
 ### Example: Debug Message Flow
 
 ```bash
-# Enable verbose logging
-SCOUT_LOG_LEVEL=debug yarn dev
+# Debug logging is enabled by default in dev mode
+yarn dev
 ```
 
 Example output tracing a message:
