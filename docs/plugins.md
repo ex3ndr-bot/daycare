@@ -6,20 +6,30 @@ Plugins are first-class runtime modules that can register:
 - Tools
 - Image generation providers
 
-Each plugin implements `async load()` and `async unload()` and receives:
-- Plugin config from `.scout/settings.json`
-- Dedicated data directory `.scout/plugins/<id>`
-- Secrets store access
+Each plugin instance runs inside its own Node.js VM context and receives a
+restricted API surface. Instances are identified by `instanceId`, while
+`pluginId` points to the plugin type.
+
+Each plugin provides:
+- a JSON descriptor (`id`, `name`, `description`, `entry`)
+- a Zod settings schema
+- a `create()` factory that returns `load()`/`unload()` handlers
+
+Plugins can emit events via the plugin event queue. Events are processed
+sequentially by the plugin event engine, so plugins may emit during startup
+before the engine begins handling them.
 
 ```mermaid
 flowchart TD
   Settings[settings.json] --> PluginManager
   PluginManager --> Plugin[Plugin load()]
   Plugin --> Registrar[PluginRegistrar]
+  Plugin --> Events[PluginEventQueue]
   Registrar --> Connectors
   Registrar --> Inference
   Registrar --> Tools
   Registrar --> Images
+  Events --> Engine[PluginEventEngine]
 ```
 
 ## Built-in plugins

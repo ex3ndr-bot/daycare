@@ -18,8 +18,10 @@ The file is read by the engine on startup and on demand by plugins.
 }
 ```
 
+Secrets are keyed by plugin instance id (defaults to the plugin id when no instance id is provided).
+
 ## CLI helpers
-- `gram secrets set <plugin> <key> <value>` updates the secrets store.
+- `gram secrets set <instance> <key> <value>` updates the secrets store.
 
 ```mermaid
 flowchart TD

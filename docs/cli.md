@@ -5,9 +5,9 @@ The CLI is implemented with Commander in `sources/main.ts`. It always initialize
 ## Commands
 - `start` - launches the engine (default settings `.scout/settings.json`).
 - `status` - prints engine status if the socket is live.
-- `plugins load <id>` - loads a plugin (updates settings if engine is down).
-- `plugins unload <id>` - unloads a plugin.
-- `secrets set <plugin> <key> <value>` - stores a plugin secret.
+- `plugins load <pluginId> [instanceId]` - loads a plugin instance (updates settings if engine is down).
+- `plugins unload <instanceId>` - unloads a plugin instance.
+- `secrets set <instanceId> <key> <value>` - stores a plugin secret.
 
 ## Development
 - `yarn dev` runs the CLI directly via `tsx`.

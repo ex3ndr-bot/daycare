@@ -23,12 +23,13 @@ flowchart TD
     "dataDir": ".scout"
   },
   "plugins": [
-    { "id": "telegram", "enabled": true, "config": { "polling": true } },
-    { "id": "brave-search", "enabled": true },
-    { "id": "gpt-image", "enabled": true },
-    { "id": "nanobanana", "enabled": false, "config": { "endpoint": "https://api.example.com/images" } },
-    { "id": "openai-codex", "enabled": true },
-    { "id": "anthropic", "enabled": true }
+    { "instanceId": "telegram", "pluginId": "telegram", "enabled": true, "settings": { "polling": true } },
+    { "instanceId": "brave-search", "pluginId": "brave-search", "enabled": true },
+    { "instanceId": "gpt-image", "pluginId": "gpt-image", "enabled": true },
+    { "instanceId": "nanobanana", "pluginId": "nanobanana", "enabled": false, "settings": { "endpoint": "https://api.example.com/images" } },
+    { "instanceId": "openai-codex", "pluginId": "openai-codex", "enabled": true },
+    { "instanceId": "anthropic", "pluginId": "anthropic", "enabled": true },
+    { "instanceId": "telegram-secondary", "pluginId": "telegram", "enabled": false, "settings": { "polling": true } }
   ],
   "inference": {
     "providers": [
@@ -79,7 +80,7 @@ flowchart TD
 ```
 
 ## `.scout/secrets.json`
-Secrets are stored per plugin id:
+Secrets are stored per plugin instance id:
 
 ```json
 {
