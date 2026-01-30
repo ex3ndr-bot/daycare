@@ -37,7 +37,8 @@ export const PROVIDER_DEFINITIONS: ProviderDefinition[] = [
     label: "Vercel AI Gateway",
     auth: "apiKey",
     kind: "pi-ai"
-  }
+  },
+  { id: "github-copilot", label: "GitHub Copilot", auth: "oauth", kind: "pi-ai" }
 ];
 
 export function getProviderDefinition(id: string): ProviderDefinition | null {
