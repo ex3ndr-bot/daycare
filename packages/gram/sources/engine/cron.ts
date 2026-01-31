@@ -41,7 +41,7 @@ export class CronScheduler {
   private onTask: CronSchedulerOptions["onTask"];
   private onError?: CronSchedulerOptions["onError"];
   private tickTimer: NodeJS.Timeout | null = null;
-  private tickInterval: NodeJS.Timeout | null = null;
+  private runningTasks = new Set<string>();
 
   constructor(options: CronSchedulerOptions) {
     this.store = options.store;
@@ -72,7 +72,7 @@ export class CronScheduler {
       this.scheduleTask(task);
     }
 
-    this.startTicker();
+    this.scheduleNextTick();
     logger.debug("All tasks scheduled");
   }
 
@@ -90,10 +90,7 @@ export class CronScheduler {
       clearTimeout(this.tickTimer);
       this.tickTimer = null;
     }
-    if (this.tickInterval) {
-      clearInterval(this.tickInterval);
-      this.tickInterval = null;
-    }
+    this.runningTasks.clear();
     this.tasks.clear();
     logger.debug("CronScheduler stopped");
   }
@@ -116,6 +113,7 @@ export class CronScheduler {
       this.scheduleTask(task);
     }
 
+    this.scheduleNextTick();
     logger.debug(`Tasks reloaded taskCount=${this.tasks.size}`);
   }
 
@@ -136,6 +134,7 @@ export class CronScheduler {
 
     if (task.enabled !== false && this.started && !this.stopped) {
       this.scheduleTask(task);
+      this.scheduleNextTick();
     }
 
     return task;
@@ -213,52 +212,65 @@ export class CronScheduler {
     await this.onError(error, taskId);
   }
 
-  private startTicker(): void {
-    if (this.tickTimer || this.tickInterval) {
-      return;
-    }
-
-    const now = new Date();
-    const delay =
-      (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
-
-    this.tickTimer = setTimeout(() => {
-      this.tickTimer = null;
-      this.runTick();
-      this.tickInterval = setInterval(() => {
-        this.runTick();
-      }, 60 * 1000);
-    }, Math.max(delay, 0));
-  }
-
   private runTick(): void {
     if (this.stopped) {
       return;
     }
 
     const now = new Date();
+    let nextDue: Date | null = null;
     for (const scheduled of this.tasks.values()) {
-      if (now.getTime() < scheduled.nextRun.getTime()) {
-        continue;
+      if (now.getTime() >= scheduled.nextRun.getTime()) {
+        const nextRun = getNextCronTime(scheduled.task.schedule, now);
+        if (!nextRun) {
+          logger.warn(
+            { taskId: scheduled.task.id, schedule: scheduled.task.schedule },
+            "Invalid cron schedule"
+          );
+          void this.reportError(
+            new Error(`Invalid cron schedule: ${scheduled.task.schedule}`),
+            scheduled.task.id
+          );
+        } else {
+          scheduled.nextRun = nextRun;
+          this.tasks.set(scheduled.task.id, scheduled);
+        }
+
+        if (this.runningTasks.has(scheduled.task.id)) {
+          continue;
+        }
+
+        this.runningTasks.add(scheduled.task.id);
+        void this.executeTask(scheduled.task)
+          .catch(() => {})
+          .finally(() => {
+            this.runningTasks.delete(scheduled.task.id);
+          });
       }
 
-      const nextRun = getNextCronTime(scheduled.task.schedule, now);
-      if (!nextRun) {
-        logger.warn(
-          { taskId: scheduled.task.id, schedule: scheduled.task.schedule },
-          "Invalid cron schedule"
-        );
-        void this.reportError(
-          new Error(`Invalid cron schedule: ${scheduled.task.schedule}`),
-          scheduled.task.id
-        );
-        continue;
+      if (!nextDue || scheduled.nextRun.getTime() < nextDue.getTime()) {
+        nextDue = scheduled.nextRun;
       }
-
-      scheduled.nextRun = nextRun;
-      this.tasks.set(scheduled.task.id, scheduled);
-      void this.executeTask(scheduled.task);
     }
+
+    this.scheduleNextTick(nextDue);
+  }
+
+  private scheduleNextTick(nextDue?: Date | null): void {
+    if (this.stopped) {
+      return;
+    }
+    if (this.tickTimer) {
+      clearTimeout(this.tickTimer);
+    }
+
+    const now = new Date();
+    const delay = nextDue ? nextDue.getTime() - now.getTime() : 60 * 1000;
+    const waitMs = Math.max(0, Math.min(delay, 60 * 1000));
+    this.tickTimer = setTimeout(() => {
+      this.tickTimer = null;
+      this.runTick();
+    }, waitMs);
   }
 }
 
