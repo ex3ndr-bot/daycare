@@ -1,12 +1,11 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { DatabaseSync } from "node:sqlite";
-
 import { Type, type Static } from "@sinclair/typebox";
 import type { ToolResultMessage } from "@mariozechner/pi-ai";
 import { z } from "zod";
 
 import { definePlugin } from "../../engine/plugins/types.js";
+import type { DatabaseSync } from "node:sqlite";
 
 const settingsSchema = z.object({}).passthrough();
 
@@ -53,10 +52,19 @@ export const plugin = definePlugin({
   create: (api) => {
     const dbPath = path.join(api.dataDir, "db.sqlite");
     const docPath = path.join(api.dataDir, "db.md");
+    let sqliteModule: typeof import("node:sqlite") | null = null;
     let db: DatabaseSync | null = null;
 
-    const openDb = () => {
+    const loadSqlite = async () => {
+      if (!sqliteModule) {
+        sqliteModule = await import("node:sqlite");
+      }
+      return sqliteModule;
+    };
+
+    const openDb = async () => {
       if (!db) {
+        const { DatabaseSync } = await loadSqlite();
         db = new DatabaseSync(dbPath);
       }
       return db;
@@ -71,7 +79,7 @@ export const plugin = definePlugin({
         if (code !== "ENOENT") {
           throw error;
         }
-        openDb();
+        await openDb();
       }
 
       try {
@@ -100,7 +108,7 @@ export const plugin = definePlugin({
 
     const updateDoc = async (description?: string) => {
       const current = await loadDoc();
-      const schema = renderSchema(openDb());
+      const schema = await renderSchema(await openDb());
       let next = replaceSection(current, SCHEMA_START, SCHEMA_END, schema);
       if (description) {
         const summary = formatChangeSummary(description);
@@ -123,7 +131,7 @@ export const plugin = definePlugin({
           },
           execute: async (args, _context, toolCall) => {
             const payload = args as QueryArgs;
-            const statement = openDb().prepare(payload.sql);
+            const statement = (await openDb()).prepare(payload.sql);
             const params = payload.params ?? [];
             let text = "";
             let details: Record<string, unknown> = {};
@@ -240,7 +248,7 @@ function isReadSql(sql: string): boolean {
   );
 }
 
-function renderSchema(db: DatabaseSync): string {
+async function renderSchema(db: DatabaseSync): Promise<string> {
   const tables = db
     .prepare(
       "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
