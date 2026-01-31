@@ -54,8 +54,6 @@ Their username is @{{username}}.
 Their username is unknown.
 {{/if}}
 
-## Personality
-
 {{{soul}}}
 
 ## Message Metadata
