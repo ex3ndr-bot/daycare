@@ -61,7 +61,7 @@ export const plugin = definePlugin({
           },
           execute: async (args, toolContext, toolCall) => {
             if (!toolContext.permissions.web) {
-              throw new Error("Web access not granted. Request @web permission.");
+              throw new Error("Web access not granted. Request web access permission.");
             }
             const payload = args as SearchArgs;
             const apiKey = await api.auth.getApiKey(instanceId);

@@ -49,7 +49,8 @@ export function buildPermissionRequestTool(): ToolDefinition {
       }
 
       const permission = formatPermission(payload.kind, payload.path);
-      const text = `${payload.reason}\n${permission}`;
+      const friendly = describePermission(payload.kind, payload.path);
+      const text = `Permission request:\n${friendly}\nReason: ${payload.reason}`;
       const request: PermissionRequest = {
         token: createId(),
         kind: payload.kind as PermissionKind,
@@ -99,4 +100,15 @@ function formatPermission(kind: PermissionKind, path?: string): string {
     return `@${kind}:`;
   }
   return `@${kind}:${target}`;
+}
+
+function describePermission(kind: PermissionKind, path?: string): string {
+  if (kind === "web") {
+    return "Web access";
+  }
+  const target = path ?? "";
+  if (kind === "read") {
+    return `Read access to ${target}`;
+  }
+  return `Write access to ${target}`;
 }

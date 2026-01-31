@@ -230,9 +230,10 @@ export class TelegramConnector implements Connector {
     request: PermissionRequest,
     context: MessageContext
   ): Promise<void> {
-    const text = request.message;
+    const { text, parseMode } = formatPermissionRequest(request);
     this.pendingPermissions.set(request.token, { request, context });
     await this.bot.sendMessage(targetId, text, {
+      parse_mode: parseMode,
       reply_markup: {
         inline_keyboard: [
           [
@@ -664,6 +665,44 @@ export class TelegramConnector implements Connector {
       .filter((entry) => entry.name.length > 0);
     return commands;
   }
+}
+
+function formatPermissionRequest(
+  request: PermissionRequest
+): { text: string; parseMode: TelegramBot.ParseMode } {
+  const access = describePermissionKind(request.kind);
+  const escapedReason = escapeHtml(request.reason);
+  const escapedPath = request.path ? escapeHtml(request.path) : null;
+  const lines = [
+    "🔐 <b>Permission request</b>",
+    "",
+    `<b>Access</b>: ${access}`,
+    escapedPath ? `<b>Path</b>: <code>${escapedPath}</code>` : null,
+    `<b>Reason</b>: ${escapedReason}`,
+    "",
+    "Approve to continue or deny to refuse."
+  ];
+  return {
+    text: lines.filter((line): line is string => Boolean(line)).join("\n"),
+    parseMode: "HTML"
+  };
+}
+
+function describePermissionKind(kind: PermissionRequest["kind"]): string {
+  if (kind === "read") {
+    return "Read files";
+  }
+  if (kind === "write") {
+    return "Write/edit files";
+  }
+  return "Web browsing";
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function isTelegramConflictError(error: unknown): boolean {

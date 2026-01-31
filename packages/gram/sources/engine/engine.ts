@@ -577,25 +577,19 @@ export class Engine {
   ): Promise<void> {
     const connector = this.connectorRegistry.get(source);
     const permissionTag = formatPermissionTag(decision);
+    const permissionLabel = describePermissionDecision(decision);
     if (!decision.approved) {
       logger.info(
         { source, permission: permissionTag, sessionId: context.sessionId },
         "Permission denied"
       );
-      if (connector) {
-        await connector.sendMessage(context.channelId, {
-          text: `Permission denied: ${permissionTag}`,
-          replyToMessageId: context.messageId
-        });
-      }
-      return;
     }
 
     if (!context.sessionId) {
-      logger.warn({ source, permission: permissionTag }, "Permission granted without session id");
+      logger.warn({ source, permission: permissionTag }, "Permission decision without session id");
       if (connector) {
         await connector.sendMessage(context.channelId, {
-          text: `Permission granted: ${permissionTag}`,
+          text: `Permission ${decision.approved ? "granted" : "denied"} for ${permissionLabel}.`,
           replyToMessageId: context.messageId
         });
       }
@@ -604,22 +598,25 @@ export class Engine {
 
     const session = this.sessionManager.getById(context.sessionId);
     if (!session) {
-      logger.warn({ source, sessionId: context.sessionId }, "Session not found for permission grant");
+      logger.warn(
+        { source, sessionId: context.sessionId },
+        "Session not found for permission decision"
+      );
       if (connector) {
         await connector.sendMessage(context.channelId, {
-          text: `Permission granted: ${permissionTag}`,
+          text: `Permission ${decision.approved ? "granted" : "denied"} for ${permissionLabel}.`,
           replyToMessageId: context.messageId
         });
       }
       return;
     }
 
-    if ((decision.kind === "read" || decision.kind === "write") && decision.path) {
+    if (decision.approved && (decision.kind === "read" || decision.kind === "write") && decision.path) {
       if (!path.isAbsolute(decision.path)) {
         logger.warn({ sessionId: session.id, permission: permissionTag }, "Permission path not absolute");
         if (connector) {
           await connector.sendMessage(context.channelId, {
-            text: `Permission ignored (path must be absolute): ${permissionTag}`,
+            text: `Permission ignored (path must be absolute): ${permissionLabel}.`,
             replyToMessageId: context.messageId
           });
         }
@@ -627,25 +624,30 @@ export class Engine {
       }
     }
 
-    applyPermission(session.context.state.permissions, decision);
-    try {
-      await this.sessionStore.recordState(session);
-    } catch (error) {
-      logger.warn({ sessionId: session.id, error }, "Permission persistence failed");
-    }
+    if (decision.approved) {
+      applyPermission(session.context.state.permissions, decision);
+      try {
+        await this.sessionStore.recordState(session);
+      } catch (error) {
+        logger.warn({ sessionId: session.id, error }, "Permission persistence failed");
+      }
 
-    this.eventBus.emit("permission.granted", {
-      sessionId: session.id,
-      source,
-      decision
-    });
-
-    if (connector) {
-      await connector.sendMessage(context.channelId, {
-        text: `Permission granted: ${permissionTag}`,
-        replyToMessageId: context.messageId
+      this.eventBus.emit("permission.granted", {
+        sessionId: session.id,
+        source,
+        decision
       });
     }
+
+    const resumeText = decision.approved
+      ? `Permission granted for ${permissionLabel}. Please continue with the previous request.`
+      : `Permission denied for ${permissionLabel}. Please continue without that permission.`;
+    await this.sessionManager.handleMessage(
+      source,
+      { text: resumeText },
+      { ...context, sessionId: session.id },
+      (sessionToHandle, entry) => this.handleSessionMessage(entry, sessionToHandle, source)
+    );
   }
 
   private async restoreSessions(): Promise<void> {
@@ -1157,4 +1159,15 @@ function formatPermissionTag(decision: PermissionDecision): string {
   }
   const pathPart = decision.path ?? "";
   return `@${decision.kind}:${pathPart}`;
+}
+
+function describePermissionDecision(decision: PermissionDecision): string {
+  if (decision.kind === "web") {
+    return "web access";
+  }
+  const target = decision.path?.trim();
+  if (decision.kind === "read") {
+    return target ? `read access to ${target}` : "read access";
+  }
+  return target ? `write access to ${target}` : "write access";
 }
