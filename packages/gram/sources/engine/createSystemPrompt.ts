@@ -15,7 +15,7 @@ export type SystemPromptContext = {
   channelId?: string;
   channelType?: string;
   channelIsPrivate?: boolean | null;
-  userId?: string | null;
+  userId?: string;
   userFirstName?: string;
   userLastName?: string;
   username?: string;

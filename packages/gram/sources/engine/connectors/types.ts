@@ -26,7 +26,7 @@ export type ConnectorMessage = {
 export type MessageContext = {
   channelId: string;
   channelType?: "private" | "group" | "supergroup" | "channel" | "unknown";
-  userId: string | null;
+  userId: string;
   userFirstName?: string;
   userLastName?: string;
   username?: string;

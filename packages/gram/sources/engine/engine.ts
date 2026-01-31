@@ -99,7 +99,12 @@ export class Engine {
     this.dataDir = options.dataDir;
     this.configDir = options.configDir;
     this.workspaceDir = resolveWorkspaceDir(this.configDir, this.settings.assistant ?? null);
-    this.defaultPermissions = { workingDir: this.workspaceDir };
+    this.defaultPermissions = {
+      workingDir: this.workspaceDir,
+      writeDirs: [],
+      readDirs: [],
+      web: false
+    };
     this.eventBus = options.eventBus;
     this.authStore = new AuthStore(options.authPath);
     this.fileStore = new FileStore({ basePath: `${this.dataDir}/files` });
@@ -110,6 +115,13 @@ export class Engine {
 
     this.connectorRegistry = new ConnectorRegistry({
       onMessage: (source, message, context) => {
+        if (!context.channelId || !context.userId) {
+          logger.error(
+            { source, channelId: context.channelId, userId: context.userId },
+            "Connector message missing channelId or userId"
+          );
+          return;
+        }
         const providerId = this.resolveProviderId(context);
         const messageContext =
           providerId && context.providerId !== providerId
@@ -121,6 +133,9 @@ export class Engine {
           { type: "connector.message", payload: { source, message, context: messageContext } }
         );
         logger.debug(`Connector message emitted to event queue: source=${source}`);
+      },
+      onPermission: (source, decision, context) => {
+        void this.handlePermissionDecision(source, decision, context);
       },
       onFatal: (source, reason, error) => {
         logger.warn({ source, reason, error }, "Connector requested shutdown");
@@ -170,13 +185,13 @@ export class Engine {
       }),
       sessionIdFor: (source, context) => {
         if (context.sessionId) {
-          const key = this.buildSessionKey(source, context, true);
+          const key = this.buildSessionKey(source, context);
           if (key) {
             this.sessionKeyMap.set(key, context.sessionId);
           }
           return context.sessionId;
         }
-        const key = this.buildSessionKey(source, context, source === "cron");
+        const key = this.buildSessionKey(source, context);
         if (!key) {
           throw new Error("userId is required to map sessions for connectors.");
         }
@@ -341,7 +356,10 @@ export class Engine {
     this.toolResolver.register("core", buildImageGenerationTool(this.imageRegistry));
     this.toolResolver.register("core", buildReactionTool());
     this.toolResolver.register("core", buildSendFileTool());
-    logger.debug("Core tools registered: cron, cron_memory, image_generation, reaction, send_file");
+    this.toolResolver.register("core", buildPermissionRequestTool());
+    logger.debug(
+      "Core tools registered: cron, cron_memory, image_generation, reaction, send_file, request_permission"
+    );
 
     logger.debug("Restoring sessions from disk");
     await this.restoreSessions();
@@ -399,7 +417,7 @@ export class Engine {
     this.eventBus.emit("session.reset", {
       sessionId: session.id,
       source: "system",
-      context: { channelId: session.id, userId: null, sessionId: session.id }
+      context: { channelId: session.id, userId: "system", sessionId: session.id }
     });
     return true;
   }
@@ -419,7 +437,7 @@ export class Engine {
     this.eventBus.emit("session.reset", {
       sessionId: session.id,
       source: "system",
-      context: { channelId: session.id, userId: null, sessionId }
+      context: { channelId: session.id, userId: "system", sessionId }
     });
     return true;
   }
@@ -635,7 +653,7 @@ export class Engine {
     const context: MessageContext =
       messageContext ?? {
         channelId: sessionId,
-        userId: null,
+        userId: "system",
         sessionId
       };
 
@@ -656,7 +674,12 @@ export class Engine {
   async updateSettings(settings: SettingsConfig): Promise<void> {
     this.settings = settings;
     this.workspaceDir = resolveWorkspaceDir(this.configDir, this.settings.assistant ?? null);
-    this.defaultPermissions = { workingDir: this.workspaceDir };
+    this.defaultPermissions = {
+      workingDir: this.workspaceDir,
+      writeDirs: [],
+      readDirs: [],
+      web: false
+    };
     await ensureWorkspaceDir(this.workspaceDir);
     await this.providerManager.sync(settings);
     await this.pluginManager.syncWithSettings(settings);
@@ -702,6 +725,93 @@ export class Engine {
     return providerId;
   }
 
+  private async handlePermissionDecision(
+    source: string,
+    decision: PermissionDecision,
+    context: MessageContext
+  ): Promise<void> {
+    if (!context.channelId || !context.userId) {
+      logger.error(
+        { source, channelId: context.channelId, userId: context.userId },
+        "Permission decision missing channelId or userId"
+      );
+      return;
+    }
+    const connector = this.connectorRegistry.get(source);
+    const permissionTag = formatPermissionTag(decision.access);
+    const permissionLabel = describePermissionDecision(decision.access);
+    if (!decision.approved) {
+      logger.info(
+        { source, permission: permissionTag, sessionId: context.sessionId },
+        "Permission denied"
+      );
+    }
+
+    if (!context.sessionId) {
+      logger.warn({ source, permission: permissionTag }, "Permission decision without session id");
+      if (connector) {
+        await connector.sendMessage(context.channelId, {
+          text: `Permission ${decision.approved ? "granted" : "denied"} for ${permissionLabel}.`,
+          replyToMessageId: context.messageId
+        });
+      }
+      return;
+    }
+
+    const session = this.sessionManager.getById(context.sessionId);
+    if (!session) {
+      logger.warn(
+        { source, sessionId: context.sessionId },
+        "Session not found for permission decision"
+      );
+      if (connector) {
+        await connector.sendMessage(context.channelId, {
+          text: `Permission ${decision.approved ? "granted" : "denied"} for ${permissionLabel}.`,
+          replyToMessageId: context.messageId
+        });
+      }
+      return;
+    }
+
+    if (decision.approved && (decision.access.kind === "read" || decision.access.kind === "write")) {
+      if (!path.isAbsolute(decision.access.path)) {
+        logger.warn({ sessionId: session.id, permission: permissionTag }, "Permission path not absolute");
+        if (connector) {
+          await connector.sendMessage(context.channelId, {
+            text: `Permission ignored (path must be absolute): ${permissionLabel}.`,
+            replyToMessageId: context.messageId
+          });
+        }
+        return;
+      }
+    }
+
+    if (decision.approved) {
+      applyPermission(session.context.state.permissions, decision);
+      try {
+        await this.sessionStore.recordState(session);
+      } catch (error) {
+        logger.warn({ sessionId: session.id, error }, "Permission persistence failed");
+      }
+
+      this.eventBus.emit("permission.granted", {
+        sessionId: session.id,
+        source,
+        decision
+      });
+    }
+
+    const resumeText = decision.approved
+      ? `Permission granted for ${permissionLabel}. Please continue with the previous request.`
+      : `Permission denied for ${permissionLabel}. Please continue without that permission.`;
+    await this.sessionManager.handleMessage(
+      source,
+      { text: resumeText },
+      { ...context, sessionId: session.id },
+      (sessionToHandle, entry) => this.handleSessionMessage(entry, sessionToHandle, source)
+    );
+  }
+
   private async restoreSessions(): Promise<void> {
     const restoredSessions = await this.sessionStore.loadSessions();
     const pendingInternalErrors: Array<{
@@ -728,7 +838,7 @@ export class Engine {
         { sessionId: session.id, source: restored.source },
         "Session restored"
       );
-      const sessionKey = this.buildSessionKey(restored.source, restored.context, true);
+      const sessionKey = this.buildSessionKey(restored.source, restored.context);
       if (sessionKey) {
         this.sessionKeyMap.set(sessionKey, restored.sessionId);
       }
@@ -1058,19 +1168,12 @@ export class Engine {
     return id;
   }
 
-  private buildSessionKey(
-    source: string,
-    context: MessageContext,
-    allowMissingUser: boolean
-  ): string | null {
+  private buildSessionKey(source: string, context: MessageContext): string | null {
     if (!context.userId) {
-      if (allowMissingUser) {
-        logger.warn(
-          { source, channelId: context.channelId },
-          "Missing userId for session mapping"
-        );
-        return `${source}:${context.channelId}`;
-      }
+      logger.warn(
+        { source, channelId: context.channelId },
+        "Missing userId for session mapping"
+      );
       return null;
     }
     return `${source}:${context.channelId}:${context.userId}`;
@@ -1268,4 +1371,49 @@ function normalizeSessionState(
     return { ...fallback, permissions };
   }
   return fallback;
+}
+
+function applyPermission(
+  permissions: SessionPermissions,
+  decision: PermissionDecision
+): void {
+  if (!decision.approved) {
+    return;
+  }
+  if (decision.access.kind === "web") {
+    permissions.web = true;
+    return;
+  }
+  if (!path.isAbsolute(decision.access.path)) {
+    return;
+  }
+  const resolved = path.resolve(decision.access.path);
+  if (decision.access.kind === "write") {
+    const next = new Set(permissions.writeDirs);
+    next.add(resolved);
+    permissions.writeDirs = Array.from(next.values());
+    return;
+  }
+  if (decision.access.kind === "read") {
+    const next = new Set(permissions.readDirs);
+    next.add(resolved);
+    permissions.readDirs = Array.from(next.values());
+  }
+}
+
+function formatPermissionTag(access: PermissionAccess): string {
+  if (access.kind === "web") {
+    return "@web";
+  }
+  return `@${access.kind}:${access.path}`;
+}
+
+function describePermissionDecision(access: PermissionAccess): string {
+  if (access.kind === "web") {
+    return "web access";
+  }
+  if (access.kind === "read") {
+    return `read access to ${access.path}`;
+  }
+  return `write access to ${access.path}`;
 }

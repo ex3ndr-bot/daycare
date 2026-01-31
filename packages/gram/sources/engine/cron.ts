@@ -193,7 +193,7 @@ export class CronScheduler {
 
     const context: MessageContext = {
       channelId: `cron:${task.id}`,
-      userId: null,
+      userId: "cron",
       sessionId: `cron:${task.id}`
     };
 

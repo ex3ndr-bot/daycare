@@ -44,7 +44,7 @@ describe("SessionManager", () => {
 
   it("respects explicit session ids", async () => {
     const manager = new SessionManager();
-    const context = { channelId: "channel-2", userId: null, sessionId: "shared" };
+    const context = { channelId: "channel-2", userId: "system", sessionId: "shared" };
     let sessionId = "";
 
     await manager.handleMessage(

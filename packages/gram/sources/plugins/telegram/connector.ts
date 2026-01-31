@@ -113,7 +113,7 @@ export class TelegramConnector implements Connector {
       const context: MessageContext = {
         channelId: String(message.chat.id),
         channelType: (message.chat.type as MessageContext["channelType"]) ?? "unknown",
-        userId: message.from ? String(message.from.id) : null,
+        userId: String(message.from?.id ?? message.chat.id),
         userFirstName: message.from?.first_name ?? undefined,
         userLastName: message.from?.last_name ?? undefined,
         username: message.from?.username ?? undefined,
