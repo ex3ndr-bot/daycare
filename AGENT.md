@@ -31,6 +31,7 @@
 - If it is requiring for coordinating multiple plugins or agents - it is part of the monilith. Cron is needed to everyone. Heartbeat too. Some event bus. Working with file system, sandboxing - it is part of the monolith code.
 - Plugins are contained exclusively in a single folder (with subfolders)
 - Each plugin folder must include a `README.md` documenting implementation details.
+- See [`doc/PLUGINS.md`](doc/PLUGINS.md) for comprehensive plugin development guide.
 
 ## Agent-Specific Notes
 - Never edit `node_modules` (global/Homebrew/npm/git installs too). Updates overwrite. Skill notes go in `tools.md` or `AGENTS.md`.
