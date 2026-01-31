@@ -179,7 +179,7 @@ export class CronStore {
     const frontmatter: Frontmatter = {
       name: updated.name,
       schedule: updated.schedule,
-      enabled: updated.enabled
+      enabled: updated.enabled ?? true
     };
     if (updated.description) {
       frontmatter.description = updated.description;
