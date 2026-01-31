@@ -167,13 +167,10 @@ export class Engine {
         providerId: undefined,
         permissions: { ...this.defaultPermissions }
       }),
-      sessionIdFor: (_source, context) => {
-        if (context.sessionId) {
-          return context.sessionId;
-        }
-        const providerId = context.providerId ?? "default";
-        const userKey = context.userId ?? context.channelId;
-        return `${providerId}:${userKey}`;
+      sessionIdFor: (source, context) => {
+        const channelId = context.channelId;
+        const userId = context.userId ?? "anonymous";
+        return `${source}:${channelId}:${userId}`;
       },
       storageIdFactory: () => this.sessionStore.createStorageId(),
       messageTransform: (message, context, receivedAt) => {
