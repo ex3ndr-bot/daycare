@@ -12,6 +12,7 @@ export type ConnectorCapabilities = {
   sendFiles?: {
     modes: ConnectorFileMode[];
   };
+  messageFormatPrompt?: string;
   reactions?: boolean;
   typing?: boolean;
 };

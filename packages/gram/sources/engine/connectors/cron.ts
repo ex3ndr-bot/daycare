@@ -13,7 +13,8 @@ export function createCronConnector(): Connector {
 
   return {
     capabilities: {
-      sendText: true
+      sendText: true,
+      messageFormatPrompt: "Messages sent via the cron connector are plain text with no markup or special formatting."
     },
     onMessage: (_handler: MessageHandler) => {
       return noopUnsubscribe;

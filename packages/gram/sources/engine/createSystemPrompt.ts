@@ -12,6 +12,7 @@ export type SystemPromptContext = {
   connector?: string;
   canSendFiles?: boolean;
   fileSendModes?: string;
+  messageFormatPrompt?: string;
   channelId?: string;
   channelType?: string;
   channelIsPrivate?: boolean | null;
@@ -41,6 +42,7 @@ export async function createSystemPrompt(context: SystemPromptContext = {}): Pro
     connector: context.connector ?? "unknown",
     canSendFiles: context.canSendFiles ?? false,
     fileSendModes: context.fileSendModes ?? "",
+    messageFormatPrompt: context.messageFormatPrompt ?? "",
     channelId: context.channelId ?? "unknown",
     channelType: context.channelType ?? "",
     channelIsPrivate: context.channelIsPrivate ?? null,

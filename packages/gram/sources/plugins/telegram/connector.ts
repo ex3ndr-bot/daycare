@@ -38,12 +38,23 @@ export type TelegramConnectorOptions = {
 
 const logger = getLogger("connector.telegram");
 
+const TELEGRAM_MESSAGE_FORMAT_PROMPT = [
+  "Messages sent on Telegram are parsed as HTML (not Markdown).",
+  "Safest option: plain text with no tags.",
+  "If you need formatting, use only supported tags: <b>, <strong>, <i>, <em>, <u>, <ins>, <s>, <strike>, <del>, <code>, <pre>, <a href=\"...\">, <tg-spoiler>.",
+  "Keep tags balanced and properly nested; avoid mixing tags inside <code> or <pre>.",
+  "Escape any literal <, >, and & as &lt;, &gt;, and &amp; unless part of a supported tag.",
+  "Use only the href attribute on <a>; avoid other attributes or unsupported tags.",
+  "Captions use the same rules."
+].join(" ");
+
 export class TelegramConnector implements Connector {
   capabilities: ConnectorCapabilities = {
     sendText: true,
     sendFiles: {
       modes: ["document", "photo", "video"]
     },
+    messageFormatPrompt: TELEGRAM_MESSAGE_FORMAT_PROMPT,
     reactions: true,
     typing: true
   };
@@ -204,7 +215,9 @@ export class TelegramConnector implements Connector {
     const files = message.files ?? [];
     if (files.length === 0) {
       logger.debug(`Sending text-only message targetId=${targetId}`);
-      await this.bot.sendMessage(targetId, message.text ?? "");
+      await this.bot.sendMessage(targetId, message.text ?? "", {
+        parse_mode: "HTML"
+      });
       logger.debug(`Text message sent targetId=${targetId}`);
       return;
     }
@@ -284,7 +297,9 @@ export class TelegramConnector implements Connector {
     file: ConnectorFile,
     caption?: string
   ): Promise<void> {
-    const options = caption ? { caption } : undefined;
+    const options = caption
+      ? { caption, parse_mode: "HTML" as TelegramBot.ParseMode }
+      : undefined;
     const sendAs = file.sendAs ?? "auto";
     if (sendAs === "photo") {
       await this.bot.sendPhoto(targetId, file.path, options);

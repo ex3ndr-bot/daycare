@@ -60,6 +60,14 @@ Their username is unknown.
 Incoming user messages are wrapped as `<time>...</time><message_id>...</message_id><message>...</message>`.
 When setting reactions, use the `message_id` value from the wrapper.
 
+## Message Formatting
+
+{{#if messageFormatPrompt}}
+{{{messageFormatPrompt}}}
+{{else}}
+Send plain text with no special formatting.
+{{/if}}
+
 ## File Sending
 
 {{#if canSendFiles}}

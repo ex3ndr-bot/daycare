@@ -964,6 +964,7 @@ export class Engine {
       connector: source,
       canSendFiles: fileSendModes.length > 0,
       fileSendModes: fileSendModes.length > 0 ? fileSendModes.join(", ") : "",
+      messageFormatPrompt: connectorCapabilities?.messageFormatPrompt ?? "",
       channelId: entry.context.channelId,
       channelType,
       channelIsPrivate,
