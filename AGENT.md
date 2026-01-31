@@ -53,6 +53,7 @@
 - Release guardrails: do not change version numbers without operator’s explicit consent; always ask permission before running any npm publish/release step.
 - keep configs small and explicit
 - avoid hidden side effects
+- Permissions: parse permission strings (e.g. `@read:/path`) into a discriminated union; do not use optional path fields.
 - commit after each ready-to-use change using Angular-style commits
 - build before each commit and run tests
 - document every change in `/docs/` with mermaid diagrams

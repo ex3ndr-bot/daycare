@@ -153,9 +153,9 @@ export class TelegramConnector implements Connector {
       const approved = action === "allow";
       const decision: PermissionDecision = {
         token,
-        kind: pending.request.kind,
-        path: pending.request.path,
-        approved
+        approved,
+        permission: pending.request.permission,
+        access: pending.request.access
       };
       for (const handler of this.permissionHandlers) {
         await handler(decision, pending.context);
@@ -670,9 +670,10 @@ export class TelegramConnector implements Connector {
 function formatPermissionRequest(
   request: PermissionRequest
 ): { text: string; parseMode: TelegramBot.ParseMode } {
-  const access = describePermissionKind(request.kind);
+  const access = describePermissionKind(request.access);
   const escapedReason = escapeHtml(request.reason);
-  const escapedPath = request.path ? escapeHtml(request.path) : null;
+  const escapedPath =
+    request.access.kind === "web" ? null : escapeHtml(request.access.path);
   const lines = [
     "🔐 <b>Permission request</b>",
     "",
@@ -688,11 +689,11 @@ function formatPermissionRequest(
   };
 }
 
-function describePermissionKind(kind: PermissionRequest["kind"]): string {
-  if (kind === "read") {
+function describePermissionKind(access: PermissionRequest["access"]): string {
+  if (access.kind === "read") {
     return "Read files";
   }
-  if (kind === "write") {
+  if (access.kind === "write") {
     return "Write/edit files";
   }
   return "Web browsing";

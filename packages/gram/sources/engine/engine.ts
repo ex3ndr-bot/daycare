@@ -11,7 +11,7 @@ import {
   ToolResolver
 } from "./modules.js";
 import type { ConnectorMessage, MessageContext } from "./connectors/types.js";
-import type { PermissionDecision } from "./connectors/types.js";
+import type { PermissionAccess, PermissionDecision } from "./connectors/types.js";
 import { FileStore } from "../files/store.js";
 import type { FileReference } from "../files/types.js";
 import { InferenceRouter } from "./inference/router.js";
@@ -576,8 +576,8 @@ export class Engine {
     context: MessageContext
   ): Promise<void> {
     const connector = this.connectorRegistry.get(source);
-    const permissionTag = formatPermissionTag(decision);
-    const permissionLabel = describePermissionDecision(decision);
+    const permissionTag = formatPermissionTag(decision.access);
+    const permissionLabel = describePermissionDecision(decision.access);
     if (!decision.approved) {
       logger.info(
         { source, permission: permissionTag, sessionId: context.sessionId },
@@ -611,8 +611,8 @@ export class Engine {
       return;
     }
 
-    if (decision.approved && (decision.kind === "read" || decision.kind === "write") && decision.path) {
-      if (!path.isAbsolute(decision.path)) {
+    if (decision.approved && (decision.access.kind === "read" || decision.access.kind === "write")) {
+      if (!path.isAbsolute(decision.access.path)) {
         logger.warn({ sessionId: session.id, permission: permissionTag }, "Permission path not absolute");
         if (connector) {
           await connector.sendMessage(context.channelId, {
@@ -1129,45 +1129,40 @@ function applyPermission(
   if (!decision.approved) {
     return;
   }
-  if (decision.kind === "web") {
+  if (decision.access.kind === "web") {
     permissions.web = true;
     return;
   }
-  if (!decision.path) {
+  if (!path.isAbsolute(decision.access.path)) {
     return;
   }
-  if (!path.isAbsolute(decision.path)) {
-    return;
-  }
-  const resolved = path.resolve(decision.path);
-  if (decision.kind === "write") {
+  const resolved = path.resolve(decision.access.path);
+  if (decision.access.kind === "write") {
     const next = new Set(permissions.writeDirs);
     next.add(resolved);
     permissions.writeDirs = Array.from(next.values());
     return;
   }
-  if (decision.kind === "read") {
+  if (decision.access.kind === "read") {
     const next = new Set(permissions.readDirs);
     next.add(resolved);
     permissions.readDirs = Array.from(next.values());
   }
 }
 
-function formatPermissionTag(decision: PermissionDecision): string {
-  if (decision.kind === "web") {
+function formatPermissionTag(access: PermissionAccess): string {
+  if (access.kind === "web") {
     return "@web";
   }
-  const pathPart = decision.path ?? "";
-  return `@${decision.kind}:${pathPart}`;
+  return `@${access.kind}:${access.path}`;
 }
 
-function describePermissionDecision(decision: PermissionDecision): string {
-  if (decision.kind === "web") {
+function describePermissionDecision(access: PermissionAccess): string {
+  if (access.kind === "web") {
     return "web access";
   }
-  const target = decision.path?.trim();
-  if (decision.kind === "read") {
-    return target ? `read access to ${target}` : "read access";
+  if (access.kind === "read") {
+    return `read access to ${access.path}`;
   }
-  return target ? `write access to ${target}` : "write access";
+  return `write access to ${access.path}`;
 }

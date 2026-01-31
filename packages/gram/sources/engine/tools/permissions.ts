@@ -5,12 +5,11 @@ import { createId } from "@paralleldrive/cuid2";
 import path from "node:path";
 
 import type { ToolDefinition } from "./types.js";
-import type { PermissionKind, PermissionRequest } from "../connectors/types.js";
+import type { PermissionAccess, PermissionRequest } from "../connectors/types.js";
 
 const schema = Type.Object(
   {
-    kind: Type.Union([Type.Literal("read"), Type.Literal("write"), Type.Literal("web")]),
-    path: Type.Optional(Type.String({ minLength: 1 })),
+    permission: Type.String({ minLength: 1 }),
     reason: Type.String({ minLength: 1 })
   },
   { additionalProperties: false }
@@ -38,26 +37,20 @@ export function buildPermissionRequestTool(): ToolDefinition {
         throw new Error("Connector not available for permission requests.");
       }
 
-      if (payload.kind !== "web" && !payload.path) {
-        throw new Error("Path is required for read/write permissions.");
-      }
-      if (payload.kind === "web" && payload.path) {
-        throw new Error("Path is not allowed for web permissions.");
-      }
-      if (payload.path && !path.isAbsolute(payload.path)) {
+      const access = parsePermission(payload.permission);
+      if (access.kind !== "web" && !path.isAbsolute(access.path)) {
         throw new Error("Path must be absolute.");
       }
 
-      const permission = formatPermission(payload.kind, payload.path);
-      const friendly = describePermission(payload.kind, payload.path);
+      const permission = payload.permission.trim();
+      const friendly = describePermission(access);
       const text = `Permission request:\n${friendly}\nReason: ${payload.reason}`;
       const request: PermissionRequest = {
         token: createId(),
-        kind: payload.kind as PermissionKind,
-        path: payload.path,
         reason: payload.reason,
         message: text,
-        permission
+        permission,
+        access
       };
 
       if (connector.requestPermission) {
@@ -91,24 +84,34 @@ export function buildPermissionRequestTool(): ToolDefinition {
   };
 }
 
-function formatPermission(kind: PermissionKind, path?: string): string {
-  if (kind === "web") {
-    return "@web";
+function parsePermission(value: string): PermissionAccess {
+  const trimmed = value.trim();
+  if (trimmed === "@web") {
+    return { kind: "web" };
   }
-  const target = path?.trim();
-  if (!target) {
-    return `@${kind}:`;
+  if (trimmed.startsWith("@read:")) {
+    const pathValue = trimmed.slice("@read:".length).trim();
+    if (!pathValue) {
+      throw new Error("Read permission requires a path.");
+    }
+    return { kind: "read", path: pathValue };
   }
-  return `@${kind}:${target}`;
+  if (trimmed.startsWith("@write:")) {
+    const pathValue = trimmed.slice("@write:".length).trim();
+    if (!pathValue) {
+      throw new Error("Write permission requires a path.");
+    }
+    return { kind: "write", path: pathValue };
+  }
+  throw new Error("Permission must be @web, @read:<path>, or @write:<path>.");
 }
 
-function describePermission(kind: PermissionKind, path?: string): string {
-  if (kind === "web") {
+function describePermission(access: PermissionAccess): string {
+  if (access.kind === "web") {
     return "Web access";
   }
-  const target = path ?? "";
-  if (kind === "read") {
-    return `Read access to ${target}`;
+  if (access.kind === "read") {
+    return `Read access to ${access.path}`;
   }
-  return `Write access to ${target}`;
+  return `Write access to ${access.path}`;
 }

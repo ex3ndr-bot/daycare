@@ -51,20 +51,24 @@ export type MessageUnsubscribe = () => void;
 
 export type PermissionKind = "read" | "write" | "web";
 
+export type PermissionAccess =
+  | { kind: "web" }
+  | { kind: "read"; path: string }
+  | { kind: "write"; path: string };
+
 export type PermissionRequest = {
   token: string;
-  kind: PermissionKind;
-  path?: string;
   reason: string;
   message: string;
   permission: string;
+  access: PermissionAccess;
 };
 
 export type PermissionDecision = {
   token: string;
-  kind: PermissionKind;
-  path?: string;
   approved: boolean;
+  permission: string;
+  access: PermissionAccess;
 };
 
 export type PermissionHandler = (
