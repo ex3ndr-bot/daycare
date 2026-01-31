@@ -10,7 +10,13 @@ import {
   InferenceRegistry,
   ToolResolver
 } from "./modules.js";
-import type { Connector, ConnectorMessage, MessageContext } from "./connectors/types.js";
+import type {
+  Connector,
+  ConnectorMessage,
+  MessageContext,
+  PermissionAccess,
+  PermissionDecision
+} from "./connectors/types.js";
 import { createCronConnector } from "./connectors/cron.js";
 import { FileStore } from "../files/store.js";
 import type { FileReference } from "../files/types.js";
@@ -43,6 +49,7 @@ import {
 } from "./tools/cron.js";
 import { buildImageGenerationTool } from "./tools/image-generation.js";
 import { buildReactionTool } from "./tools/reaction.js";
+import { buildPermissionRequestTool } from "./tools/permissions.js";
 import { buildSendFileTool } from "./tools/send-file.js";
 import { formatTimeAI } from "../util/timeFormat.js";
 import type { ToolExecutionResult } from "./tools/types.js";
