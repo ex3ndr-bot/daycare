@@ -1,6 +1,12 @@
-# claybot
+<p align="center">
+  <img src="logo.png" alt="Claybot" width="200" />
+</p>
 
-A minimal, composable AI agent framework with plugin-driven architecture.
+<h1 align="center">claybot</h1>
+
+<p align="center">
+  A minimal, composable AI agent framework with plugin-driven architecture.
+</p>
 
 ## Features
 
