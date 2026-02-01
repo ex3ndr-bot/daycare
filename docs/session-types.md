@@ -72,6 +72,59 @@ Operational notes:
 - Cron sessions are scheduled inputs; they can spawn subagents but are not
   foreground targets.
 
+## Message routing
+
+### User message to session
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant Connector
+  participant Engine
+  participant Session
+  User->>Connector: message
+  Connector->>Engine: connector.message
+  Engine->>Session: resolve session id + enqueue
+  Session->>Engine: handle message
+  Engine-->>Connector: response
+```
+
+Routing notes:
+- Session id is resolved from the persisted `user` descriptor (connector + user + channel).
+- The session queue preserves ordering; updates are persisted on each step.
+
+### Session to subagent
+
+```mermaid
+sequenceDiagram
+  participant Session
+  participant Engine
+  participant Subagent
+  Session->>Engine: start_background_agent tool
+  Engine->>Subagent: create subagent session (parent + name)
+  Subagent->>Engine: run tasks
+```
+
+Routing notes:
+- Subagent sessions always carry `parentSessionId` and `name`.
+- The subagent session descriptor is persisted on creation.
+
+### Subagent back to user
+
+```mermaid
+sequenceDiagram
+  participant Subagent
+  participant Engine
+  participant User
+  Subagent->>Engine: send_session_message
+  Engine->>Engine: resolve most-recent-foreground
+  Engine->>User: system message
+```
+
+Routing notes:
+- The `most-recent-foreground` strategy selects the most recent `user` session.
+- Subagents can also send to a specific session id if provided.
+
 ## Implementation references
 
 - Descriptor type + normalization: `packages/claybot/sources/engine/sessions/descriptor.ts`
