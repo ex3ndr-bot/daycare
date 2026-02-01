@@ -1,7 +1,6 @@
 import { createPiAiProviderDefinition } from "./pi-ai.js";
 import { openAiCompatibleProvider } from "./openai-compatible.js";
 import { buildOpenAiImageProvider } from "./openai-image.js";
-import { nanobananaProvider } from "./nanobanana.js";
 
 import type { ProviderDefinition } from "./types.js";
 import type { ProviderSettings, SettingsConfig } from "../settings.js";
@@ -117,8 +116,7 @@ const PROVIDERS: ProviderDefinition[] = [
     name: "Kimi For Coding",
     description: "Kimi inference provider.",
     auth: "apiKey"
-  }),
-  nanobananaProvider
+  })
 ];
 
 export function listProviderDefinitions(): ProviderDefinition[] {
