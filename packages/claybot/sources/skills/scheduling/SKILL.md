@@ -1,0 +1,89 @@
+---
+name: scheduling
+description: Schedule recurring or time-based tasks. Use for alarms, reminders, periodic reviews, automated reports, or any task that should run at specific times or intervals.
+---
+
+# Scheduling
+
+ClayBot supports two scheduling mechanisms: **cron** for precise timing and **heartbeats** for periodic check-ins.
+
+## When to Use Cron
+
+Use cron when:
+- Exact timing matters (e.g., "every day at 9am")
+- Tasks need their own isolated session and memory
+- One-off scheduled tasks (with `deleteAfterRun`)
+- Tasks that produce artifacts in a dedicated workspace
+
+**Cron tools:** `add_cron`, `cron_read_task`, `cron_read_memory`, `cron_write_memory`, `cron_delete_task`
+
+## When to Use Heartbeats
+
+Use heartbeats when:
+- Approximate timing is acceptable (~30 minute intervals)
+- Tasks need ongoing context from the main session
+- Prompts evolve over time and need periodic review
+- Lightweight status checks or reminders
+
+**Heartbeat tools:** `heartbeat_add`, `heartbeat_list`, `heartbeat_run`, `heartbeat_remove`
+
+## Routing Examples
+
+### Route to Cron
+
+| User Input | Why Cron |
+|------------|----------|
+| "Remind me every day at 9am to check my emails" | Specific time (9am daily) |
+| "Run a backup script every Sunday at midnight" | Exact schedule needed |
+| "Send me a weather report every morning at 7:30" | Precise daily timing |
+| "Every hour, check if the server is up" | Strict hourly repetition |
+| "At 5pm on weekdays, summarize my tasks" | Complex schedule (weekdays only) |
+| "Once tomorrow at noon, remind me about the meeting" | One-off scheduled task |
+| "Every 15 minutes, poll the API for updates" | Precise interval timing |
+| "On the 1st of each month, generate a report" | Calendar-based schedule |
+
+### Route to Heartbeats
+
+| User Input | Why Heartbeat |
+|------------|---------------|
+| "Periodically check on my project status" | Ongoing review, flexible timing |
+| "Keep an eye on my git branches" | Continuous monitoring, evolving context |
+| "Remind me about my todos from time to time" | Lightweight, approximate timing |
+| "Check in on code quality occasionally" | Periodic review that needs reasoning |
+| "Monitor my open PRs and update me" | Ongoing task that evolves |
+| "Review my notes and suggest improvements" | Needs main session context |
+| "Periodically summarize what I've been working on" | Flexible interval, ongoing |
+| "Keep track of my daily progress" | Continuous, evolving check-in |
+
+### Ambiguous Cases
+
+| User Input | Resolution |
+|------------|------------|
+| "Remind me about X regularly" | Ask: need exact times? Cron. Flexible? Heartbeat. |
+| "Check something every day" | Ask: specific time? Cron. Anytime during day? Heartbeat. |
+| "Monitor Y" | Heartbeat (monitoring implies ongoing, evolving context) |
+| "Schedule Z" | Cron (scheduling implies specific timing) |
+
+## Workflow
+
+**For cron tasks:**
+1. Determine the schedule (cron expression: `minute hour day month weekday`)
+2. Use `add_cron` with name, schedule, and prompt
+3. Each task gets isolated session, memory file, and workspace
+
+**For heartbeats:**
+1. Run `heartbeat_list` to see existing tasks
+2. Use `heartbeat_add` with title and prompt
+3. Use `heartbeat_run` to trigger immediately
+4. Use `heartbeat_remove` for cleanup
+
+## Key Differences
+
+| Feature | Cron | Heartbeats |
+|---------|------|------------|
+| Timing | Exact (cron expression) | ~30 minute intervals |
+| Session | Isolated per task | Shared main session |
+| Memory | Persistent `MEMORY.md` | Main session context |
+| Workspace | Dedicated `files/` dir | None |
+| One-off | Yes (`deleteAfterRun`) | No |
+| Best for | Time-sensitive tasks | Ongoing reviews |
