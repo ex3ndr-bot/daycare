@@ -4,10 +4,10 @@ import path from "node:path";
 
 import { getLogger } from "../log.js";
 import { Agent } from "./agents/agent.js";
-import {
+import { ModuleRegistry } from "./modules/_registry.js";
+import type {
   ConnectorRegistry,
   ImageGenerationRegistry,
-  InferenceRegistry,
   ToolResolver
 } from "./modules/_registry.js";
 import type {
@@ -122,10 +122,7 @@ export class Engine {
   private defaultPermissions: SessionPermissions;
   private authStore: AuthStore;
   private fileStore: FileStore;
-  private connectorRegistry: ConnectorRegistry;
-  private inferenceRegistry: InferenceRegistry;
-  private imageRegistry: ImageGenerationRegistry;
-  private toolResolver: ToolResolver;
+  readonly modules: ModuleRegistry;
   private pluginRegistry: PluginRegistry;
   private pluginManager: PluginManager;
   private pluginEventQueue: PluginEventQueue;
@@ -158,7 +155,7 @@ export class Engine {
     this.pluginEventQueue = new PluginEventQueue();
     this.pluginEventEngine = new PluginEventEngine(this.pluginEventQueue);
 
-    this.connectorRegistry = new ConnectorRegistry({
+    this.modules = new ModuleRegistry({
       onMessage: (source, message, context) => {
         if (!context.channelId || !context.userId) {
           logger.error(
@@ -187,20 +184,17 @@ export class Engine {
       }
     });
 
-    this.inferenceRegistry = new InferenceRegistry();
-    this.imageRegistry = new ImageGenerationRegistry();
-    this.toolResolver = new ToolResolver();
     this.inferenceRouter = new InferenceRouter({
       providers: listActiveInferenceProviders(this.settings),
-      registry: this.inferenceRegistry,
+      registry: this.modules.inference,
       auth: this.authStore
     });
 
     this.pluginRegistry = new PluginRegistry(
-      this.connectorRegistry,
-      this.inferenceRegistry,
-      this.imageRegistry,
-      this.toolResolver
+      this.modules.connectors,
+      this.modules.inference,
+      this.modules.images,
+      this.modules.tools
     );
 
     this.pluginManager = new PluginManager({
@@ -219,8 +213,8 @@ export class Engine {
       settings: this.settings,
       auth: this.authStore,
       fileStore: this.fileStore,
-      inferenceRegistry: this.inferenceRegistry,
-      imageRegistry: this.imageRegistry
+      inferenceRegistry: this.modules.inference,
+      imageRegistry: this.modules.images
     });
 
     this.sessionStore = new SessionStore<SessionState>({
@@ -453,7 +447,7 @@ export class Engine {
     });
 
     logger.debug("Registering core tools");
-    this.toolResolver.register(
+    this.modules.tools.register(
       "core",
       buildCronTool(this.cron, (task) => {
         logger.debug(`Cron task added via tool taskId=${task.id}`);
@@ -461,21 +455,21 @@ export class Engine {
       })
     );
     if (this.cronStore) {
-      this.toolResolver.register("core", buildCronReadTaskTool(this.cronStore));
-      this.toolResolver.register("core", buildCronReadMemoryTool(this.cronStore));
-      this.toolResolver.register("core", buildCronWriteMemoryTool(this.cronStore));
+      this.modules.tools.register("core", buildCronReadTaskTool(this.cronStore));
+      this.modules.tools.register("core", buildCronReadMemoryTool(this.cronStore));
+      this.modules.tools.register("core", buildCronWriteMemoryTool(this.cronStore));
     }
-    this.toolResolver.register("core", buildCronDeleteTaskTool(this.cron));
-    this.toolResolver.register("core", buildHeartbeatRunTool());
-    this.toolResolver.register("core", buildHeartbeatAddTool());
-    this.toolResolver.register("core", buildHeartbeatListTool());
-    this.toolResolver.register("core", buildHeartbeatRemoveTool());
-    this.toolResolver.register("core", buildStartBackgroundAgentTool());
-    this.toolResolver.register("core", buildSendSessionMessageTool());
-    this.toolResolver.register("core", buildImageGenerationTool(this.imageRegistry));
-    this.toolResolver.register("core", buildReactionTool());
-    this.toolResolver.register("core", buildSendFileTool());
-    this.toolResolver.register("core", buildPermissionRequestTool());
+    this.modules.tools.register("core", buildCronDeleteTaskTool(this.cron));
+    this.modules.tools.register("core", buildHeartbeatRunTool());
+    this.modules.tools.register("core", buildHeartbeatAddTool());
+    this.modules.tools.register("core", buildHeartbeatListTool());
+    this.modules.tools.register("core", buildHeartbeatRemoveTool());
+    this.modules.tools.register("core", buildStartBackgroundAgentTool());
+    this.modules.tools.register("core", buildSendSessionMessageTool());
+    this.modules.tools.register("core", buildImageGenerationTool(this.modules.images));
+    this.modules.tools.register("core", buildReactionTool());
+    this.modules.tools.register("core", buildSendFileTool());
+    this.modules.tools.register("core", buildPermissionRequestTool());
     logger.debug(
       "Core tools registered: cron, cron_memory, heartbeat, background, image_generation, reaction, send_file, request_permission"
     );
@@ -535,7 +529,7 @@ export class Engine {
   }
 
   async shutdown(): Promise<void> {
-    await this.connectorRegistry.unregisterAll("shutdown");
+    await this.modules.connectors.unregisterAll("shutdown");
     if (this.cron) {
       this.cron.stop();
     }
@@ -553,7 +547,7 @@ export class Engine {
     return {
       plugins,
       providers: this.providerManager.listLoadedDetails(),
-      connectors: this.connectorRegistry.listStatus().map((connector) => {
+      connectors: this.modules.connectors.listStatus().map((connector) => {
         const plugin = pluginByInstance.get(connector.id);
         return {
           id: connector.id,
@@ -562,7 +556,7 @@ export class Engine {
           loadedAt: connector.loadedAt
         };
       }),
-      inferenceProviders: this.inferenceRegistry.list().map((provider) => {
+      inferenceProviders: this.modules.inference.list().map((provider) => {
         const definition = getProviderDefinition(provider.id);
         return {
           id: provider.id,
@@ -570,7 +564,7 @@ export class Engine {
           label: provider.label
         };
       }),
-      imageProviders: this.imageRegistry.list().map((provider) => {
+      imageProviders: this.modules.images.list().map((provider) => {
         const definition = getProviderDefinition(provider.id);
         return {
           id: provider.id,
@@ -674,7 +668,7 @@ export class Engine {
   }
 
   getConnectorRegistry(): ConnectorRegistry {
-    return this.connectorRegistry;
+    return this.modules.connectors;
   }
 
   getInferenceRouter(): InferenceRouter {
@@ -682,11 +676,11 @@ export class Engine {
   }
 
   getToolResolver(): ToolResolver {
-    return this.toolResolver;
+    return this.modules.tools;
   }
 
   getImageRegistry(): ImageGenerationRegistry {
-    return this.imageRegistry;
+    return this.modules.images;
   }
 
   getEventBus(): EngineEventBus {
@@ -730,12 +724,12 @@ export class Engine {
     options?: { agentKind?: "background" | "foreground"; allowCronTools?: boolean }
   ) {
     return toolListContextBuild({
-      tools: this.toolResolver.listTools(),
+      tools: this.modules.tools.listTools(),
       source,
       agentKind: options?.agentKind,
       allowCronTools: options?.allowCronTools,
-      connectorRegistry: this.connectorRegistry,
-      imageRegistry: this.imageRegistry
+      connectorRegistry: this.modules.connectors,
+      imageRegistry: this.modules.images
     });
   }
 
@@ -777,8 +771,8 @@ export class Engine {
       };
     session.context.state.session = sessionDescriptorBuild("system", context, sessionId);
 
-    return this.toolResolver.execute(toolCall, {
-      connectorRegistry: this.connectorRegistry,
+    return this.modules.tools.execute(toolCall, {
+      connectorRegistry: this.modules.connectors,
       fileStore: this.fileStore,
       auth: this.authStore,
       logger,
@@ -866,7 +860,7 @@ export class Engine {
       throw new Error(`Session routing unavailable: ${targetSessionId}`);
     }
     const source = routing.source;
-    if (!this.connectorRegistry.get(source)) {
+    if (!this.modules.connectors.get(source)) {
       throw new Error(`Connector unavailable for session: ${source}`);
     }
     const context = { ...routing.context, messageId: undefined, commands: undefined };
@@ -1003,7 +997,7 @@ export class Engine {
         "Permission decision missing userId"
       );
     }
-    const connector = this.connectorRegistry.get(source);
+    const connector = this.modules.connectors.get(source);
     const permissionTag = permissionFormatTag(decision.access);
     const permissionLabel = permissionDescribeDecision(decision.access);
     let sessionId = cuid2Is(context.sessionId ?? null) ? context.sessionId! : null;
@@ -1172,7 +1166,7 @@ export class Engine {
   ): Promise<void> {
     const message = "Internal error.";
     for (const entry of pending) {
-      const connector = this.connectorRegistry.get(entry.source);
+      const connector = this.modules.connectors.get(entry.source);
       if (!connector) {
         continue;
       }
