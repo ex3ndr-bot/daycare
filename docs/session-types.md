@@ -123,7 +123,8 @@ sequenceDiagram
 
 Routing notes:
 - The `most-recent-foreground` strategy selects the most recent `user` session.
-- Subagents can also send to a specific session id if provided.
+- Subagents default to their `parentSessionId`; other sessions fall back to
+  `most-recent-foreground` when no session id is provided.
 
 ## Implementation references
 

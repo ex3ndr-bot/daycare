@@ -2081,11 +2081,8 @@ function buildSessionDescriptor(
     };
   }
   if (context.agent?.kind === "background") {
-    if (!context.agent.parentSessionId) {
-      throw new Error("Subagent parent session is required");
-    }
-    if (!context.agent.name) {
-      throw new Error("Subagent name is required");
+    if (!context.agent.parentSessionId || !context.agent.name) {
+      throw new Error("Subagent context requires parentSessionId and name");
     }
     return {
       type: "subagent",
@@ -2094,8 +2091,15 @@ function buildSessionDescriptor(
       name: context.agent.name
     };
   }
-  // Internal work still needs a typed descriptor; treat as subagent.
-  return { type: "subagent", id: sessionId, parentSessionId: "system", name: "system" };
+  if (source === "system") {
+    return {
+      type: "subagent",
+      id: sessionId,
+      parentSessionId: "system",
+      name: "system"
+    };
+  }
+  throw new Error("Session descriptor could not be resolved");
 }
 
 function buildSessionKeyFromDescriptor(descriptor: SessionDescriptor): string | null {
