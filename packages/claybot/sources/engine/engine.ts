@@ -500,6 +500,44 @@ export class Engine {
       await this.heartbeat.start();
       const heartbeatTasks = await this.heartbeat.listTasks();
       this.eventBus.emit("heartbeat.started", { tasks: heartbeatTasks });
+      if (heartbeatTasks.length === 0) {
+        logger.info("No heartbeat tasks found on boot.");
+      } else {
+        const withLastRun = heartbeatTasks.filter((task) => !!task.lastRunAt);
+        const missingLastRun = heartbeatTasks.filter((task) => !task.lastRunAt);
+        if (withLastRun.length > 0) {
+          const mostRecent = withLastRun
+            .map((task) => task.lastRunAt as string)
+            .sort()
+            .at(-1);
+          logger.info(
+            {
+              taskCount: heartbeatTasks.length,
+              mostRecentRunAt: mostRecent
+            },
+            "Heartbeat last run loaded on boot"
+          );
+        }
+        if (missingLastRun.length > 0) {
+          logger.info(
+            {
+              taskCount: missingLastRun.length,
+              taskIds: missingLastRun.map((task) => task.id)
+            },
+            "Heartbeat missing last run info; running now"
+          );
+          await this.heartbeat.runNow(missingLastRun.map((task) => task.id));
+        }
+        const nextRunAt =
+          this.heartbeat.getNextRunAt() ??
+          new Date(Date.now() + this.heartbeat.getIntervalMs());
+        logger.info(
+          {
+            nextRunAt: nextRunAt.toISOString()
+          },
+          "Next heartbeat run scheduled"
+        );
+      }
     }
     logger.debug("Engine.start() complete");
   }

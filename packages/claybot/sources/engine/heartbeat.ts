@@ -22,6 +22,7 @@ export class HeartbeatScheduler {
   private started = false;
   private stopped = false;
   private running = false;
+  private nextRunAt: Date | null = null;
 
   constructor(options: HeartbeatSchedulerOptions) {
     this.store = options.store;
@@ -62,6 +63,14 @@ export class HeartbeatScheduler {
     return this.store.listTasks();
   }
 
+  getIntervalMs(): number {
+    return this.intervalMs;
+  }
+
+  getNextRunAt(): Date | null {
+    return this.nextRunAt;
+  }
+
   private scheduleNext(): void {
     if (this.stopped) {
       return;
@@ -69,6 +78,7 @@ export class HeartbeatScheduler {
     if (this.timer) {
       clearTimeout(this.timer);
     }
+    this.nextRunAt = new Date(Date.now() + this.intervalMs);
     this.timer = setTimeout(() => {
       this.timer = null;
       void this.tick();
@@ -100,6 +110,13 @@ export class HeartbeatScheduler {
       if (filtered.length === 0) {
         return { ran: 0, taskIds: [] };
       }
+      logger.info(
+        {
+          taskCount: filtered.length,
+          taskIds: filtered.map((task) => task.id)
+        },
+        "Heartbeat run started"
+      );
       for (const task of filtered) {
         const runAt = new Date();
         try {
@@ -114,6 +131,13 @@ export class HeartbeatScheduler {
           await this.onTaskComplete?.(task, runAt);
         }
       }
+      logger.info(
+        {
+          taskCount: filtered.length,
+          taskIds: filtered.map((task) => task.id)
+        },
+        "Heartbeat run completed"
+      );
       return { ran: filtered.length, taskIds: filtered.map((task) => task.id) };
     } catch (error) {
       logger.warn({ error }, "Heartbeat run failed");
