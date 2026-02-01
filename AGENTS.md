@@ -69,6 +69,32 @@
 - do not use barrel `index.ts` files
 - avoid backward-compatibility shims for internal code
 
+## Time Handling
+Use **unix timestamps** (milliseconds since epoch) for all time values in the application. Only use `Date` objects at boundaries for parsing or formatting.
+
+```typescript
+// Good: store and pass around unix timestamps
+const now = Date.now();
+const expiresAt = now + 60_000; // 1 minute from now
+
+function isExpired(expiresAt: number): boolean {
+  return Date.now() > expiresAt;
+}
+
+// Good: Date only for display/parsing
+const formatted = new Date(expiresAt).toISOString();
+const parsed = new Date("2025-01-15T10:00:00Z").getTime();
+
+// Bad: passing Date objects around
+function isExpired(expiresAt: Date): boolean { /* ... */ }
+```
+
+Why:
+- **Simpler arithmetic**: `now + 60_000` vs `new Date(date.getTime() + 60_000)`
+- **JSON-friendly**: numbers serialize cleanly
+- **Immutable**: no accidental mutation
+- **Comparable**: `a > b` works directly
+
 ## Async Patterns
 
 ### AsyncLock for Exclusive Code Blocks
