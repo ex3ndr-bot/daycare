@@ -188,6 +188,17 @@ domainVerb.spec.ts   # unit test lives next to the file
 
 Example: `permissionApply.ts` exports `permissionApply()`, tested in `permissionApply.spec.ts`.
 
+### Underscore Prefix for Aggregation Files
+Use an underscore prefix (`_`) for files that aggregate or combine multiple items into a single list or registry:
+
+```
+_modules.ts      # list of all modules to register
+_skills.ts       # hardcoded skill definitions
+_providers.ts    # all provider implementations
+```
+
+This distinguishes aggregation files from regular single-function files and makes them sort first in file explorers.
+
 ### Function Documentation
 Each public function should have a brief comment describing its **purpose** and **expectations**:
 ```typescript
