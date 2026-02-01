@@ -12,6 +12,9 @@ ClayBot always includes core skills from:
 Plugins can register additional skills via `registerSkill(path)` with an absolute
 path to a `SKILL.md` file.
 
+Skills can also live in the config folder at `.claybot/skills/`. They are loaded
+fresh each time the system prompt is built.
+
 Each skill is a folder containing a `SKILL.md` file. The folder name becomes
 the skill name shown to the agent. The system prompt includes the **absolute
 path** to each skill so the agent can read it directly.

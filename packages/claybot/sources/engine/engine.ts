@@ -71,7 +71,12 @@ import { HeartbeatStore, type HeartbeatDefinition } from "./heartbeat-store.js";
 import { EngineEventBus } from "./ipc/events.js";
 import { ProviderManager } from "../providers/manager.js";
 import { DEFAULT_SOUL_PATH, DEFAULT_USER_PATH } from "../paths.js";
-import { formatSkillsPrompt, listCoreSkills, listRegisteredSkills } from "./skills/catalog.js";
+import {
+  formatSkillsPrompt,
+  listConfigSkills,
+  listCoreSkills,
+  listRegisteredSkills
+} from "./skills/catalog.js";
 
 const logger = getLogger("engine.runtime");
 const MAX_TOOL_ITERATIONS = 5;
@@ -1365,8 +1370,9 @@ export class Engine {
     const pluginPrompts = await this.pluginManager.getSystemPrompts();
     const pluginPrompt = pluginPrompts.length > 0 ? pluginPrompts.join("\n\n") : "";
     const coreSkills = await listCoreSkills();
+    const configSkills = await listConfigSkills(path.join(this.configDir, "skills"));
     const pluginSkills = await listRegisteredSkills(this.pluginManager.listRegisteredSkills());
-    const skills = [...coreSkills, ...pluginSkills];
+    const skills = [...coreSkills, ...configSkills, ...pluginSkills];
     const skillsPrompt = formatSkillsPrompt(skills);
     const agentKind = session.context.state.agent?.kind ?? entry.context.agent?.kind;
     const allowCronTools = isCronContext(entry.context, session.context.state.session);

@@ -9,7 +9,7 @@ export type AgentSkill = {
   name: string;
   description?: string | null;
   path: string;
-  source: "core" | "plugin";
+  source: "core" | "config" | "plugin";
   pluginId?: string;
 };
 
@@ -20,6 +20,7 @@ export type PluginSkillRegistration = {
 
 type SkillSource =
   | { source: "core"; root?: string }
+  | { source: "config"; root?: string }
   | { source: "plugin"; pluginId: string };
 
 type SkillFrontmatter = {
@@ -33,6 +34,10 @@ const CORE_SKILLS_ROOT = fileURLToPath(new URL("../../skills", import.meta.url))
 
 export async function listCoreSkills(): Promise<AgentSkill[]> {
   return listSkillsFromRoot(CORE_SKILLS_ROOT, { source: "core", root: CORE_SKILLS_ROOT });
+}
+
+export async function listConfigSkills(root: string): Promise<AgentSkill[]> {
+  return listSkillsFromRoot(root, { source: "config", root });
 }
 
 export async function listRegisteredSkills(
@@ -85,7 +90,9 @@ export function formatSkillsPrompt(skills: AgentSkill[]): string {
 
   for (const skill of ordered) {
     const sourceLabel =
-      skill.source === "plugin" ? `plugin:${skill.pluginId ?? "unknown"}` : "core";
+      skill.source === "plugin"
+        ? `plugin:${skill.pluginId ?? "unknown"}`
+        : skill.source;
     const name = escapeXml(skill.name);
     const description = skill.description ? escapeXml(skill.description) : "";
     lines.push("    <skill>");
@@ -345,6 +352,9 @@ function buildSkillId(filePath: string, source: SkillSource, root?: string): str
   const normalized = slug.length > 0 ? slug.split(path.sep).join("/") : "skill";
   if (source.source === "plugin") {
     return `plugin:${source.pluginId}/${normalized}`;
+  }
+  if (source.source === "config") {
+    return `config:${normalized}`;
   }
   return `core:${normalized}`;
 }
