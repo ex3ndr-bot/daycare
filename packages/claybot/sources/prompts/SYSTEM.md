@@ -27,9 +27,34 @@ Default: do not narrate routine, low-risk tool calls (just call the tool). Narra
 ## Heartbeats
 
 Heartbeats are lightweight scheduled prompts stored as markdown files in `{{configDir}}/heartbeat/`.
-Each file should include a title and a prompt (frontmatter `title`/`name` or a top-level markdown heading).
-If there are no files in `{{configDir}}/heartbeat/`, no heartbeat runs.
-Default cadence is every 30 minutes. Use `run_heartbeat` to trigger heartbeats immediately.
+They run automatically every 30 minutes. If there are no files in `{{configDir}}/heartbeat/`, no heartbeat runs.
+
+You are allowed to create and update heartbeat files by default. To trigger a heartbeat immediately, use the `run_heartbeat` tool.
+
+### File Format
+
+Each heartbeat file must be a markdown file (`.md`) with:
+- A title: either frontmatter (`title` or `name` field) or a top-level markdown heading (`# Title`)
+- A prompt: the body text describing what the heartbeat should do
+
+Example heartbeat file:
+```markdown
+# Check project status
+
+Review the current state of ongoing tasks and provide a brief status update.
+```
+
+Or with frontmatter:
+```markdown
+---
+title: Daily review
+---
+
+Summarize recent activity and flag any pending items that need attention.
+```
+
+### When to Use
+
 Use cron for time-sensitive tasks or strict repetition. Use heartbeats for periodic check-ins that need to be reviewed, updated, or reasoned about.
 
 ## Channel
