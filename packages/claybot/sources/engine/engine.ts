@@ -958,9 +958,9 @@ export class Engine {
     text: string;
     origin?: "background" | "system";
   }): Promise<void> {
-    const targetSessionId = args.sessionId ?? await this.findMostRecentHumanSessionId();
+    const targetSessionId = args.sessionId ?? await this.findMostRecentNonBackgroundSessionId();
     if (!targetSessionId) {
-      throw new Error("No recent DM session with a human found.");
+      throw new Error("No recent non-background session found.");
     }
     const session = this.sessionManager.getById(targetSessionId);
     if (!session) {
@@ -986,10 +986,10 @@ export class Engine {
     );
   }
 
-  private async findMostRecentHumanSessionId(): Promise<string | null> {
+  private async findMostRecentNonBackgroundSessionId(): Promise<string | null> {
     const sessions = await this.sessionStore.listSessions();
     const candidates = sessions.filter((session) =>
-      isHumanDmSession(session.source, session.context)
+      isNonBackgroundSession(session.source, session.context)
     );
     if (candidates.length === 0) {
       return null;
@@ -1804,20 +1804,19 @@ function buildSystemMessageText(text: string, origin?: "background" | "system"):
   return `<system_message${originTag}>${trimmed}</system_message>`;
 }
 
-function isHumanDmSession(source: string, context: MessageContext): boolean {
+function isNonBackgroundSession(source: string, context: MessageContext): boolean {
   const blockedSources = new Set(["system", "cron", "background"]);
   if (blockedSources.has(source)) {
     return false;
   }
-  const userId = context.userId?.toLowerCase();
-  if (!userId || ["system", "cron", "background"].includes(userId)) {
+  if (context.agent?.kind === "background") {
     return false;
   }
-  const channelType = context.channelType;
-  if (!channelType) {
-    return true;
+  const userId = context.userId?.toLowerCase();
+  if (!userId || ["system", "cron", "background", "heartbeat"].includes(userId)) {
+    return false;
   }
-  return channelType === "private" || channelType === "unknown";
+  return true;
 }
 
 function getSessionTimestamp(value?: Date | string): number {

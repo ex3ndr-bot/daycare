@@ -20,6 +20,23 @@ sequenceDiagram
 - A connector or scheduler can override with `context.sessionId`.
 - Messages (and files) are queued and processed in order.
 
+## System message routing
+When `send_session_message` omits a target session id, the engine routes to the most recent
+non-background session (excluding system/cron/background sources and background agents).
+
+```mermaid
+sequenceDiagram
+  participant BackgroundAgent
+  participant Engine
+  participant SessionStore
+  participant Connector
+  BackgroundAgent->>Engine: send_session_message(text)
+  Engine->>SessionStore: listSessions()
+  SessionStore-->>Engine: sessions
+  Engine->>Engine: pick most recent non-background
+  Engine->>Connector: sendMessage(<system_message>)
+```
+
 ## Session persistence
 - Sessions are written to `.claybot/sessions/<cuid2>.jsonl` as append-only logs.
 - Entries include `session_created`, `incoming`, `outgoing`, and `state` snapshots.
