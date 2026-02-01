@@ -1,0 +1,27 @@
+import path from "node:path";
+
+import { DEFAULT_SOUL_PATH, DEFAULT_USER_PATH } from "../../paths.js";
+import type { SessionPermissions } from "../permissions.js";
+
+export function permissionBuildDefault(
+  workingDir: string,
+  configDir: string
+): SessionPermissions {
+  const heartbeatDir = configDir ? path.resolve(configDir, "heartbeat") : null;
+  const skillsDir = configDir ? path.resolve(configDir, "skills") : null;
+  const writeDefaults = [DEFAULT_SOUL_PATH, DEFAULT_USER_PATH].map((entry) =>
+    path.resolve(entry)
+  );
+  const writeDirs = [
+    ...writeDefaults,
+    ...(heartbeatDir ? [heartbeatDir] : []),
+    ...(skillsDir ? [skillsDir] : [])
+  ];
+  const readDirs = [...writeDirs];
+  return {
+    workingDir: path.resolve(workingDir),
+    writeDirs: Array.from(new Set(writeDirs)),
+    readDirs: Array.from(new Set(readDirs)),
+    web: false
+  };
+}

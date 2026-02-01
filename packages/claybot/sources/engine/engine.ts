@@ -13,7 +13,6 @@ import {
 import type {
   ConnectorMessage,
   MessageContext,
-  PermissionAccess,
   PermissionDecision
 } from "./connectors/types.js";
 import { FileStore } from "../files/store.js";
@@ -31,6 +30,13 @@ import {
   resolveWorkspaceDir,
   type SessionPermissions
 } from "./permissions.js";
+import { permissionApply } from "./permissions/permissionApply.js";
+import { permissionBuildCron } from "./permissions/permissionBuildCron.js";
+import { permissionBuildDefault } from "./permissions/permissionBuildDefault.js";
+import { permissionDescribeDecision } from "./permissions/permissionDescribeDecision.js";
+import { permissionEnsureDefaultFile } from "./permissions/permissionEnsureDefaultFile.js";
+import { permissionFormatTag } from "./permissions/permissionFormatTag.js";
+import { permissionMergeDefault } from "./permissions/permissionMergeDefault.js";
 import { assumeWorkspace, createSystemPrompt } from "./createSystemPrompt.js";
 import { getProviderDefinition, listActiveInferenceProviders } from "../providers/catalog.js";
 import { SessionManager } from "./sessions/manager.js";
@@ -156,7 +162,7 @@ export class Engine {
     this.configDir = options.configDir;
     this.verbose = options.verbose ?? false;
     this.workspaceDir = resolveWorkspaceDir(this.configDir, this.settings.assistant ?? null);
-    this.defaultPermissions = buildDefaultPermissions(this.workspaceDir, this.configDir);
+    this.defaultPermissions = permissionBuildDefault(this.workspaceDir, this.configDir);
     this.eventBus = options.eventBus;
     this.authStore = new AuthStore(options.authPath);
     this.fileStore = new FileStore({ basePath: `${this.dataDir}/files` });
@@ -277,16 +283,16 @@ export class Engine {
         }
         session.context.state.session = buildSessionDescriptor(source, context, session.id);
         if (context.cron?.filesPath) {
-          session.context.state.permissions = buildCronPermissions(
+          session.context.state.permissions = permissionBuildCron(
             this.defaultPermissions,
             context.cron.filesPath
           );
         } else if (isHeartbeatContext(context, session.context.state.session)) {
-          session.context.state.permissions = mergeDefaultPermissions(
+          session.context.state.permissions = permissionMergeDefault(
             session.context.state.permissions,
             this.defaultPermissions
           );
-          ensureDefaultFilePermissions(
+          permissionEnsureDefaultFile(
             session.context.state.permissions,
             this.defaultPermissions
           );
@@ -953,7 +959,7 @@ export class Engine {
   async updateSettings(settings: SettingsConfig): Promise<void> {
     this.settings = settings;
     this.workspaceDir = resolveWorkspaceDir(this.configDir, this.settings.assistant ?? null);
-    this.defaultPermissions = buildDefaultPermissions(this.workspaceDir, this.configDir);
+    this.defaultPermissions = permissionBuildDefault(this.workspaceDir, this.configDir);
     await ensureWorkspaceDir(this.workspaceDir);
     await this.providerManager.sync(settings);
     await this.pluginManager.syncWithSettings(settings);
@@ -1042,8 +1048,8 @@ export class Engine {
       );
     }
     const connector = this.connectorRegistry.get(source);
-    const permissionTag = formatPermissionTag(decision.access);
-    const permissionLabel = describePermissionDecision(decision.access);
+    const permissionTag = permissionFormatTag(decision.access);
+    const permissionLabel = permissionDescribeDecision(decision.access);
     let sessionId = isCuid2(context.sessionId ?? null) ? context.sessionId! : null;
     if (!sessionId) {
       const key = this.buildSessionKey(source, context);
@@ -1099,7 +1105,7 @@ export class Engine {
     }
 
     if (decision.approved) {
-      applyPermission(session.context.state.permissions, decision);
+      permissionApply(session.context.state.permissions, decision);
       try {
         await this.sessionStore.recordState(session);
       } catch (error) {
@@ -1254,16 +1260,16 @@ export class Engine {
       session.context.state.session = buildSessionDescriptor(source, entry.context, session.id);
     }
     if (entry.context.cron?.filesPath) {
-      session.context.state.permissions = buildCronPermissions(
+      session.context.state.permissions = permissionBuildCron(
         this.defaultPermissions,
         entry.context.cron.filesPath
       );
     } else if (isHeartbeatContext(entry.context, session.context.state.session)) {
-      session.context.state.permissions = mergeDefaultPermissions(
+      session.context.state.permissions = permissionMergeDefault(
         session.context.state.permissions,
         this.defaultPermissions
       );
-      ensureDefaultFilePermissions(session.context.state.permissions, this.defaultPermissions);
+      permissionEnsureDefaultFile(session.context.state.permissions, this.defaultPermissions);
     }
 
     await assumeWorkspace();
@@ -1900,7 +1906,7 @@ function normalizeSessionState(
       candidate.permissions,
       defaultPermissions.workingDir
     );
-    ensureDefaultFilePermissions(permissions, defaultPermissions);
+    permissionEnsureDefaultFile(permissions, defaultPermissions);
     const session = normalizeSessionDescriptor(candidate.session);
     const routing = normalizeRouting(candidate.routing);
     const agent = normalizeAgent(candidate.agent);
@@ -1950,70 +1956,6 @@ function normalizeAgent(value: unknown): SessionState["agent"] | undefined {
     parentSessionId:
       typeof candidate.parentSessionId === "string" ? candidate.parentSessionId : undefined,
     name: typeof candidate.name === "string" ? candidate.name : undefined
-  };
-}
-
-function buildDefaultPermissions(
-  workingDir: string,
-  configDir: string
-): SessionPermissions {
-  const heartbeatDir = configDir ? path.resolve(configDir, "heartbeat") : null;
-  const skillsDir = configDir ? path.resolve(configDir, "skills") : null;
-  const writeDefaults = [DEFAULT_SOUL_PATH, DEFAULT_USER_PATH].map((entry) =>
-    path.resolve(entry)
-  );
-  const writeDirs = [
-    ...writeDefaults,
-    ...(heartbeatDir ? [heartbeatDir] : []),
-    ...(skillsDir ? [skillsDir] : [])
-  ];
-  const readDirs = [...writeDirs];
-  return {
-    workingDir: path.resolve(workingDir),
-    writeDirs: Array.from(new Set(writeDirs)),
-    readDirs: Array.from(new Set(readDirs)),
-    web: false
-  };
-}
-
-function buildCronPermissions(
-  defaultPermissions: SessionPermissions,
-  filesPath: string
-): SessionPermissions {
-  const permissions = normalizePermissions(
-    {
-      workingDir: filesPath,
-      writeDirs: defaultPermissions.writeDirs,
-      readDirs: defaultPermissions.readDirs,
-      web: defaultPermissions.web
-    },
-    defaultPermissions.workingDir
-  );
-  ensureDefaultFilePermissions(permissions, defaultPermissions);
-  return permissions;
-}
-
-function ensureDefaultFilePermissions(
-  permissions: SessionPermissions,
-  defaults: Pick<SessionPermissions, "writeDirs" | "readDirs">
-): void {
-  const nextWrite = new Set([...permissions.writeDirs, ...defaults.writeDirs]);
-  const nextRead = new Set([...permissions.readDirs, ...defaults.readDirs]);
-  permissions.writeDirs = Array.from(nextWrite.values());
-  permissions.readDirs = Array.from(nextRead.values());
-}
-
-function mergeDefaultPermissions(
-  permissions: SessionPermissions,
-  defaultPermissions: SessionPermissions
-): SessionPermissions {
-  const nextWrite = new Set([...defaultPermissions.writeDirs, ...permissions.writeDirs]);
-  const nextRead = new Set([...defaultPermissions.readDirs, ...permissions.readDirs]);
-  return {
-    workingDir: permissions.workingDir || defaultPermissions.workingDir,
-    writeDirs: Array.from(nextWrite.values()),
-    readDirs: Array.from(nextRead.values()),
-    web: permissions.web || defaultPermissions.web
   };
 }
 
@@ -2121,51 +2063,6 @@ function buildHeartbeatBatchPrompt(
 
 function isCuid2(value: string | null | undefined): value is string {
   return typeof value === "string" && /^[a-z0-9]{24,32}$/.test(value);
-}
-
-function applyPermission(
-  permissions: SessionPermissions,
-  decision: PermissionDecision
-): void {
-  if (!decision.approved) {
-    return;
-  }
-  if (decision.access.kind === "web") {
-    permissions.web = true;
-    return;
-  }
-  if (!path.isAbsolute(decision.access.path)) {
-    return;
-  }
-  const resolved = path.resolve(decision.access.path);
-  if (decision.access.kind === "write") {
-    const next = new Set(permissions.writeDirs);
-    next.add(resolved);
-    permissions.writeDirs = Array.from(next.values());
-    return;
-  }
-  if (decision.access.kind === "read") {
-    const next = new Set(permissions.readDirs);
-    next.add(resolved);
-    permissions.readDirs = Array.from(next.values());
-  }
-}
-
-function formatPermissionTag(access: PermissionAccess): string {
-  if (access.kind === "web") {
-    return "@web";
-  }
-  return `@${access.kind}:${access.path}`;
-}
-
-function describePermissionDecision(access: PermissionAccess): string {
-  if (access.kind === "web") {
-    return "web access";
-  }
-  if (access.kind === "read") {
-    return `read access to ${access.path}`;
-  }
-  return `write access to ${access.path}`;
 }
 
 function formatVerboseArgs(args: Record<string, unknown>): string {
