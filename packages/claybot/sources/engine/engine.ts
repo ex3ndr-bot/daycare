@@ -36,6 +36,11 @@ import { assumeWorkspace, createSystemPrompt } from "./createSystemPrompt.js";
 import { getProviderDefinition, listActiveInferenceProviders } from "../providers/catalog.js";
 import { SessionManager } from "./sessions/manager.js";
 import { SessionStore } from "./sessions/store.js";
+import {
+  normalizeSessionDescriptor,
+  sessionDescriptorMatches,
+  type SessionDescriptor
+} from "./sessions/descriptor.js";
 import { Session } from "./sessions/session.js";
 import type { SessionMessage } from "./sessions/types.js";
 import { AuthStore } from "../auth/store.js";
@@ -86,12 +91,6 @@ const BACKGROUND_TOOL_DENYLIST = new Set([
   "send_file"
 ]);
 const HEARTBEAT_SESSION_ID = "all";
-
-type SessionDescriptor =
-  | { type: "user"; connector: string; userId: string; channelId: string }
-  | { type: "cron"; id: string }
-  | { type: "heartbeat"; id: string }
-  | { type: "background"; id: string; parentSessionId?: string; name?: string };
 
 type SessionState = {
   context: Context;
@@ -308,7 +307,7 @@ export class Engine {
           "Session created"
         );
         void this.sessionStore
-          .recordSessionCreated(session, source, context)
+          .recordSessionCreated(session, source, context, session.context.state.session)
           .catch((error) => {
             logger.warn({ sessionId: session.id, source, error }, "Session persistence failed");
           });
@@ -446,9 +445,12 @@ export class Engine {
           type: "heartbeat",
           id: HEARTBEAT_SESSION_ID
         });
-        const sessionId = heartbeatKey
-          ? this.getOrCreateSessionId(heartbeatKey)
-          : createId();
+        const descriptor: SessionDescriptor = {
+          type: "heartbeat",
+          id: HEARTBEAT_SESSION_ID
+        };
+        const resolved = this.resolveMostRecentSessionId(descriptor);
+        const sessionId = resolved ?? (heartbeatKey ? this.getOrCreateSessionId(heartbeatKey) : createId());
         const batch = buildHeartbeatBatchPrompt(tasks);
         await this.startBackgroundAgent({
           prompt: batch.prompt,
@@ -1009,6 +1011,30 @@ export class Engine {
     return candidates[0]?.sessionId ?? null;
   }
 
+  private resolveMostRecentSessionId(descriptor: SessionDescriptor): string | null {
+    if (descriptor.type === "background") {
+      const session = this.sessionManager.getById(descriptor.id);
+      return session?.id ?? null;
+    }
+    const sessions = this.sessionManager.listSessions();
+    const candidates = sessions.filter((session) => {
+      const sessionDescriptor = session.context.state.session;
+      if (!sessionDescriptor) {
+        return false;
+      }
+      return sessionDescriptorMatches(sessionDescriptor, descriptor);
+    });
+    if (candidates.length === 0) {
+      return null;
+    }
+    candidates.sort((a, b) => {
+      const aTime = getSessionTimestamp(a.context.updatedAt ?? a.context.createdAt);
+      const bTime = getSessionTimestamp(b.context.updatedAt ?? b.context.createdAt);
+      return bTime - aTime;
+    });
+    return candidates[0]?.id ?? null;
+  }
+
   private async runHeartbeatNow(args?: { ids?: string[] }): Promise<{ ran: number; taskIds: string[] }> {
     if (!this.heartbeat) {
       throw new Error("Heartbeat scheduler unavailable");
@@ -1236,6 +1262,12 @@ export class Engine {
         restored.createdAt,
         restored.updatedAt
       );
+      const restoredDescriptor = restored.descriptor
+        ? normalizeSessionDescriptor(restored.descriptor)
+        : undefined;
+      if (!session.context.state.session && restoredDescriptor) {
+        session.context.state.session = restoredDescriptor;
+      }
       if (!session.context.state.session) {
         session.context.state.session = buildSessionDescriptor(
           restored.source,
@@ -1950,67 +1982,6 @@ function normalizeAgent(value: unknown): SessionState["agent"] | undefined {
       typeof candidate.parentSessionId === "string" ? candidate.parentSessionId : undefined,
     name: typeof candidate.name === "string" ? candidate.name : undefined
   };
-}
-
-function normalizeSessionDescriptor(value: unknown): SessionDescriptor | undefined {
-  if (!value || typeof value !== "object") {
-    return undefined;
-  }
-  const candidate = value as {
-    type?: unknown;
-    connector?: unknown;
-    userId?: unknown;
-    channelId?: unknown;
-    id?: unknown;
-    parentSessionId?: unknown;
-    name?: unknown;
-  };
-  if (candidate.type === "user") {
-    if (
-      typeof candidate.connector === "string" &&
-      typeof candidate.userId === "string" &&
-      typeof candidate.channelId === "string"
-    ) {
-      return {
-        type: "user",
-        connector: candidate.connector,
-        userId: candidate.userId,
-        channelId: candidate.channelId
-      };
-    }
-    return undefined;
-  }
-  if (candidate.type === "cron") {
-    if (typeof candidate.id === "string") {
-      return { type: "cron", id: candidate.id };
-    }
-    return undefined;
-  }
-  if (candidate.type === "heartbeat") {
-    if (typeof candidate.id === "string") {
-      return { type: "heartbeat", id: candidate.id };
-    }
-    return undefined;
-  }
-  if (candidate.type === "background") {
-    if (typeof candidate.id !== "string") {
-      return undefined;
-    }
-    return {
-      type: "background",
-      id: candidate.id,
-      parentSessionId:
-        typeof candidate.parentSessionId === "string" ? candidate.parentSessionId : undefined,
-      name: typeof candidate.name === "string" ? candidate.name : undefined
-    };
-  }
-  if (candidate.type === "system") {
-    if (typeof candidate.id === "string") {
-      return { type: "background", id: candidate.id };
-    }
-    return undefined;
-  }
-  return undefined;
 }
 
 function buildDefaultPermissions(

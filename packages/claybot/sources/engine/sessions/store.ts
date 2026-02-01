@@ -7,6 +7,7 @@ import type { MessageContext } from "../connectors/types.js";
 import type { FileReference } from "../../files/types.js";
 import type { Session } from "./session.js";
 import type { SessionMessage, SessionSummary } from "./types.js";
+import { normalizeSessionDescriptor, type SessionDescriptor } from "./descriptor.js";
 import { resolveClaybotPath } from "../../paths.js";
 
 export type SessionLogEntry<State = Record<string, unknown>> =
@@ -16,6 +17,7 @@ export type SessionLogEntry<State = Record<string, unknown>> =
       storageId: string;
       source: string;
       context: MessageContext;
+      session?: SessionDescriptor;
       createdAt: string;
     }
   | {
@@ -57,6 +59,7 @@ export type RestoredSession<State> = {
   createdAt?: Date;
   updatedAt?: Date;
   lastEntryType?: "incoming" | "outgoing";
+  descriptor?: SessionDescriptor;
 };
 
 export type SessionStoreOptions = {
@@ -83,7 +86,8 @@ export class SessionStore<State = Record<string, unknown>> {
   async recordSessionCreated(
     session: Session<State>,
     source: string,
-    context: MessageContext
+    context: MessageContext,
+    descriptor?: SessionDescriptor
   ): Promise<void> {
     const entry: SessionLogEntry<State> = {
       type: "session_created",
@@ -91,6 +95,7 @@ export class SessionStore<State = Record<string, unknown>> {
       storageId: session.storageId,
       source,
       context,
+      session: descriptor,
       createdAt: session.context.createdAt.toISOString()
     };
     await this.appendEntry(session.storageId, entry);
@@ -186,6 +191,7 @@ export class SessionStore<State = Record<string, unknown>> {
       let createdAt: Date | undefined;
       let updatedAt: Date | undefined;
       let lastEntryType: "incoming" | "outgoing" | undefined;
+      let descriptor: SessionDescriptor | undefined;
 
       for (const line of lines) {
         let parsed: SessionLogEntry<State> | null = null;
@@ -209,6 +215,7 @@ export class SessionStore<State = Record<string, unknown>> {
           source = parsed.source;
           context = parsed.context;
           createdAt = new Date(parsed.createdAt);
+          descriptor = normalizeSessionDescriptor(parsed.session);
         }
 
         if (parsed.type === "incoming") {
@@ -249,7 +256,8 @@ export class SessionStore<State = Record<string, unknown>> {
         state,
         createdAt,
         updatedAt,
-        lastEntryType
+        lastEntryType,
+        descriptor
       });
     }
 

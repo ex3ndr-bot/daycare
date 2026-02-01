@@ -74,6 +74,21 @@ flowchart TD
   Scheduler --> Events[Event bus]
 ```
 
+## Session descriptor persistence
+
+Each session writes a type descriptor into the first `session_created` log entry. On startup, the engine restores
+that descriptor into session state and uses it to resolve the most recent matching session when needed.
+
+```mermaid
+flowchart TD
+  Create[session.created] --> Log[jsonl session_created entry]
+  Log -->|session descriptor| Store[SessionStore]
+  Store --> Restore[Engine restore]
+  Restore --> State[session.state.session]
+  Resolver[Session resolver] -->|descriptor| State
+  State -->|most recent match| Resolver
+```
+
 ```mermaid
 sequenceDiagram
   participant Client
