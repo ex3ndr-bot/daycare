@@ -65,6 +65,11 @@ export const plugin = {
       dataDir: dir,
       registrar: {} as never,
       fileStore: {} as never,
+      inference: {
+        complete: async () => {
+          throw new Error("Inference not available in test.");
+        }
+      },
       mode: "runtime",
       events: { emit: () => {} }
     });

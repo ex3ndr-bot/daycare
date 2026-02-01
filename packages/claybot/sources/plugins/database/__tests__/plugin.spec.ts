@@ -64,6 +64,11 @@ describe("database plugin", () => {
       dataDir: baseDir,
       registrar,
       fileStore,
+      inference: {
+        complete: async () => {
+          throw new Error("Inference not available in test.");
+        }
+      },
       mode: "runtime" as const,
       events: { emit: () => undefined }
     };
@@ -106,7 +111,10 @@ describe("database plugin", () => {
     expect(doc).toContain("name: text");
     expect(doc).toContain("Create users table");
 
-    const prompt = await instance.systemPrompt?.();
+    const prompt =
+      typeof instance.systemPrompt === "function"
+        ? await instance.systemPrompt()
+        : instance.systemPrompt ?? "";
     expect(prompt).toContain("Database plugin is active.");
     expect(prompt).toContain(doc.trim());
 

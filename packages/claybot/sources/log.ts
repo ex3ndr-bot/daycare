@@ -149,7 +149,14 @@ function formatPrettyMessage(
   log: Record<string, unknown>,
   messageKey: string,
   _levelLabel: string,
-  extra?: { colors?: { gray?: (value: string) => string; cyan?: (value: string) => string } }
+  extra?: {
+    colors?: {
+      gray?: (value: string) => string;
+      grey?: (value: string) => string;
+      cyan?: (value: string) => string;
+      yellow?: (value: string) => string;
+    };
+  }
 ): string {
   const colors = extra?.colors;
   const gray = colors?.gray ?? (colors as { grey?: (value: string) => string } | undefined)?.grey;
