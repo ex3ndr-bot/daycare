@@ -10,6 +10,7 @@ import type { AuthStore } from "../../auth/store.js";
 import type { Logger } from "pino";
 import type { AssistantSettings } from "../../settings.js";
 import type { SessionPermissions } from "../permissions.js";
+import type { HeartbeatDefinition } from "../heartbeat-store.js";
 
 export type BackgroundAgentStartArgs = {
   prompt: string;
@@ -37,12 +38,26 @@ export type HeartbeatRunResult = {
   taskIds: string[];
 };
 
+export type HeartbeatAddArgs = {
+  id?: string;
+  title: string;
+  prompt: string;
+  overwrite?: boolean;
+};
+
+export type HeartbeatRemoveArgs = {
+  id: string;
+};
+
 export type AgentRuntime = {
   startBackgroundAgent: (
     args: BackgroundAgentStartArgs
   ) => Promise<BackgroundAgentStartResult>;
   sendSessionMessage: (args: SessionMessageArgs) => Promise<void>;
   runHeartbeatNow: (args?: HeartbeatRunArgs) => Promise<HeartbeatRunResult>;
+  addHeartbeatTask: (args: HeartbeatAddArgs) => Promise<HeartbeatDefinition>;
+  listHeartbeatTasks: () => Promise<HeartbeatDefinition[]>;
+  removeHeartbeatTask: (args: HeartbeatRemoveArgs) => Promise<{ removed: boolean }>;
 };
 
 export type ToolExecutionContext<State = Record<string, unknown>> = {

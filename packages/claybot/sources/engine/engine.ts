@@ -50,10 +50,20 @@ import { buildImageGenerationTool } from "./tools/image-generation.js";
 import { buildReactionTool } from "./tools/reaction.js";
 import { buildPermissionRequestTool } from "./tools/permissions.js";
 import { buildSendFileTool } from "./tools/send-file.js";
-import { buildRunHeartbeatTool } from "./tools/heartbeat.js";
+import {
+  buildHeartbeatAddTool,
+  buildHeartbeatListTool,
+  buildHeartbeatRemoveTool,
+  buildHeartbeatRunTool
+} from "./tools/heartbeat.js";
 import { buildSendSessionMessageTool, buildStartBackgroundAgentTool } from "./tools/background.js";
 import { formatTimeAI } from "../util/timeFormat.js";
-import type { AgentRuntime, ToolExecutionResult } from "./tools/types.js";
+import type {
+  AgentRuntime,
+  HeartbeatAddArgs,
+  HeartbeatRemoveArgs,
+  ToolExecutionResult
+} from "./tools/types.js";
 import { CronScheduler } from "./cron.js";
 import { CronStore } from "./cron-store.js";
 import { HeartbeatScheduler } from "./heartbeat.js";
@@ -429,7 +439,10 @@ export class Engine {
       this.toolResolver.register("core", buildCronWriteMemoryTool(this.cronStore));
     }
     this.toolResolver.register("core", buildCronDeleteTaskTool(this.cron));
-    this.toolResolver.register("core", buildRunHeartbeatTool());
+    this.toolResolver.register("core", buildHeartbeatRunTool());
+    this.toolResolver.register("core", buildHeartbeatAddTool());
+    this.toolResolver.register("core", buildHeartbeatListTool());
+    this.toolResolver.register("core", buildHeartbeatRemoveTool());
     this.toolResolver.register("core", buildStartBackgroundAgentTool());
     this.toolResolver.register("core", buildSendSessionMessageTool());
     this.toolResolver.register("core", buildImageGenerationTool(this.imageRegistry));
@@ -818,7 +831,10 @@ export class Engine {
     return {
       startBackgroundAgent: (args) => this.startBackgroundAgent(args),
       sendSessionMessage: (args) => this.sendSessionMessage(args),
-      runHeartbeatNow: (args) => this.runHeartbeatNow(args)
+      runHeartbeatNow: (args) => this.runHeartbeatNow(args),
+      addHeartbeatTask: (args) => this.addHeartbeatTask(args),
+      listHeartbeatTasks: () => this.listHeartbeatTasks(),
+      removeHeartbeatTask: (args) => this.removeHeartbeatTask(args)
     };
   }
 
@@ -913,6 +929,32 @@ export class Engine {
       throw new Error("Heartbeat scheduler unavailable");
     }
     return this.heartbeat.runNow(args?.ids);
+  }
+
+  private async addHeartbeatTask(args: HeartbeatAddArgs): Promise<HeartbeatDefinition> {
+    if (!this.heartbeatStore) {
+      throw new Error("Heartbeat store unavailable");
+    }
+    return this.heartbeatStore.createTask({
+      id: args.id,
+      title: args.title,
+      prompt: args.prompt,
+      overwrite: args.overwrite
+    });
+  }
+
+  private async listHeartbeatTasks(): Promise<HeartbeatDefinition[]> {
+    return this.getHeartbeatTasks();
+  }
+
+  private async removeHeartbeatTask(
+    args: HeartbeatRemoveArgs
+  ): Promise<{ removed: boolean }> {
+    if (!this.heartbeatStore) {
+      throw new Error("Heartbeat store unavailable");
+    }
+    const removed = await this.heartbeatStore.deleteTask(args.id);
+    return { removed };
   }
 
 

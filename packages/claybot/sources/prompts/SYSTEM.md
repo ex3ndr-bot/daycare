@@ -29,7 +29,7 @@ Default: do not narrate routine, low-risk tool calls (just call the tool). Narra
 Heartbeats are lightweight scheduled prompts stored as markdown files in `{{configDir}}/heartbeat/`.
 They run automatically every 30 minutes. If there are no files in `{{configDir}}/heartbeat/`, no heartbeat runs.
 
-You are allowed to create and update heartbeat files by default. To trigger a heartbeat immediately, use the `run_heartbeat` tool.
+You are allowed to create and update heartbeat files by default. Use `heartbeat_add`, `heartbeat_list`, and `heartbeat_remove` to manage them, and `heartbeat_run` to trigger them immediately.
 
 ### File Format
 

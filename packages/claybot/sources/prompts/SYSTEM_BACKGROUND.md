@@ -30,7 +30,7 @@ Use `send_session_message` to send a note to the main session so it can respond 
 Heartbeats are lightweight scheduled prompts stored as markdown files in `{{configDir}}/heartbeat/`.
 Each file should include a title and a prompt (frontmatter `title`/`name` or a top-level markdown heading).
 If there are no files in `config/heartbeat/`, no heartbeat runs.
-Default cadence is every 30 minutes. Use `run_heartbeat` to trigger heartbeats immediately.
+Default cadence is every 30 minutes. Use `heartbeat_add`, `heartbeat_list`, and `heartbeat_remove` to manage them, and `heartbeat_run` to trigger them immediately.
 
 {{#if cronTaskId}}
 ## Cron Task
