@@ -2,6 +2,7 @@ import path from "node:path";
 
 import type { PermissionDecision } from "../connectors/types.js";
 import type { SessionPermissions } from "../permissions.js";
+import { pathSanitizeAndResolve } from "./pathSanitize.js";
 
 export function permissionApply(
   permissions: SessionPermissions,
@@ -17,7 +18,17 @@ export function permissionApply(
   if (!path.isAbsolute(decision.access.path)) {
     return;
   }
-  const resolved = path.resolve(decision.access.path);
+
+  // Sanitize path before adding to permissions
+  // Throws on null bytes, control characters, or excessive length
+  let resolved: string;
+  try {
+    resolved = pathSanitizeAndResolve(decision.access.path);
+  } catch {
+    // Silently reject invalid paths
+    return;
+  }
+
   if (decision.access.kind === "write") {
     const next = new Set(permissions.writeDirs);
     next.add(resolved);

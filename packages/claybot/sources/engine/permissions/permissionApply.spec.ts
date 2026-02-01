@@ -56,4 +56,48 @@ describe("permissionApply", () => {
 
     expect(permissions.readDirs).toHaveLength(0);
   });
+
+  it("rejects paths with null bytes", () => {
+    const permissions = basePermissions();
+    const decision: PermissionDecision = {
+      token: "token-4",
+      approved: true,
+      permission: "@read:/etc/passwd\x00.txt",
+      access: { kind: "read", path: "/etc/passwd\x00.txt" }
+    };
+
+    permissionApply(permissions, decision);
+
+    // Path should be silently rejected
+    expect(permissions.readDirs).toHaveLength(0);
+  });
+
+  it("rejects paths with control characters", () => {
+    const permissions = basePermissions();
+    const decision: PermissionDecision = {
+      token: "token-5",
+      approved: true,
+      permission: "@write:/home/user\x01file",
+      access: { kind: "write", path: "/home/user\x01file" }
+    };
+
+    permissionApply(permissions, decision);
+
+    expect(permissions.writeDirs).toHaveLength(0);
+  });
+
+  it("rejects excessively long paths", () => {
+    const permissions = basePermissions();
+    const longPath = "/" + "a".repeat(5000);
+    const decision: PermissionDecision = {
+      token: "token-6",
+      approved: true,
+      permission: `@read:${longPath}`,
+      access: { kind: "read", path: longPath }
+    };
+
+    permissionApply(permissions, decision);
+
+    expect(permissions.readDirs).toHaveLength(0);
+  });
 });
