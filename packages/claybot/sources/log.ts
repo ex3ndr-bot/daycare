@@ -124,27 +124,22 @@ function buildLogger(config: LogConfig): Logger {
   const destination = resolveDestination(config.destination);
 
   if (config.format === "pretty") {
-    const prettyTarget = resolvePrettyTarget();
-    if (!prettyTarget) {
+    const prettyFactory = resolvePrettyFactory();
+    if (!prettyFactory) {
       return destination ? pino(options, destination) : pino(options);
     }
-    return pino({
-      ...options,
-      transport: {
-        target: prettyTarget,
-        options: {
-          colorize: true,
-          translateTime: false,
-          ignore: "pid,hostname,level,service,environment,module",
-          hideObject: true,
-          levelKey: "__level",
-          timestampKey: "__time",
-          messageFormat: formatPrettyMessage,
-          singleLine: false,
-          destination: config.destination === "stderr" ? 2 : 1
-        }
-      }
-    });
+    const prettyStream = prettyFactory({
+      colorize: true,
+      translateTime: false,
+      ignore: "pid,hostname,level,service,environment,module",
+      hideObject: true,
+      levelKey: "__level",
+      timestampKey: "__time",
+      messageFormat: formatPrettyMessage,
+      singleLine: false,
+      destination: config.destination === "stderr" ? 2 : 1
+    }) as DestinationStream;
+    return pino(options, prettyStream);
   }
 
   return destination ? pino(options, destination) : pino(options);
@@ -157,7 +152,8 @@ function formatPrettyMessage(
   extra?: { colors?: { gray?: (value: string) => string; cyan?: (value: string) => string } }
 ): string {
   const colors = extra?.colors;
-  const colorTime = typeof colors?.gray === "function" ? colors.gray : (value: string) => value;
+  const gray = colors?.gray ?? (colors as { grey?: (value: string) => string } | undefined)?.grey;
+  const colorTime = typeof gray === "function" ? gray : (value: string) => value;
   const colorMessage =
     typeof colors?.cyan === "function" ? colors.cyan : (value: string) => value;
   const timeValue = log.time ?? log.timestamp ?? Date.now();
@@ -238,6 +234,16 @@ function resolveDestination(
   return pino.destination({ dest: destination, mkdir: true, sync: false });
 }
 
+function resolvePrettyFactory():
+  | ((options: Record<string, unknown>) => DestinationStream)
+  | null {
+  try {
+    return nodeRequire("pino-pretty");
+  } catch {
+    return null;
+  }
+}
+
 function parseFormat(value?: string | null): LogFormat | null {
   if (!value) {
     return null;
@@ -272,12 +278,4 @@ function mergeRedactList(base: string[], extra: string | null): string[] {
 
 function isStdDestination(destination: LogDestination): boolean {
   return destination === "stdout" || destination === "stderr";
-}
-
-function resolvePrettyTarget(): string | null {
-  try {
-    return nodeRequire.resolve("pino-pretty");
-  } catch {
-    return null;
-  }
 }
