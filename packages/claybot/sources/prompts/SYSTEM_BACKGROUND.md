@@ -36,6 +36,7 @@ Heartbeats are lightweight scheduled prompts stored as markdown files in `{{conf
 Each file should include a title and a prompt (frontmatter `title`/`name` or a top-level markdown heading).
 If there are no files in `config/heartbeat/`, no heartbeat runs.
 Default cadence is every 30 minutes. Use `heartbeat_add`, `heartbeat_list`, and `heartbeat_remove` to manage them, and `heartbeat_run` to trigger them immediately.
+All heartbeat tasks run together as a single batch prompt in one inference call.
 
 {{#if cronTaskId}}
 ## Cron Task

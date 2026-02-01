@@ -85,6 +85,7 @@ const BACKGROUND_TOOL_DENYLIST = new Set([
   "set_reaction",
   "send_file"
 ]);
+const HEARTBEAT_SESSION_ID = "all";
 
 type SessionDescriptor =
   | { type: "user"; connector: string; userId: string; channelId: string }
@@ -440,26 +441,27 @@ export class Engine {
     this.heartbeat = new HeartbeatScheduler({
       store: this.heartbeatStore,
       intervalMs: 30 * 60 * 1000,
-      onTask: async (task) => {
+      onRun: async (tasks) => {
         const heartbeatKey = buildSessionKeyFromDescriptor({
           type: "heartbeat",
-          id: task.id
+          id: HEARTBEAT_SESSION_ID
         });
         const sessionId = heartbeatKey
           ? this.getOrCreateSessionId(heartbeatKey)
           : createId();
+        const batch = buildHeartbeatBatchPrompt(tasks);
         await this.startBackgroundAgent({
-          prompt: task.prompt,
+          prompt: batch.prompt,
           sessionId,
-          name: task.title,
+          name: batch.title,
           context: {
             userId: "heartbeat",
-            heartbeat: { taskId: task.id, title: task.title }
+            heartbeat: { taskId: HEARTBEAT_SESSION_ID, title: batch.title }
           }
         });
       },
-      onError: (error, taskId) => {
-        logger.warn({ taskId, error }, "Heartbeat task failed");
+      onError: (error, taskIds) => {
+        logger.warn({ taskIds, error }, "Heartbeat task failed");
       },
       onTaskComplete: (task, runAt) => {
         this.eventBus.emit("heartbeat.task.ran", { taskId: task.id, runAt: runAt.toISOString() });
@@ -2136,6 +2138,36 @@ function isCronContext(context: MessageContext, session?: SessionDescriptor): bo
 
 function isHeartbeatContext(context: MessageContext, session?: SessionDescriptor): boolean {
   return !!context.heartbeat?.taskId || session?.type === "heartbeat";
+}
+
+function buildHeartbeatBatchPrompt(
+  tasks: HeartbeatDefinition[]
+): { title: string; prompt: string } {
+  const sorted = [...tasks].sort((a, b) => {
+    const titleCompare = a.title.localeCompare(b.title);
+    return titleCompare !== 0 ? titleCompare : a.id.localeCompare(b.id);
+  });
+  if (sorted.length === 1) {
+    return {
+      title: `Heartbeat: ${sorted[0]!.title}`,
+      prompt: sorted[0]!.prompt
+    };
+  }
+  const title = `Heartbeat batch (${sorted.length})`;
+  const sections = sorted.map((task, index) => {
+    const heading = `## ${index + 1}. ${task.title}`;
+    const idLine = `id: ${task.id}`;
+    const body = task.prompt.trim();
+    return [heading, idLine, "", body].filter(Boolean).join("\n");
+  });
+  const prompt = [
+    "# Heartbeat run",
+    "",
+    `Run all ${sorted.length} heartbeat tasks together. Keep results grouped by task.`,
+    "",
+    ...sections
+  ].join("\n");
+  return { title, prompt };
 }
 
 function isCuid2(value: string | null | undefined): value is string {

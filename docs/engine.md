@@ -60,6 +60,20 @@ classDiagram
   EngineStatus --> ProviderSummary
 ```
 
+## Heartbeat batch execution
+
+Heartbeat tasks are collected and executed as a single background-agent inference call.
+Each task still records its own `lastRunAt` and emits `heartbeat.task.ran`.
+
+```mermaid
+flowchart TD
+  Scheduler[HeartbeatScheduler] -->|list tasks| Tasks[Heartbeat tasks]
+  Tasks -->|batch prompt| Agent[Background agent session]
+  Agent -->|single inference call| Provider[Inference provider]
+  Agent -->|record run per task| Store[Heartbeat state]
+  Scheduler --> Events[Event bus]
+```
+
 ```mermaid
 sequenceDiagram
   participant Client

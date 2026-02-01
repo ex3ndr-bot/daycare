@@ -37,7 +37,7 @@ export function buildHeartbeatRunTool(): ToolDefinition {
   return {
     tool: {
       name: "heartbeat_run",
-      description: "Run heartbeat tasks immediately instead of waiting for the next interval.",
+      description: "Run heartbeat tasks immediately as a single batch instead of waiting for the next interval.",
       parameters: runSchema
     },
     execute: async (args, toolContext, toolCall) => {
