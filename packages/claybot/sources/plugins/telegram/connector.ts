@@ -382,13 +382,33 @@ export class TelegramConnector implements Connector {
 
     try {
       const content = await fs.readFile(this.statePath, "utf8");
-      const parsed = JSON.parse(content) as { lastUpdateId?: number };
-      if (typeof parsed.lastUpdateId === "number") {
-        this.lastUpdateId = parsed.lastUpdateId;
+      const trimmed = content.trim();
+      if (!trimmed) {
+        return;
+      }
+      try {
+        const parsed = JSON.parse(trimmed) as { lastUpdateId?: number };
+        if (typeof parsed.lastUpdateId === "number") {
+          this.lastUpdateId = parsed.lastUpdateId;
+        }
+        return;
+      } catch (error) {
+        const recovered = recoverLastUpdateId(trimmed);
+        if (recovered !== null) {
+          this.lastUpdateId = recovered;
+          logger.warn(
+            { statePath: this.statePath, lastUpdateId: recovered },
+            "Telegram connector state was invalid JSON; recovered lastUpdateId"
+          );
+          await this.persistState();
+          return;
+        }
+        await this.quarantineStateFile();
+        logger.warn({ error, statePath: this.statePath }, "Telegram connector state load failed");
       }
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-        logger.warn({ error }, "Telegram connector state load failed");
+        logger.warn({ error, statePath: this.statePath }, "Telegram connector state load failed");
       }
     }
   }
@@ -416,9 +436,29 @@ export class TelegramConnector implements Connector {
     try {
       await fs.mkdir(path.dirname(this.statePath), { recursive: true });
       const payload = JSON.stringify({ lastUpdateId: this.lastUpdateId });
-      await fs.writeFile(this.statePath, payload, "utf8");
+      const tmpPath = `${this.statePath}.tmp-${process.pid}-${Date.now()}`;
+      await fs.writeFile(tmpPath, payload, "utf8");
+      await fs.rename(tmpPath, this.statePath);
     } catch (error) {
-      logger.warn({ error }, "Telegram connector state persist failed");
+      logger.warn({ error, statePath: this.statePath }, "Telegram connector state persist failed");
+    }
+  }
+
+  private async quarantineStateFile(): Promise<void> {
+    if (!this.statePath) {
+      return;
+    }
+    try {
+      const dir = path.dirname(this.statePath);
+      const name = path.basename(this.statePath);
+      const target = path.join(dir, `${name}.corrupt-${Date.now()}`);
+      await fs.rename(this.statePath, target);
+      logger.warn(
+        { statePath: this.statePath, quarantinePath: target },
+        "Telegram state file quarantined"
+      );
+    } catch (error) {
+      logger.warn({ error, statePath: this.statePath }, "Failed to quarantine telegram state file");
     }
   }
 
@@ -753,6 +793,15 @@ export class TelegramConnector implements Connector {
       logger.warn({ error }, "Failed to update Telegram permission message");
     }
   }
+}
+
+function recoverLastUpdateId(content: string): number | null {
+  const match = /"lastUpdateId"\s*:\s*(\d+)/.exec(content);
+  if (match && match[1]) {
+    const value = Number(match[1]);
+    return Number.isFinite(value) ? value : null;
+  }
+  return null;
 }
 
 type PermissionStatus = "pending" | "approved" | "denied";
