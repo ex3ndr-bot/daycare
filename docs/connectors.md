@@ -54,3 +54,18 @@ flowchart TD
   Shutdown[SIGINT/SIGTERM] --> Stop[stopPolling]
   Stop --> Persist
 ```
+
+## Telegram permissions
+- Permission prompts render with inline buttons and are edited in-place after a decision.
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant T as TelegramConnector
+  participant B as Telegram API
+  U->>T: request_permission tool
+  T->>B: sendMessage (inline keyboard)
+  U->>B: tap Allow/Deny
+  B->>T: callback_query
+  T->>B: editMessageText (status)
+```

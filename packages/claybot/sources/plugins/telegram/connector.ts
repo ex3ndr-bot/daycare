@@ -174,6 +174,7 @@ export class TelegramConnector implements Connector {
       }
       this.pendingPermissions.delete(token);
       const approved = action === "allow";
+      await this.updatePermissionMessage(query, pending.request, approved ? "approved" : "denied");
       const decision: PermissionDecision = {
         token,
         approved,
@@ -261,7 +262,7 @@ export class TelegramConnector implements Connector {
     if (!this.isAllowedTarget(targetId, "requestPermission")) {
       return;
     }
-    const { text, parseMode } = formatPermissionRequest(request);
+    const { text, parseMode } = formatPermissionMessage(request, "pending");
     this.pendingPermissions.set(request.token, { request, context });
     await this.bot.sendMessage(targetId, text, {
       parse_mode: parseMode,
@@ -719,23 +720,69 @@ export class TelegramConnector implements Connector {
       .filter((entry) => entry.name.length > 0);
     return commands;
   }
+
+  private async updatePermissionMessage(
+    query: TelegramBot.CallbackQuery,
+    request: PermissionRequest,
+    status: PermissionStatus
+  ): Promise<void> {
+    const { text, parseMode } = formatPermissionMessage(request, status);
+    const message = query.message;
+    const inlineMessageId = query.inline_message_id;
+    if (!message && !inlineMessageId) {
+      return;
+    }
+    try {
+      if (message?.chat?.id && message.message_id) {
+        await this.bot.editMessageText(text, {
+          chat_id: message.chat.id,
+          message_id: message.message_id,
+          parse_mode: parseMode,
+          reply_markup: { inline_keyboard: [] }
+        });
+        return;
+      }
+      if (inlineMessageId) {
+        await this.bot.editMessageText(text, {
+          inline_message_id: inlineMessageId,
+          parse_mode: parseMode,
+          reply_markup: { inline_keyboard: [] }
+        });
+      }
+    } catch (error) {
+      logger.warn({ error }, "Failed to update Telegram permission message");
+    }
+  }
 }
 
-function formatPermissionRequest(
-  request: PermissionRequest
+type PermissionStatus = "pending" | "approved" | "denied";
+
+function formatPermissionMessage(
+  request: PermissionRequest,
+  status: PermissionStatus
 ): { text: string; parseMode: TelegramBot.ParseMode } {
   const access = describePermissionKind(request.access);
   const escapedReason = escapeHtml(request.reason);
   const escapedPath =
     request.access.kind === "web" ? null : escapeHtml(request.access.path);
+  const heading =
+    status === "approved"
+      ? "✅ <b>Permission granted</b>"
+      : status === "denied"
+        ? "❌ <b>Permission denied</b>"
+        : "🔐 <b>Permission request</b>";
+  const footer =
+    status === "pending"
+      ? "Approve to continue or deny to refuse."
+      : "Decision recorded.";
   const lines = [
-    "🔐 <b>Permission request</b>",
+    heading,
     "",
     `<b>Access</b>: ${access}`,
     escapedPath ? `<b>Path</b>: <code>${escapedPath}</code>` : null,
     `<b>Reason</b>: ${escapedReason}`,
     "",
-    "Approve to continue or deny to refuse."
+    footer
   ];
   return {
     text: lines.filter((line): line is string => Boolean(line)).join("\n"),
