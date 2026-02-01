@@ -5,20 +5,20 @@ Sessions provide per-channel sequencing of messages, ensuring each session is ha
 ```mermaid
 sequenceDiagram
   participant Connector
-  participant SessionManager
-  participant Session
-  participant Engine
-  Connector->>SessionManager: handleMessage(source, message, context)
-  SessionManager->>Session: enqueue(message)
-  SessionManager->>Engine: process queue sequentially
-  Engine-->>SessionManager: done
+  participant AgentSystem
+  participant AgentInbox
+  participant Agent
+  Connector->>AgentSystem: post message
+  AgentSystem->>AgentInbox: enqueue(message)
+  AgentInbox->>Agent: next()
+  Agent-->>AgentInbox: done
 ```
 
 ## Session rules
 - Session ids are cuid2 values mapped to `connector + channelId + userId`.
 - Connectors must provide `channelId` and `userId` for mapping.
 - A connector or scheduler can override with `context.sessionId`.
-- Messages (and files) are queued and processed in order.
+- Messages (and files) are queued and processed in order via `AgentInbox`.
 
 ## System message routing
 When `send_session_message` omits a target session id, the engine routes to the most recent
@@ -88,12 +88,12 @@ Starting a subagent enqueues work and returns immediately; the background sessio
 sequenceDiagram
   participant Foreground
   participant Engine
-  participant SessionManager
+  participant AgentSystem
   participant Subagent
   Foreground->>Engine: start_background_agent(prompt)
-  Engine->>SessionManager: enqueue(message)
+  Engine->>AgentSystem: post message
   Engine-->>Foreground: tool result (session id)
-  SessionManager->>Subagent: process queue
+  AgentSystem->>Subagent: process inbox
 ```
 
 ## Resetting sessions

@@ -13,15 +13,53 @@ import type { SessionState } from "../sessions/sessionStateTypes.js";
 import type { SessionStore } from "../sessions/store.js";
 import type { EngineEventBus } from "../ipc/events.js";
 
-export type AgentInboundMessage = {
-  source: string;
-  message: ConnectorMessage;
-  context: MessageContext;
-};
-
 export type AgentDescriptor = SessionDescriptor;
 
 export type AgentReceiveResult = SessionMessage;
+
+export type AgentInboxItem =
+  | {
+      type: "message";
+      source: string;
+      message: ConnectorMessage;
+      context: MessageContext;
+    }
+  | {
+      type: "reset";
+      source: string;
+      reason?: string;
+      messageId?: string;
+    };
+
+export type AgentInboxMessage = Extract<AgentInboxItem, { type: "message" }>;
+
+export type AgentInboxReset = Extract<AgentInboxItem, { type: "reset" }>;
+
+export type AgentInboxResult =
+  | {
+      type: "message";
+      responseText?: string | null;
+    }
+  | {
+      type: "reset";
+      ok: boolean;
+    };
+
+export type AgentInboxCompletion = {
+  resolve: (result: AgentInboxResult) => void;
+  reject: (error: Error) => void;
+};
+
+export type AgentInboxEntry = {
+  id: string;
+  postedAt: number;
+  item: AgentInboxItem;
+  completion?: AgentInboxCompletion;
+};
+
+export type AgentPostTarget =
+  | { sessionId: string }
+  | { descriptor: SessionDescriptor };
 
 export type BackgroundAgentState = {
   sessionId: string;

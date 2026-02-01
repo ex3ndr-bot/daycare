@@ -20,6 +20,8 @@ flowchart TD
   Engine --> Plugins[plugins.manager sync]
   Engine --> Providers[providers.manager sync]
   Engine --> Agents[agentSystem.reload]
+  Engine --> Crons[cron facade]
+  Engine --> Heartbeats[heartbeat facade]
 ```
 
 ## Reload flow

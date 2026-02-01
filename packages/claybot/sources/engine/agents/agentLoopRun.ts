@@ -45,11 +45,15 @@ type AgentLoopRunOptions = {
   notifySubagentFailure: (reason: string, error?: unknown) => Promise<void>;
 };
 
+type AgentLoopResult = {
+  responseText?: string | null;
+};
+
 /**
  * Runs the agent inference loop and handles tool execution + response delivery.
  * Expects: context already includes the user message and system prompt.
  */
-export async function agentLoopRun(options: AgentLoopRunOptions): Promise<void> {
+export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentLoopResult> {
   const {
     entry,
     session,
@@ -75,6 +79,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<void> 
   let toolLoopExceeded = false;
   const generatedFiles: FileReference[] = [];
   let lastResponseTextSent = false;
+  let finalResponseText: string | null = null;
   logger.debug(`Starting typing indicator channelId=${entry.context.channelId}`);
   const stopTyping = connector?.startTyping?.(entry.context.channelId);
 
@@ -148,7 +153,9 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<void> 
       context.messages.push(response.message);
 
       const responseText = messageExtractText(response.message);
-      const hasResponseText = !!responseText && responseText.trim().length > 0;
+      const trimmedText = responseText?.trim() ?? "";
+      const hasResponseText = trimmedText.length > 0;
+      finalResponseText = hasResponseText ? responseText : null;
       lastResponseTextSent = false;
       if (hasResponseText && connector) {
         try {
@@ -264,7 +271,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<void> 
       logger
     });
     logger.debug("handleMessage completed with error");
-    return;
+    return { responseText: finalResponseText };
   } finally {
     logger.debug("Stopping typing indicator");
     stopTyping?.();
@@ -278,7 +285,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<void> 
       source,
       logger
     });
-    return;
+    return { responseText: finalResponseText };
   }
 
   if (response.message.stopReason === "error" || response.message.stopReason === "aborted") {
@@ -324,7 +331,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<void> 
       });
       logger.debug("handleMessage completed with error stop reason");
     }
-    return;
+    return { responseText: finalResponseText };
   }
 
   const responseText = messageExtractText(response.message);
@@ -365,7 +372,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<void> 
       logger
     });
     logger.debug("handleMessage completed with no response text");
-    return;
+    return { responseText: finalResponseText };
   }
 
   const shouldSendText = hasResponseText && !lastResponseTextSent;
@@ -420,4 +427,5 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<void> 
     });
     logger.debug("handleMessage completed successfully");
   }
+  return { responseText: finalResponseText };
 }

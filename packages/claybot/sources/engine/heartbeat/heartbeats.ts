@@ -1,9 +1,12 @@
+import path from "node:path";
+
 import { getLogger } from "../../log.js";
 import type { EngineEventBus } from "../ipc/events.js";
 import { heartbeatPromptBuildBatch } from "./heartbeatPromptBuildBatch.js";
 import { HeartbeatScheduler } from "./heartbeatScheduler.js";
 import { HeartbeatStore } from "./heartbeatStore.js";
 import type { HeartbeatCreateTaskArgs, HeartbeatDefinition } from "./heartbeatTypes.js";
+import type { Config } from "@/types";
 
 const logger = getLogger("heartbeat.facade");
 
@@ -17,7 +20,7 @@ export type HeartbeatRuntime = {
 };
 
 export type HeartbeatsOptions = {
-  basePath: string;
+  config: Config;
   eventBus: EngineEventBus;
   runtime: HeartbeatRuntime;
   intervalMs?: number;
@@ -28,15 +31,16 @@ export type HeartbeatsOptions = {
  * Expects: runtime resolves session ids and starts background agents.
  */
 export class Heartbeats {
-  private eventBus: EngineEventBus;
-  private runtime: HeartbeatRuntime;
-  private scheduler: HeartbeatScheduler;
-  private store: HeartbeatStore;
+  private readonly eventBus: EngineEventBus;
+  private readonly runtime: HeartbeatRuntime;
+  private readonly scheduler: HeartbeatScheduler;
+  private readonly store: HeartbeatStore;
 
   constructor(options: HeartbeatsOptions) {
     this.eventBus = options.eventBus;
     this.runtime = options.runtime;
-    this.store = new HeartbeatStore(options.basePath);
+    const basePath = path.join(options.config.configDir, "heartbeat");
+    this.store = new HeartbeatStore(basePath);
     this.scheduler = new HeartbeatScheduler({
       store: this.store,
       intervalMs: options.intervalMs,

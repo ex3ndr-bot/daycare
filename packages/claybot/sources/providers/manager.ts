@@ -1,4 +1,4 @@
-import { listProviders, type ProviderSettings, type SettingsConfig } from "../settings.js";
+import { listProviders, type ProviderSettings } from "../settings.js";
 import type { AuthStore } from "../auth/store.js";
 import type { FileStore } from "../files/store.js";
 import type { InferenceRegistry } from "../engine/modules/inferenceRegistry.js";
@@ -6,9 +6,10 @@ import type { ImageGenerationRegistry } from "../engine/modules/imageGenerationR
 import { getLogger } from "../log.js";
 import { getProviderDefinition, listProviderDefinitions } from "./catalog.js";
 import type { ProviderInstance } from "./types.js";
+import type { Config } from "@/types";
 
 export type ProviderManagerOptions = {
-  settings: SettingsConfig;
+  config: Config;
   auth: AuthStore;
   fileStore: FileStore;
   inferenceRegistry: InferenceRegistry;
@@ -23,6 +24,7 @@ type LoadedProvider = {
 const logger = getLogger("providers.manager");
 
 export class ProviderManager {
+  private config: Config;
   private auth: AuthStore;
   private fileStore: FileStore;
   private inferenceRegistry: InferenceRegistry;
@@ -30,6 +32,7 @@ export class ProviderManager {
   private loaded = new Map<string, LoadedProvider>();
 
   constructor(options: ProviderManagerOptions) {
+    this.config = options.config;
     this.auth = options.auth;
     this.fileStore = options.fileStore;
     this.inferenceRegistry = options.inferenceRegistry;
@@ -50,9 +53,13 @@ export class ProviderManager {
     });
   }
 
-  async sync(settings: SettingsConfig): Promise<void> {
+  reload(config: Config): void {
+    this.config = config;
+  }
+
+  async sync(): Promise<void> {
     logger.debug(`sync() starting loadedCount=${this.loaded.size}`);
-    const activeProviders = listProviders(settings).filter(
+    const activeProviders = listProviders(this.config.settings).filter(
       (provider) => provider.enabled !== false
     );
     const activeIds = activeProviders.map(p => p.id).join(",");

@@ -34,6 +34,11 @@
 - Prefer concise, stable module names to reduce trimming collisions.
 - Pretty logs render as `[HH:MM:ss] [module     ] Message` (plugins render `(module     )`).
 
+## Central Types (`@/types`)
+- Prefer `import type { ... } from "@/types"` for shared/cross-cutting types.
+- Add cross-cutting/public types to `sources/types.ts` and re-export there.
+- Keep domain-internal types in their local modules.
+
 ## Plugin vs monolith
 - If it is something contained - new inference provider, new API, memory engine. It should be a plugin.
 - If it is requiring for coordinating multiple plugins or agents - it is part of the monilith. Cron is needed to everyone. Heartbeat too. Some event bus. Working with file system, sandboxing - it is part of the monolith code.

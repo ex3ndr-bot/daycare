@@ -1,14 +1,21 @@
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
 import type { Context } from "@mariozechner/pi-ai";
 import { createId } from "@paralleldrive/cuid2";
+import Handlebars from "handlebars";
 
 import { getLogger } from "../../log.js";
 import { DEFAULT_SOUL_PATH, DEFAULT_USER_PATH } from "../../paths.js";
 import { listActiveInferenceProviders } from "../../providers/catalog.js";
 import { cuid2Is } from "../../utils/cuid2Is.js";
+import { agentPromptBundledRead } from "./agentPromptBundledRead.js";
 import { agentPromptFilesEnsure } from "./agentPromptFilesEnsure.js";
-import { agentSystemPromptBuild } from "./agentSystemPromptBuild.js";
 import type { MessageContext } from "@/types";
 import { messageBuildUser } from "../messages/messageBuildUser.js";
+import { messageFormatIncoming } from "../messages/messageFormatIncoming.js";
+import { messageIsSystemText } from "../messages/messageIsSystemText.js";
 import { permissionBuildCron } from "../permissions/permissionBuildCron.js";
 import { permissionClone } from "../permissions/permissionClone.js";
 import { permissionEnsureDefaultFile } from "../permissions/permissionEnsureDefaultFile.js";
@@ -29,11 +36,16 @@ import type { SessionMessage } from "@/types";
 import { toolListContextBuild } from "../modules/tools/toolListContextBuild.js";
 import type {
   AgentDescriptor,
-  AgentInboundMessage,
+  AgentInboxEntry,
+  AgentInboxItem,
+  AgentInboxMessage,
+  AgentInboxResult,
+  AgentInboxReset,
   AgentReceiveResult,
   AgentSystemContext
 } from "./agentTypes.js";
 import { agentLoopRun } from "./agentLoopRun.js";
+import { AgentInbox } from "./agentInbox.js";
 
 const logger = getLogger("engine.agent");
 
@@ -42,6 +54,7 @@ export class Agent {
   readonly descriptor: SessionDescriptor;
   private agentSystem: AgentSystemContext;
   private sessionStore: AgentSystemContext["sessionStore"];
+  private processing = false;
 
   private constructor(
     session: Session<SessionState>,
@@ -107,7 +120,8 @@ export class Agent {
   static async create(
     descriptor: AgentDescriptor,
     id: string,
-    agentSystem: AgentSystemContext
+    agentSystem: AgentSystemContext,
+    options?: { source?: string; context?: MessageContext }
   ): Promise<Agent> {
     if (!cuid2Is(id)) {
       throw new Error("Agent session id must be a cuid2 value.");
@@ -132,10 +146,23 @@ export class Agent {
       storageId
     );
 
-    const context = agentContextBuild(descriptor, id);
-    await store.recordSessionCreated(session, "agent", context, descriptor);
+    const source = options?.source ?? "agent";
+    const context = options?.context ?? agentContextBuild(descriptor, id);
+    await store.recordSessionCreated(session, source, context, descriptor);
     await store.recordState(session);
 
+    return new Agent(session, descriptor, agentSystem);
+  }
+
+  /**
+   * Rehydrates an agent from an existing session object.
+   * Expects: session already includes descriptor and normalized state.
+   */
+  static restore(
+    session: Session<SessionState>,
+    descriptor: SessionDescriptor,
+    agentSystem: AgentSystemContext
+  ): Agent {
     return new Agent(session, descriptor, agentSystem);
   }
 
@@ -173,30 +200,76 @@ export class Agent {
    * Enqueues a message for the agent session.
    * Expects: inbound context is valid; persistence is queued asynchronously.
    */
-  receive(inbound: AgentInboundMessage): AgentReceiveResult {
+  receive(inbound: AgentInboxMessage): AgentReceiveResult {
     const receivedAt = new Date();
     const messageId = createId();
     const context = { ...inbound.context, sessionId: this.session.id };
-    const entry = this.session.enqueue(inbound.message, context, receivedAt, messageId);
+    const entry: SessionMessage = {
+      id: messageId,
+      message: messageFormatIncoming(inbound.message, context, receivedAt),
+      context,
+      receivedAt
+    };
+    this.session.context.updatedAt = receivedAt;
     const store = this.sessionStore;
 
     void (async () => {
       try {
-        await store.recordIncoming(this.session, entry, inbound.source);
+        const rawText = entry.message.rawText ?? entry.message.text ?? "";
+        if (!messageIsSystemText(rawText)) {
+          await store.recordIncoming(this.session, entry, inbound.source);
+        }
         await store.recordState(this.session);
       } catch (error) {
         logger.warn({ sessionId: this.session.id, error }, "Agent persistence failed");
       }
     })();
 
+    this.agentSystem.eventBus.emit("session.updated", {
+      sessionId: this.session.id,
+      source: inbound.source,
+      messageId: entry.id,
+      entry: {
+        id: entry.id,
+        message: entry.message,
+        context: entry.context,
+        receivedAt: entry.receivedAt
+      }
+    });
+
     return entry;
+  }
+
+  /**
+   * Runs the agent loop for messages pulled from the inbox.
+   * Expects: inbox is exclusively attached to this agent.
+   */
+  async run(inbox: AgentInbox): Promise<void> {
+    inbox.attach();
+    for (;;) {
+      const entry = await inbox.next();
+      this.processing = true;
+      try {
+        const result = await this.handleInboxEntry(entry);
+        entry.completion?.resolve(result);
+      } catch (error) {
+        const failure = error instanceof Error ? error : new Error(String(error));
+        entry.completion?.reject(failure);
+      } finally {
+        this.processing = false;
+      }
+    }
+  }
+
+  isProcessing(): boolean {
+    return this.processing;
   }
 
   /**
    * Processes a queued session message by running the agent loop.
    * Expects: caller already enqueued the message into the session queue.
    */
-  async handleMessage(entry: SessionMessage, source: string): Promise<void> {
+  async handleMessage(entry: SessionMessage, source: string): Promise<string | null> {
     const session = this.session;
     const agentSystem = this.agentSystem;
     const connectorRegistry = agentSystem.connectorRegistry;
@@ -212,7 +285,7 @@ export class Agent {
       logger.debug(
         `handleMessage skipping - no text or files sessionId=${session.id} messageId=${entry.id}`
       );
-      return;
+      return null;
     }
 
     const isInternal =
@@ -222,7 +295,7 @@ export class Agent {
       logger.debug(
         `handleMessage skipping - connector not found sessionId=${session.id} source=${source}`
       );
-      return;
+      return null;
     }
     logger.debug(
       `Connector ${connector ? "found" : "not required"} source=${source} internal=${isInternal}`
@@ -273,7 +346,7 @@ export class Agent {
     const skillsPrompt = skillPromptFormat(skills);
     const agentKind = session.context.state.agent?.kind ?? entry.context.agent?.kind;
     const allowCronTools = sessionContextIsCron(entry.context, session.context.state.session);
-    const systemPrompt = await agentSystemPromptBuild({
+    const systemPrompt = await this.buildSystemPrompt({
       provider: providerSettings?.id,
       model: providerSettings?.model,
       workspace: session.context.state.permissions.workingDir,
@@ -328,7 +401,7 @@ export class Agent {
       `Session provider resolved sessionId=${session.id} providerId=${providerId ?? "none"} providerCount=${providersForSession.length}`
     );
 
-    await agentLoopRun({
+    const result = await agentLoopRun({
       entry,
       session,
       source,
@@ -348,6 +421,39 @@ export class Agent {
       logger,
       notifySubagentFailure: (reason, error) => this.notifySubagentFailure(reason, error)
     });
+    return result.responseText ?? null;
+  }
+
+  private async handleInboxEntry(entry: AgentInboxEntry): Promise<AgentInboxResult> {
+    const item = entry.item;
+    if (item.type === "reset") {
+      const ok = await this.handleReset(item);
+      return { type: "reset", ok };
+    }
+    const received = this.receive(item);
+    const responseText = await this.handleMessage(received, item.source);
+    return { type: "message", responseText };
+  }
+
+  private async handleReset(item: AgentInboxReset): Promise<boolean> {
+    const now = new Date();
+    this.session.resetContext(now);
+    try {
+      await this.sessionStore.recordSessionReset(this.session, item.source, {
+        messageId: item.messageId,
+        ok: true
+      });
+      await this.sessionStore.recordState(this.session);
+    } catch (error) {
+      logger.warn({ sessionId: this.session.id, error }, "Session reset persistence failed");
+      return false;
+    }
+    this.agentSystem.eventBus.emit("session.reset", {
+      sessionId: this.session.id,
+      source: item.source,
+      context: { channelId: this.session.id, userId: "system", sessionId: this.session.id }
+    });
+    return true;
   }
 
   /**
@@ -380,6 +486,74 @@ export class Agent {
         "Subagent failure notification failed"
       );
     }
+  }
+
+  /**
+   * Builds the system prompt text for the current session.
+   * Expects: prompt templates exist under engine/prompts.
+   */
+  private async buildSystemPrompt(
+    context: AgentSystemPromptContext = {}
+  ): Promise<string> {
+    const soulPath = context.soulPath ?? DEFAULT_SOUL_PATH;
+    const userPath = context.userPath ?? DEFAULT_USER_PATH;
+    const soul = await promptFileRead(soulPath, "SOUL.md");
+    const user = await promptFileRead(userPath, "USER.md");
+    const templateName =
+      context.agentKind === "background" ? "SYSTEM_BACKGROUND.md" : "SYSTEM.md";
+    const systemTemplate = await agentPromptBundledRead(templateName);
+    const permissions = (await agentPromptBundledRead("PERMISSIONS.md")).trim();
+    const additionalWriteDirs = resolveAdditionalWriteDirs(
+      context.writeDirs ?? [],
+      context.workspace ?? "",
+      soulPath,
+      userPath
+    );
+
+    const isForeground = context.agentKind !== "background";
+    const skillsPath =
+      context.skillsPath ?? (context.configDir ? `${context.configDir}/skills` : "");
+
+    const template = Handlebars.compile(systemTemplate);
+    const rendered = template({
+      date: new Date().toISOString().split("T")[0],
+      os: `${os.type()} ${os.release()}`,
+      arch: os.arch(),
+      model: context.model ?? "unknown",
+      provider: context.provider ?? "unknown",
+      workspace: context.workspace ?? "unknown",
+      web: context.web ?? false,
+      connector: context.connector ?? "unknown",
+      canSendFiles: context.canSendFiles ?? false,
+      fileSendModes: context.fileSendModes ?? "",
+      messageFormatPrompt: context.messageFormatPrompt ?? "",
+      channelId: context.channelId ?? "unknown",
+      channelType: context.channelType ?? "",
+      channelIsPrivate: context.channelIsPrivate ?? null,
+      userId: context.userId ?? "unknown",
+      userFirstName: context.userFirstName ?? "",
+      userLastName: context.userLastName ?? "",
+      username: context.username ?? "",
+      cronTaskId: context.cronTaskId ?? "",
+      cronTaskName: context.cronTaskName ?? "",
+      cronMemoryPath: context.cronMemoryPath ?? "",
+      cronFilesPath: context.cronFilesPath ?? "",
+      cronTaskIds: context.cronTaskIds ?? "",
+      soulPath,
+      userPath,
+      pluginPrompt: context.pluginPrompt ?? "",
+      skillsPrompt: context.skillsPrompt ?? "",
+      parentSessionId: context.parentSessionId ?? "",
+      configDir: context.configDir ?? "",
+      skillsPath,
+      isForeground,
+      soul,
+      user,
+      permissions,
+      additionalWriteDirs
+    });
+
+    return rendered.trim();
   }
 
   private listContextTools(
@@ -418,6 +592,74 @@ export class Agent {
 
     return providerId;
   }
+}
+
+type AgentSystemPromptContext = {
+  model?: string;
+  provider?: string;
+  workspace?: string;
+  writeDirs?: string[];
+  web?: boolean;
+  connector?: string;
+  canSendFiles?: boolean;
+  fileSendModes?: string;
+  messageFormatPrompt?: string;
+  channelId?: string;
+  channelType?: string;
+  channelIsPrivate?: boolean | null;
+  userId?: string;
+  userFirstName?: string;
+  userLastName?: string;
+  username?: string;
+  cronTaskId?: string;
+  cronTaskName?: string;
+  cronMemoryPath?: string;
+  cronFilesPath?: string;
+  cronTaskIds?: string;
+  soulPath?: string;
+  userPath?: string;
+  pluginPrompt?: string;
+  skillsPrompt?: string;
+  agentKind?: "background" | "foreground";
+  parentSessionId?: string;
+  configDir?: string;
+  skillsPath?: string;
+};
+
+function resolveAdditionalWriteDirs(
+  writeDirs: string[],
+  workspace: string,
+  soulPath: string,
+  userPath: string
+): string[] {
+  const excluded = new Set(
+    [workspace, soulPath, userPath]
+      .filter((entry) => entry && entry.trim().length > 0)
+      .map((entry) => path.resolve(entry))
+  );
+  const filtered = writeDirs
+    .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+    .map((entry) => path.resolve(entry))
+    .filter((entry) => !excluded.has(entry));
+  return Array.from(new Set(filtered)).sort();
+}
+
+async function promptFileRead(filePath: string, fallbackPrompt: string): Promise<string> {
+  const resolvedPath = path.resolve(filePath);
+  try {
+    const content = await fs.readFile(resolvedPath, "utf8");
+    const trimmed = content.trim();
+    if (trimmed.length > 0) {
+      return trimmed;
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  const defaultContent = await agentPromptBundledRead(fallbackPrompt);
+  return defaultContent.trim();
 }
 
 function agentDescriptorEquals(

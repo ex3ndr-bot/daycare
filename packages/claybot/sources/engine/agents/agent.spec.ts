@@ -18,7 +18,7 @@ import type { InferenceRouter } from "../modules/inference/router.js";
 import type { FileStore } from "../../files/store.js";
 import type { AuthStore } from "../../auth/store.js";
 import type { PluginManager } from "../plugins/manager.js";
-import type { EngineEventBus } from "../ipc/events.js";
+import { EngineEventBus } from "../ipc/events.js";
 import type { Crons } from "../cron/crons.js";
 import { configResolve } from "../../config/configResolve.js";
 
@@ -71,7 +71,7 @@ async function createAgentSystem(): Promise<{
     fileStore: stub<FileStore>(),
     authStore: stub<AuthStore>(),
     pluginManager: stub<PluginManager>(),
-    eventBus: stub<EngineEventBus>(),
+    eventBus: new EngineEventBus(),
     crons: stub<Crons>(),
     agentRuntime: stubRuntime()
   } satisfies AgentSystemContext;
@@ -146,13 +146,13 @@ describe("Agent", () => {
       const agent = await Agent.create(descriptor, sessionId, agentSystem);
 
       const entry = agent.receive({
+        type: "message",
         source: "slack",
         message: { text: "hello", files: [] },
         context: { channelId: "channel-1", userId: "user-1" }
       });
 
-      expect(entry.message.text).toBe("hello");
-      expect(agent.session.size).toBe(1);
+      expect(entry.message.rawText).toBe("hello");
 
       await new Promise((resolve) => setTimeout(resolve, 20));
 

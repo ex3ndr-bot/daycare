@@ -194,7 +194,18 @@ type ProviderConfig = {
 
 async function setupProvider(providerId: string, config: ProviderConfig) {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), `claybot-${providerId}-`));
-  const resolvedConfig = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
+  const settings = {
+    engine: { dataDir: dir },
+    providers: [
+      {
+        id: providerId,
+        enabled: true,
+        model: config.model,
+        options: config.options
+      }
+    ]
+  };
+  const resolvedConfig = configResolve(settings, path.join(dir, "settings.json"));
   const auth = new AuthStore(resolvedConfig);
   if (config.apiKey) {
     await auth.setApiKey(providerId, config.apiKey);
@@ -204,44 +215,17 @@ async function setupProvider(providerId: string, config: ProviderConfig) {
   const imageRegistry = new ImageGenerationRegistry();
 
   const providerManager = new ProviderManager({
-    settings: {
-      providers: [
-        {
-          id: providerId,
-          enabled: true,
-          model: config.model,
-          options: config.options
-        }
-      ]
-    },
+    config: resolvedConfig,
     auth,
     fileStore: new FileStore(resolvedConfig),
     inferenceRegistry,
     imageRegistry
   });
 
-  await providerManager.sync({
-    providers: [
-      {
-        id: providerId,
-        enabled: true,
-        model: config.model,
-        options: config.options
-      }
-    ]
-  });
+  await providerManager.sync();
 
   const router = new InferenceRouter({
-    providers: listActiveInferenceProviders({
-      providers: [
-        {
-          id: providerId,
-          enabled: true,
-          model: config.model,
-          options: config.options
-        }
-      ]
-    }),
+    providers: listActiveInferenceProviders(resolvedConfig.settings),
     registry: inferenceRegistry,
     auth
   });

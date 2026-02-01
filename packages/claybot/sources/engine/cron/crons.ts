@@ -1,6 +1,8 @@
+import path from "node:path";
+
 import { getLogger } from "../../log.js";
 import type { EngineEventBus } from "../ipc/events.js";
-import type { MessageContext } from "@/types";
+import type { Config, MessageContext } from "@/types";
 import { CronScheduler } from "./cronScheduler.js";
 import { CronStore } from "./cronStore.js";
 import type { CronTaskContext, CronTaskDefinition, CronTaskWithPaths } from "./cronTypes.js";
@@ -8,7 +10,7 @@ import type { CronTaskContext, CronTaskDefinition, CronTaskWithPaths } from "./c
 const logger = getLogger("cron.facade");
 
 export type CronsOptions = {
-  basePath: string;
+  config: Config;
   eventBus: EngineEventBus;
   onTask: (task: CronTaskContext, context: MessageContext) => void | Promise<void>;
 };
@@ -18,13 +20,14 @@ export type CronsOptions = {
  * Expects: onTask handles routing to background agents.
  */
 export class Crons {
-  private eventBus: EngineEventBus;
-  private scheduler: CronScheduler;
-  private store: CronStore;
+  private readonly eventBus: EngineEventBus;
+  private readonly scheduler: CronScheduler;
+  private readonly store: CronStore;
 
   constructor(options: CronsOptions) {
     this.eventBus = options.eventBus;
-    this.store = new CronStore(options.basePath);
+    const basePath = path.join(options.config.configDir, "cron");
+    this.store = new CronStore(basePath);
     this.scheduler = new CronScheduler({
       store: this.store,
       onTask: options.onTask,

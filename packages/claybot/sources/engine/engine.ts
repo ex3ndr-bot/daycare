@@ -1,6 +1,5 @@
 import { createId } from "@paralleldrive/cuid2";
 import type { ToolCall } from "@mariozechner/pi-ai";
-import path from "node:path";
 
 import { getLogger } from "../log.js";
 import { AgentSystem } from "./agents/agentSystem.js";
@@ -9,7 +8,6 @@ import type {
   AgentRuntime,
   Config,
   MessageContext,
-  PermissionDecision,
   ToolExecutionResult
 } from "@/types";
 import { FileStore } from "../files/store.js";
@@ -20,10 +18,7 @@ import { PluginEventQueue } from "./plugins/events.js";
 import { PluginManager } from "./plugins/manager.js";
 import { buildPluginCatalog } from "./plugins/catalog.js";
 import { ensureWorkspaceDir } from "./permissions.js";
-import { permissionApply } from "./permissions/permissionApply.js";
 import { permissionClone } from "./permissions/permissionClone.js";
-import { permissionDescribeDecision } from "./permissions/permissionDescribeDecision.js";
-import { permissionFormatTag } from "./permissions/permissionFormatTag.js";
 import { getProviderDefinition, listActiveInferenceProviders } from "../providers/catalog.js";
 import { Session } from "./sessions/session.js";
 import { AuthStore } from "../auth/store.js";
@@ -102,7 +97,7 @@ export class Engine {
         void this.agentSystem.scheduleMessage(source, message, context);
       },
       onPermission: (source, decision, context) => {
-        void this.handlePermissionDecision(source, decision, context);
+        void this.agentSystem.handlePermissionDecision(source, decision, context);
       },
       onFatal: (source, reason, error) => {
         logger.warn({ source, reason, error }, "Connector requested shutdown");
@@ -134,7 +129,7 @@ export class Engine {
     });
 
     this.providerManager = new ProviderManager({
-      settings: this.config.settings,
+      config: this.config,
       auth: this.authStore,
       fileStore: this.fileStore,
       inferenceRegistry: this.modules.inference,
@@ -143,7 +138,7 @@ export class Engine {
 
     let agentSystem!: AgentSystem;
     this.crons = new Crons({
-      basePath: path.join(this.config.configDir, "cron"),
+      config: this.config,
       eventBus: this.eventBus,
       onTask: async (task, context) => {
         const messageContext = agentSystem.withProviderContext({
@@ -174,7 +169,7 @@ export class Engine {
       }
     });
     this.heartbeats = new Heartbeats({
-      basePath: path.join(this.config.configDir, "heartbeat"),
+      config: this.config,
       eventBus: this.eventBus,
       intervalMs: 30 * 60 * 1000,
       runtime: {
@@ -223,7 +218,7 @@ export class Engine {
     logger.debug("Agent sessions loaded");
 
     logger.debug("Syncing provider manager with settings");
-    await this.providerManager.sync(this.config.settings);
+    await this.providerManager.sync();
     logger.debug("Provider manager sync complete");
     logger.debug("Loading enabled plugins");
     await this.pluginManager.loadEnabled(this.config);
@@ -391,7 +386,8 @@ export class Engine {
     this.agentSystem.reload(config);
     this.pluginManager.reload(config);
     await ensureWorkspaceDir(this.config.defaultPermissions.workingDir);
-    await this.providerManager.sync(this.config.settings);
+    this.providerManager.reload(config);
+    await this.providerManager.sync();
     await this.pluginManager.syncWithConfig(this.config);
     this.inferenceRouter.updateProviders(listActiveInferenceProviders(this.config.settings));
   }
@@ -403,100 +399,6 @@ export class Engine {
       this.config.dataDir === next.dataDir &&
       this.config.authPath === next.authPath &&
       this.config.socketPath === next.socketPath
-    );
-  }
-
-  private async handlePermissionDecision(
-    source: string,
-    decision: PermissionDecision,
-    context: MessageContext
-  ): Promise<void> {
-    if (!context.channelId) {
-      logger.error(
-        { source, channelId: context.channelId, userId: context.userId },
-        "Permission decision missing channelId"
-      );
-      return;
-    }
-    if (!context.userId) {
-      logger.warn(
-        { source, channelId: context.channelId },
-        "Permission decision missing userId"
-      );
-    }
-    const connector = this.modules.connectors.get(source);
-    const permissionTag = permissionFormatTag(decision.access);
-    const permissionLabel = permissionDescribeDecision(decision.access);
-    const sessionId = this.agentSystem.resolveSessionIdForContext(source, context);
-
-    if (!decision.approved) {
-      logger.info(
-        { source, permission: permissionTag, sessionId },
-        "Permission denied"
-      );
-    }
-
-    if (!sessionId) {
-      logger.warn({ source, permission: permissionTag }, "Permission decision without session id");
-      if (connector) {
-        await connector.sendMessage(context.channelId, {
-          text: `Permission ${decision.approved ? "granted" : "denied"} for ${permissionLabel}.`,
-          replyToMessageId: context.messageId
-        });
-      }
-      return;
-    }
-
-    const session = this.agentSystem.getSessionById(sessionId);
-    if (!session) {
-      logger.warn(
-        { source, sessionId },
-        "Session not found for permission decision"
-      );
-      if (connector) {
-        await connector.sendMessage(context.channelId, {
-          text: `Permission ${decision.approved ? "granted" : "denied"} for ${permissionLabel}.`,
-          replyToMessageId: context.messageId
-        });
-      }
-      return;
-    }
-
-    if (decision.approved && (decision.access.kind === "read" || decision.access.kind === "write")) {
-      if (!path.isAbsolute(decision.access.path)) {
-        logger.warn({ sessionId: session.id, permission: permissionTag }, "Permission path not absolute");
-        if (connector) {
-          await connector.sendMessage(context.channelId, {
-            text: `Permission ignored (path must be absolute): ${permissionLabel}.`,
-            replyToMessageId: context.messageId
-          });
-        }
-        return;
-      }
-    }
-
-    if (decision.approved) {
-      permissionApply(session.context.state.permissions, decision);
-      try {
-        await this.agentSystem.sessionStore.recordState(session);
-      } catch (error) {
-        logger.warn({ sessionId: session.id, error }, "Permission persistence failed");
-      }
-
-      this.eventBus.emit("permission.granted", {
-        sessionId: session.id,
-        source,
-        decision
-      });
-    }
-
-    const resumeText = decision.approved
-      ? `Permission granted for ${permissionLabel}. Please continue with the previous request.`
-      : `Permission denied for ${permissionLabel}. Please continue without that permission.`;
-    await this.agentSystem.scheduleMessage(
-      source,
-      { text: resumeText },
-      { ...context, sessionId: session.id }
     );
   }
 
