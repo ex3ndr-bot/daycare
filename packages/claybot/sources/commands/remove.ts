@@ -13,6 +13,7 @@ import {
 } from "../settings.js";
 import { buildPluginCatalog } from "../engine/plugins/catalog.js";
 import { getProviderDefinition } from "../providers/catalog.js";
+import { engineReloadRequest } from "./engineReloadRequest.js";
 
 export type RemoveOptions = {
   settings?: string;
@@ -112,8 +113,11 @@ export async function removeCommand(options: RemoveOptions): Promise<void> {
       };
     });
 
+    const reloaded = await engineReloadRequest(settingsPath);
     outro(
-      `Removed ${provider.label} (${provider.id}${provider.model ? `:${provider.model}` : ""}). Restart the engine to apply changes.`
+      reloaded
+        ? `Removed ${provider.label} (${provider.id}${provider.model ? `:${provider.model}` : ""}). Reloaded engine.`
+        : `Removed ${provider.label} (${provider.id}${provider.model ? `:${provider.model}` : ""}). Restart the engine to apply changes.`
     );
     return;
   }
@@ -131,8 +135,11 @@ export async function removeCommand(options: RemoveOptions): Promise<void> {
       plugins: removePlugin(current.plugins, instanceId)
     }));
 
+    const reloaded = await engineReloadRequest(settingsPath);
     outro(
-      `Removed ${plugin.label} (${plugin.instanceId}). Restart the engine to apply changes.`
+      reloaded
+        ? `Removed ${plugin.label} (${plugin.instanceId}). Reloaded engine.`
+        : `Removed ${plugin.label} (${plugin.instanceId}). Restart the engine to apply changes.`
     );
   }
 }

@@ -1,4 +1,4 @@
-import type { SettingsConfig } from "../../settings.js";
+import type { Config } from "../../config/configTypes.js";
 import type { AuthStore } from "../../auth/store.js";
 import type { FileStore } from "../../files/store.js";
 import type { ConnectorRegistry } from "../modules/connectorRegistry.js";
@@ -7,7 +7,6 @@ import type { ToolResolver } from "../modules/toolResolver.js";
 import type { InferenceRouter } from "../modules/inference/router.js";
 import type { ConnectorMessage, MessageContext } from "../modules/connectors/types.js";
 import type { AgentRuntime } from "../modules/tools/types.js";
-import type { SessionPermissions } from "../permissions.js";
 import type { PluginManager } from "../plugins/manager.js";
 import type { Crons } from "../cron/crons.js";
 import type { SessionDescriptor } from "../sessions/descriptor.js";
@@ -37,10 +36,8 @@ export type BackgroundAgentState = {
 };
 
 export type AgentSystemContext = {
+  readonly config: Config;
   readonly sessionStore: SessionStore<SessionState>;
-  readonly defaultPermissions: SessionPermissions;
-  readonly settings: SettingsConfig;
-  readonly configDir: string;
   readonly connectorRegistry: ConnectorRegistry;
   readonly imageRegistry: ImageGenerationRegistry;
   readonly toolResolver: ToolResolver;

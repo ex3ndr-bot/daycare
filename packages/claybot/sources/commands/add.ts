@@ -15,7 +15,6 @@ import { PluginRegistry } from "../engine/plugins/registry.js";
 import { PluginModuleLoader } from "../engine/plugins/loader.js";
 import {
   DEFAULT_SETTINGS_PATH,
-  readSettingsFile,
   updateSettingsFile,
   upsertPlugin,
   nextPluginInstanceId,
@@ -28,8 +27,10 @@ import {
 import { listActiveInferenceProviders, listProviderDefinitions, getProviderDefinition } from "../providers/catalog.js";
 import type { ProviderDefinition } from "../providers/types.js";
 import { getLogger } from "../log.js";
-import { DEFAULT_CLAYBOT_DIR } from "../paths.js";
 import { resolveExclusivePlugins } from "../engine/plugins/exclusive.js";
+import { configLoad } from "../config/configLoad.js";
+import type { Config } from "../config/configTypes.js";
+import { engineReloadRequest } from "./engineReloadRequest.js";
 
 export type AddOptions = {
   settings?: string;
@@ -39,9 +40,10 @@ export async function addCommand(options: AddOptions): Promise<void> {
   intro("claybot add");
 
   const settingsPath = path.resolve(options.settings ?? DEFAULT_SETTINGS_PATH);
-  const settings = await readSettingsFile(settingsPath);
-  const dataDir = path.resolve(settings.engine?.dataDir ?? DEFAULT_CLAYBOT_DIR);
-  const authStore = new AuthStore(path.join(dataDir, "auth.json"));
+  const config = await configLoad(settingsPath);
+  const settings = config.settings;
+  const dataDir = config.dataDir;
+  const authStore = new AuthStore(config.authPath);
 
   const addTarget = await promptSelect({
     message: "What do you want to add?",
@@ -57,7 +59,7 @@ export async function addCommand(options: AddOptions): Promise<void> {
   }
 
   if (addTarget === "plugin") {
-    await addPlugin(settingsPath, settings, dataDir, authStore);
+    await addPlugin(settingsPath, config, authStore);
     return;
   }
 
@@ -66,10 +68,10 @@ export async function addCommand(options: AddOptions): Promise<void> {
 
 async function addPlugin(
   settingsPath: string,
-  settings: Awaited<ReturnType<typeof readSettingsFile>>,
-  dataDir: string,
+  config: Config,
   authStore: AuthStore
 ): Promise<void> {
+  const settings = config.settings;
   const catalog = buildPluginCatalog();
   const plugins = Array.from(catalog.values());
 
@@ -148,8 +150,7 @@ async function addPlugin(
 
   try {
     await validatePluginLoad(
-      settings,
-      dataDir,
+      config,
       authStore,
       {
         instanceId,
@@ -177,8 +178,11 @@ async function addPlugin(
     };
   });
 
+  const reloaded = await engineReloadRequest(settingsPath);
   outro(
-    `Added ${definition.descriptor.name} (${instanceId}). Restart the engine to apply changes.`
+    reloaded
+      ? `Added ${definition.descriptor.name} (${instanceId}). Reloaded engine.`
+      : `Added ${definition.descriptor.name} (${instanceId}). Restart the engine to apply changes.`
   );
 }
 
@@ -236,7 +240,12 @@ async function addProvider(
     };
   });
 
-  outro(`Added ${definition.name}. Restart the engine to apply changes.`);
+  const reloaded = await engineReloadRequest(settingsPath);
+  outro(
+    reloaded
+      ? `Added ${definition.name}. Reloaded engine.`
+      : `Added ${definition.name}. Restart the engine to apply changes.`
+  );
 }
 
 
@@ -249,8 +258,7 @@ function createPromptHelpers() {
 }
 
 async function validatePluginLoad(
-  settings: Awaited<ReturnType<typeof readSettingsFile>>,
-  dataDir: string,
+  config: Awaited<ReturnType<typeof configLoad>>,
   authStore: AuthStore,
   pluginConfig: PluginInstanceSettings
 ): Promise<void> {
@@ -268,19 +276,18 @@ async function validatePluginLoad(
     toolRegistry
   );
   const pluginEventQueue = new PluginEventQueue();
-  const fileStore = new FileStore({ basePath: `${dataDir}/files` });
+  const fileStore = new FileStore({ basePath: `${config.dataDir}/files` });
   const inferenceRouter = new InferenceRouter({
-    providers: listActiveInferenceProviders(settings),
+    providers: listActiveInferenceProviders(config.settings),
     registry: inferenceRegistry,
     auth: authStore
   });
   const pluginManager = new PluginManager({
-    settings,
+    config,
     registry: pluginRegistry,
     auth: authStore,
     fileStore,
     pluginCatalog: buildPluginCatalog(),
-    dataDir,
     eventQueue: pluginEventQueue,
     inferenceRouter,
     mode: "validate"

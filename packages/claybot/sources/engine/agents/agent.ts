@@ -79,7 +79,10 @@ export class Agent {
       throw new Error(`Agent descriptor mismatch for session: ${id}`);
     }
 
-    const state = sessionStateNormalize(restored.state, agentSystem.defaultPermissions);
+    const state = sessionStateNormalize(
+      restored.state,
+      agentSystem.config.defaultPermissions
+    );
     state.session = restored.descriptor;
 
     const now = new Date();
@@ -115,7 +118,7 @@ export class Agent {
     const state: SessionState = {
       context: { messages: [] },
       providerId: undefined,
-      permissions: permissionClone(agentSystem.defaultPermissions),
+      permissions: permissionClone(agentSystem.config.defaultPermissions),
       session: descriptor
     };
     const session = new Session<SessionState>(
@@ -229,7 +232,7 @@ export class Agent {
       session.context.state.session = this.descriptor;
     }
 
-    const defaultPermissions = agentSystem.defaultPermissions;
+    const defaultPermissions = agentSystem.config.defaultPermissions;
     if (entry.context.cron?.filesPath) {
       session.context.state.permissions = permissionBuildCron(
         defaultPermissions,
@@ -246,7 +249,7 @@ export class Agent {
     await agentPromptFilesEnsure();
 
     const sessionContext = session.context.state.context;
-    const providers = listActiveInferenceProviders(agentSystem.settings);
+    const providers = listActiveInferenceProviders(agentSystem.config.settings);
     const providerId = this.resolveSessionProvider(session, entry.context, providers);
     logger.debug(
       `Building context sessionId=${session.id} existingMessageCount=${sessionContext.messages.length}`
@@ -299,7 +302,7 @@ export class Agent {
       agentKind,
       parentSessionId:
         session.context.state.agent?.parentSessionId ?? entry.context.agent?.parentSessionId,
-      configDir: agentSystem.configDir
+      configDir: agentSystem.config.configDir
     });
     const context: Context = {
       ...sessionContext,
@@ -338,7 +341,7 @@ export class Agent {
       authStore: agentSystem.authStore,
       sessionStore: this.sessionStore,
       eventBus: agentSystem.eventBus,
-      assistant: agentSystem.settings.assistant ?? null,
+      assistant: agentSystem.config.settings.assistant ?? null,
       agentRuntime: agentSystem.agentRuntime,
       providersForSession,
       verbose: agentSystem.verbose,

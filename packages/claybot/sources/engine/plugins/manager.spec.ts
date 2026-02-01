@@ -14,6 +14,7 @@ import { PluginManager } from "./manager.js";
 import { PluginRegistry } from "./registry.js";
 import { AuthStore } from "../../auth/store.js";
 import type { PluginInstanceSettings } from "../../settings.js";
+import { configResolve } from "../../config/configResolve.js";
 
 const tempRoots: string[] = [];
 
@@ -71,14 +72,14 @@ function createManager(
       }
     ]
   ]);
+  const config = configResolve({ engine: { dataDir: rootDir } }, path.join(rootDir, "settings.json"));
 
   return new PluginManager({
-    settings: {},
+    config,
     registry: pluginRegistry,
     auth,
     fileStore,
     pluginCatalog: catalog,
-    dataDir: rootDir,
     eventQueue: queue,
     inferenceRouter
   });
@@ -157,27 +158,39 @@ export const plugin = {
     const queue = new PluginEventQueue();
     const manager = createManager(entryPath, "sync", dir, queue);
 
-    await manager.syncWithSettings({
-      plugins: [
+    await manager.syncWithConfig(
+      configResolve(
         {
-          instanceId: "sync-one",
-          pluginId: "sync",
-          enabled: true,
-          settings: {}
-        }
-      ]
-    });
+          engine: { dataDir: dir },
+          plugins: [
+            {
+              instanceId: "sync-one",
+              pluginId: "sync",
+              enabled: true,
+              settings: {}
+            }
+          ]
+        },
+        path.join(dir, "settings.json")
+      )
+    );
     expect(manager.listLoaded()).toEqual(["sync-one"]);
 
-    await manager.syncWithSettings({
-      plugins: [
+    await manager.syncWithConfig(
+      configResolve(
         {
-          instanceId: "sync-one",
-          pluginId: "sync",
-          enabled: false
-        }
-      ]
-    });
+          engine: { dataDir: dir },
+          plugins: [
+            {
+              instanceId: "sync-one",
+              pluginId: "sync",
+              enabled: false
+            }
+          ]
+        },
+        path.join(dir, "settings.json")
+      )
+    );
     expect(manager.listLoaded()).toEqual([]);
   });
 });

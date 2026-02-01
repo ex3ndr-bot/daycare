@@ -3,7 +3,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { getLogger } from "../../log.js";
 import type { FileStore } from "../../files/store.js";
 import type { AuthStore } from "../../auth/store.js";
-import type { SettingsConfig } from "../../settings.js";
+import type { Config } from "../../config/configTypes.js";
 import { listActiveInferenceProviders } from "../../providers/catalog.js";
 import { cuid2Is } from "../../utils/cuid2Is.js";
 import type { AgentRuntime } from "../modules/tools/types.js";
@@ -11,7 +11,6 @@ import type { ConnectorRegistry } from "../modules/connectorRegistry.js";
 import type { ImageGenerationRegistry } from "../modules/imageGenerationRegistry.js";
 import type { ToolResolver } from "../modules/toolResolver.js";
 import type { ConnectorMessage, MessageContext } from "../modules/connectors/types.js";
-import type { SessionPermissions } from "../permissions.js";
 import { messageBuildSystemText } from "../messages/messageBuildSystemText.js";
 import { messageFormatIncoming } from "../messages/messageFormatIncoming.js";
 import { messageIsSystemText } from "../messages/messageIsSystemText.js";
@@ -47,10 +46,7 @@ import type { AgentSystemContext, BackgroundAgentState } from "./agentTypes.js";
 const logger = getLogger("engine.agent-system");
 
 export type AgentSystemOptions = {
-  settings: SettingsConfig;
-  dataDir: string;
-  configDir: string;
-  defaultPermissions: SessionPermissions;
+  config: Config;
   eventBus: EngineEventBus;
   connectorRegistry: ConnectorRegistry;
   imageRegistry: ImageGenerationRegistry;
@@ -77,9 +73,7 @@ type PendingInternalError = {
 };
 
 export class AgentSystem implements AgentSystemContext {
-  readonly settings: SettingsConfig;
-  readonly configDir: string;
-  readonly defaultPermissions: SessionPermissions;
+  config: Config;
   readonly eventBus: EngineEventBus;
   readonly connectorRegistry: ConnectorRegistry;
   readonly imageRegistry: ImageGenerationRegistry;
@@ -101,9 +95,7 @@ export class AgentSystem implements AgentSystemContext {
   private drainingQueue = false;
 
   constructor(options: AgentSystemOptions) {
-    this.settings = options.settings;
-    this.configDir = options.configDir;
-    this.defaultPermissions = options.defaultPermissions;
+    this.config = options.config;
     this.eventBus = options.eventBus;
     this.connectorRegistry = options.connectorRegistry;
     this.imageRegistry = options.imageRegistry;
@@ -116,13 +108,13 @@ export class AgentSystem implements AgentSystemContext {
     this.agentRuntime = options.agentRuntime;
     this.verbose = options.verbose ?? false;
     this.sessionStore = new SessionStore<SessionState>({
-      basePath: `${options.dataDir}/sessions`
+      basePath: `${this.config.dataDir}/sessions`
     });
     this.sessionManager = new SessionManager<SessionState>({
       createState: () => ({
         context: { messages: [] },
         providerId: undefined,
-        permissions: permissionClone(this.defaultPermissions),
+        permissions: permissionClone(this.config.defaultPermissions),
         session: undefined
       }),
       sessionIdFor: (source, context) => {
@@ -162,17 +154,17 @@ export class AgentSystem implements AgentSystemContext {
         session.context.state.session = sessionDescriptorBuild(source, context, session.id);
         if (context.cron?.filesPath) {
           session.context.state.permissions = permissionBuildCron(
-            this.defaultPermissions,
+            this.config.defaultPermissions,
             context.cron.filesPath
           );
         } else if (sessionContextIsHeartbeat(context, session.context.state.session)) {
           session.context.state.permissions = permissionMergeDefault(
             session.context.state.permissions,
-            this.defaultPermissions
+            this.config.defaultPermissions
           );
           permissionEnsureDefaultFile(
             session.context.state.permissions,
-            this.defaultPermissions
+            this.config.defaultPermissions
           );
         }
         logger.info(
@@ -253,7 +245,7 @@ export class AgentSystem implements AgentSystemContext {
       const session = this.sessionManager.restoreSession(
         restoredSessionId,
         restored.storageId,
-        sessionStateNormalize(restored.state, this.defaultPermissions),
+        sessionStateNormalize(restored.state, this.config.defaultPermissions),
         restored.createdAt,
         restored.updatedAt
       );
@@ -345,6 +337,10 @@ export class AgentSystem implements AgentSystemContext {
     if (this.stage === "running") {
       await this.drainQueue();
     }
+  }
+
+  reload(config: Config): void {
+    this.config = config;
   }
 
   getBackgroundAgents(): BackgroundAgentState[] {
@@ -504,7 +500,7 @@ export class AgentSystem implements AgentSystemContext {
     if (context.providerId) {
       return context.providerId;
     }
-    const providers = listActiveInferenceProviders(this.settings);
+    const providers = listActiveInferenceProviders(this.config.settings);
     return providers[0]?.id;
   }
 

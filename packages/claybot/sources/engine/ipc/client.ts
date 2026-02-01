@@ -95,3 +95,15 @@ export async function unloadPlugin(instanceId: string): Promise<void> {
     throw new Error(response.body);
   }
 }
+
+export async function reloadEngine(socketPathOverride?: string): Promise<void> {
+  const socketPath = resolveEngineSocketPath(socketPathOverride);
+  const response = await requestSocket({
+    socketPath,
+    path: "/v1/engine/reload",
+    method: "POST"
+  });
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new Error(response.body || "Engine reload failed.");
+  }
+}

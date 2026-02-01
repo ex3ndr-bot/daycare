@@ -1,111 +1,22 @@
-# Configuration
+# Config
 
-ClayBot now reads from a single settings file plus the auth store.
+ClayBot uses an immutable Config snapshot that resolves paths, defaults, and settings
+from the JSON settings file. The engine reloads by rebuilding a new Config snapshot.
 
-- `.claybot/settings.json` (or the path passed to `claybot start --settings`)
-- `.claybot/auth.json` for credentials
-- `.claybot/SOUL.md` for the system prompt (optional)
+## Lifecycle
 
 ```mermaid
 flowchart TD
-  Start[claybot start] --> Settings[.claybot/settings.json]
-  Start --> Auth[.claybot/auth.json]
-  Start --> Soul[.claybot/SOUL.md]
-  Start --> Cron[.claybot/cron/*]
-  Settings --> Plugins
-  Settings --> Inference
-  Soul --> SystemPrompt[Session System Prompt]
+  CLI[CLI writes settings.json] --> Load[configLoad.ts]
+  Load --> Config[Config snapshot]
+  Config --> Engine[engine.reload()]
+  Engine --> Plugins[plugins.manager sync]
+  Engine --> Providers[providers.manager sync]
+  Engine --> Agents[agentSystem.reload]
 ```
 
-## Sample `.claybot/settings.json`
-```json
-{
-  "engine": {
-    "socketPath": ".claybot/claybot.sock",
-    "dataDir": ".claybot"
-  },
-  "plugins": [
-    { "instanceId": "telegram", "pluginId": "telegram", "enabled": true, "settings": { "polling": true } },
-    { "instanceId": "brave-search", "pluginId": "brave-search", "enabled": true },
-    { "instanceId": "memory", "pluginId": "memory", "enabled": true }
-  ],
-  "providers": [
-    { "id": "openai", "enabled": true, "model": "gpt-4o-mini" },
-    { "id": "nanobanana", "enabled": false, "image": { "endpoint": "https://api.example.com/images" } }
-  ]
-}
-```
+## Reload flow
 
-Memory settings are configured per plugin instance. Providers are configured
-at the top level; order defines inference priority and `enabled: false` disables a provider.
-
-## Cron tasks
-Cron tasks are stored as markdown files in `<config>/cron/<task-id>/TASK.md` with frontmatter:
-
-```markdown
----
-taskId: clx9rk1p20000x5p3j7q1x8z1
-name: Weekly Summary
-schedule: "0 9 * * 1"
-enabled: true
----
-
-Summarize the weekly updates.
-```
-
-Each task directory also contains `MEMORY.md` and a `files/` workspace.
-
-Supported frontmatter fields include `description`, `deleteAfterRun`, and required `taskId` cuid2 for stable task identity (tasks without a valid `taskId` are ignored).
-
-## `.claybot/auth.json`
-Credentials are stored per plugin or provider id:
-
-```json
-{
-  "telegram": { "type": "token", "token": "..." },
-  "brave-search": { "type": "apiKey", "apiKey": "..." },
-  "openai": { "type": "apiKey", "apiKey": "..." },
-  "anthropic": { "type": "apiKey", "apiKey": "..." },
-  "nanobanana": { "type": "apiKey", "apiKey": "..." }
-}
-```
-
-## `.claybot/SOUL.md`
-The soul file defines the assistant's personality. A default is created on first run:
-
-```markdown
-# System Prompt
-
-You are a helpful assistant. Be concise and direct in your responses.
-
-## Guidelines
-
-- Respond in the same language as the user
-- Ask clarifying questions when needed
-- Be honest about limitations
-```
-
-Edit SOUL.md to customize the assistant. Changes take effect on the next message.
-
-The soul is embedded into a system prompt template (`SYSTEM.md`) that includes
-runtime context:
-
-```markdown
-You are an AI assistant.
-
-Current date: {{date}}
-
-## Runtime
-
-- OS: {{os}}
-- Architecture: {{arch}}
-- Model: {{model}}
-- Provider: {{provider}}
-- Workspace: {{workspace}}
-
-## Personality
-
-{{{soul}}}
-```
-
-The template uses Handlebars syntax. `{{{soul}}}` (triple braces) preserves markdown formatting.
+- CLI or UI updates `settings.json`
+- `/v1/engine/reload` validates with schema and rebuilds Config
+- Engine applies the new Config snapshot (paths must be unchanged)

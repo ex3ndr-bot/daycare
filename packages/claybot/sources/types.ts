@@ -49,3 +49,6 @@ export type {
   ToolExecutionContext,
   ToolExecutionResult
 } from "./engine/modules/tools/types.js";
+
+// Config
+export type { Config } from "./config/configTypes.js";

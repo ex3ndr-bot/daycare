@@ -8,6 +8,7 @@ import type { FileStore } from "../../files/store.js";
 import type { AuthStore } from "../../auth/store.js";
 import type { PluginInstanceSettings, SettingsConfig } from "../../settings.js";
 import { listEnabledPlugins } from "../../settings.js";
+import type { Config } from "../../config/configTypes.js";
 import type { PluginEventQueue } from "./events.js";
 import { PluginModuleLoader } from "./loader.js";
 import type { PluginDefinition } from "./catalog.js";
@@ -19,12 +20,11 @@ import type { InferenceRouter } from "../modules/inference/router.js";
 import { PluginInferenceService } from "./inference.js";
 
 export type PluginManagerOptions = {
-  settings: SettingsConfig;
+  config: Config;
   registry: PluginRegistry;
   auth: AuthStore;
   fileStore: FileStore;
   pluginCatalog: Map<string, PluginDefinition>;
-  dataDir: string;
   eventQueue: PluginEventQueue;
   inferenceRouter: InferenceRouter;
   mode?: "runtime" | "validate";
@@ -41,12 +41,11 @@ type LoadedPlugin = {
 };
 
 export class PluginManager {
-  private settings: SettingsConfig;
+  private config: Config;
   private registry: PluginRegistry;
   private auth: AuthStore;
   private fileStore: FileStore;
   private pluginCatalog: Map<string, PluginDefinition>;
-  private dataDir: string;
   private eventQueue: PluginEventQueue;
   private mode: "runtime" | "validate";
   private engineEvents?: EngineEventBus;
@@ -55,20 +54,19 @@ export class PluginManager {
   private logger = getLogger("plugins.manager");
 
   constructor(options: PluginManagerOptions) {
-    this.settings = options.settings;
+    this.config = options.config;
     this.registry = options.registry;
     this.auth = options.auth;
     this.fileStore = options.fileStore;
     this.pluginCatalog = options.pluginCatalog;
-    this.dataDir = options.dataDir;
     this.eventQueue = options.eventQueue;
     this.mode = options.mode ?? "runtime";
     this.engineEvents = options.engineEvents;
     this.inference = new PluginInferenceService({
       router: options.inferenceRouter,
-      getSettings: () => this.settings
+      getSettings: () => this.config.settings
     });
-    this.logger.debug(`PluginManager initialized catalogSize=${options.pluginCatalog.size} dataDir=${options.dataDir} mode=${this.mode}`);
+    this.logger.debug(`PluginManager initialized catalogSize=${options.pluginCatalog.size} dataDir=${this.config.dataDir} mode=${this.mode}`);
   }
 
   listLoaded(): string[] {
@@ -127,13 +125,14 @@ export class PluginManager {
     return prompts;
   }
 
-  updateSettings(settings: SettingsConfig): void {
-    this.settings = settings;
+  reload(config: Config): void {
+    this.config = config;
   }
 
-  async syncWithSettings(settings: SettingsConfig): Promise<void> {
+  async syncWithConfig(config: Config): Promise<void> {
     this.logger.debug(`syncWithSettings starting loadedCount=${this.loaded.size}`);
-    this.settings = settings;
+    this.config = config;
+    const settings = config.settings;
     const desired = this.resolveEnabledPlugins(settings);
     const desiredMap = new Map(desired.map((plugin) => [plugin.instanceId, plugin]));
     const desiredIds = desired.map(p => p.instanceId).join(",");
@@ -257,7 +256,7 @@ export class PluginManager {
     const api: PluginApi = {
       instance: pluginConfig,
       settings: parsedSettings,
-      engineSettings: this.settings,
+      engineSettings: this.config.settings,
       logger: getLogger(`plugin.${instanceId}`),
       auth: this.auth,
       dataDir,
@@ -330,9 +329,9 @@ export class PluginManager {
     }
   }
 
-  async loadEnabled(settings: SettingsConfig): Promise<void> {
-    this.settings = settings;
-    const enabled = this.resolveEnabledPlugins(settings);
+  async loadEnabled(config: Config): Promise<void> {
+    this.config = config;
+    const enabled = this.resolveEnabledPlugins(config.settings);
     const enabledIds = enabled.map(p => p.instanceId).join(",");
     this.logger.debug(`loadEnabled() starting enabledCount=${enabled.length} enabledIds=${enabledIds}`);
     for (const plugin of enabled) {
@@ -351,7 +350,7 @@ export class PluginManager {
   }
 
   private async ensurePluginDir(instanceId: string): Promise<string> {
-    const dir = path.join(this.dataDir, "plugins", instanceId);
+    const dir = path.join(this.config.dataDir, "plugins", instanceId);
     await fs.mkdir(dir, { recursive: true });
     return dir;
   }

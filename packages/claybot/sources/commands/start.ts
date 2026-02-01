@@ -2,15 +2,14 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import { getLogger } from "../log.js";
-import { DEFAULT_SETTINGS_PATH, readSettingsFile } from "../settings.js";
+import { DEFAULT_SETTINGS_PATH } from "../settings.js";
+import { configLoad } from "../config/configLoad.js";
 import { awaitShutdown, onShutdown } from "../util/shutdown.js";
 import { startEngineServer } from "../engine/ipc/server.js";
 import { Engine } from "../engine/engine.js";
 import { EngineEventBus } from "../engine/ipc/events.js";
 import { promptConfirm } from "./prompts.js";
-import { resolveEngineSocketPath } from "../engine/ipc/socket.js";
 import { requestSocket } from "../engine/ipc/client.js";
-import { DEFAULT_CLAYBOT_DIR } from "../paths.js";
 
 const logger = getLogger("command.start");
 
@@ -22,17 +21,14 @@ export type StartOptions = {
 
 export async function startCommand(options: StartOptions): Promise<void> {
   const settingsPath = path.resolve(options.settings ?? DEFAULT_SETTINGS_PATH);
-  const settings = await readSettingsFile(settingsPath);
-  logger.info({ settings: settingsPath }, "Starting ClayBot");
+  const config = await configLoad(settingsPath);
+  logger.info({ settings: config.settingsPath }, "Starting ClayBot");
 
-  const dataDir = path.resolve(settings.engine?.dataDir ?? DEFAULT_CLAYBOT_DIR);
-  const authPath = path.join(dataDir, "auth.json");
   const eventBus = new EngineEventBus();
-  const socketPath = resolveEngineSocketPath(settings.engine?.socketPath);
-  const configDir = path.dirname(settingsPath);
-  const pidPath = path.join(configDir, "engine.pid");
+  const socketPath = config.socketPath;
+  const pidPath = path.join(config.configDir, "engine.pid");
 
-  await ensureConfigDir(configDir);
+  await ensureConfigDir(config.configDir);
 
   const socketResponsive = await isEngineRunning(socketPath);
   const existingPid = await readPidFile(pidPath);
@@ -72,11 +68,8 @@ export async function startCommand(options: StartOptions): Promise<void> {
   }
 
   const runtime = new Engine({
-    settings,
-    dataDir,
-    authPath,
+    config,
     eventBus,
-    configDir,
     verbose: options.verbose ?? false
   });
 
@@ -87,10 +80,10 @@ export async function startCommand(options: StartOptions): Promise<void> {
     | null = null;
   try {
     engineServer = await startEngineServer({
-      settingsPath,
+      settingsPath: config.settingsPath,
       runtime,
       eventBus,
-      socketPath: settings.engine?.socketPath
+      socketPath: config.socketPath
     });
   } catch (error) {
     logger.warn({ error }, "Engine server failed to start");

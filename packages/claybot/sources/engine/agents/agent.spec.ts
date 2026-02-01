@@ -20,6 +20,7 @@ import type { AuthStore } from "../../auth/store.js";
 import type { PluginManager } from "../plugins/manager.js";
 import type { EngineEventBus } from "../ipc/events.js";
 import type { Crons } from "../cron/crons.js";
+import { configResolve } from "../../config/configResolve.js";
 
 const defaultPermissions: SessionPermissions = {
   workingDir: "/tmp/work",
@@ -53,15 +54,16 @@ async function createAgentSystem(): Promise<{
 }> {
   const dir = await mkdtemp(path.join(tmpdir(), "claybot-agent-"));
   const store = new SessionStore<SessionState>({ basePath: dir });
-  const agentSystem = {
-    sessionStore: store,
-    defaultPermissions: {
-      ...defaultPermissions,
-      writeDirs: [...defaultPermissions.writeDirs],
-      readDirs: [...defaultPermissions.readDirs]
+  const config = configResolve(
+    {
+      engine: { dataDir: dir },
+      assistant: { workspaceDir: defaultPermissions.workingDir }
     },
-    settings: {},
-    configDir: "/tmp",
+    path.join(dir, "settings.json")
+  );
+  const agentSystem = {
+    config,
+    sessionStore: store,
     connectorRegistry: stub<ConnectorRegistry>(),
     imageRegistry: stub<ImageGenerationRegistry>(),
     toolResolver: stub<ToolResolver>(),

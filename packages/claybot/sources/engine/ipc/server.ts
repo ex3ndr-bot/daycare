@@ -15,6 +15,7 @@ import {
   updateSettingsFile,
   upsertPlugin
 } from "../../settings.js";
+import { configLoad } from "../../config/configLoad.js";
 import { buildPluginCatalog } from "../plugins/catalog.js";
 import { PluginModuleLoader } from "../plugins/loader.js";
 import { resolveExclusivePlugins } from "../plugins/exclusive.js";
@@ -186,9 +187,8 @@ export async function startEngineServer(
     logger.info({ plugin: resolvedPluginId, instance: instanceId }, "Plugin load requested");
     logger.debug(`Processing plugin load pluginId=${resolvedPluginId} instanceId=${instanceId} hasSettings=${!!payload.settings}`);
 
-    let settings;
     try {
-      settings = await updateSettingsFile(options.settingsPath, (current) => {
+      await updateSettingsFile(options.settingsPath, (current) => {
         const existingEntry = listPlugins(current).find(
           (plugin) => plugin.instanceId === instanceId
         );
@@ -229,8 +229,13 @@ export async function startEngineServer(
       return;
     }
 
-    logger.debug("Updating runtime settings");
-    await options.runtime.updateSettings(settings);
+    try {
+      await reloadRuntime(options.settingsPath, options.runtime);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Runtime reload failed.";
+      reply.status(400).send({ error: message });
+      return;
+    }
 
     options.eventBus.emit("plugin.loaded", { id: instanceId });
     logger.debug(`Plugin load completed instanceId=${instanceId}`);
@@ -255,7 +260,7 @@ export async function startEngineServer(
     logger.info({ instance: instanceId }, "Plugin unload requested");
 
     logger.debug(`Updating settings file for unload instanceId=${instanceId}`);
-    const settings = await updateSettingsFile(options.settingsPath, (current) => ({
+    await updateSettingsFile(options.settingsPath, (current) => ({
       ...current,
       plugins: upsertPlugin(current.plugins, {
         ...(listPlugins(current).find((plugin) => plugin.instanceId === instanceId) ?? {
@@ -266,8 +271,13 @@ export async function startEngineServer(
       })
     }));
 
-    logger.debug("Updating runtime settings for unload");
-    await options.runtime.updateSettings(settings);
+    try {
+      await reloadRuntime(options.settingsPath, options.runtime);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Runtime reload failed.";
+      reply.status(400).send({ error: message });
+      return;
+    }
     options.eventBus.emit("plugin.unloaded", { id: instanceId });
     logger.debug(`Plugin unload completed instanceId=${instanceId}`);
     return reply.send({ ok: true });
@@ -292,6 +302,18 @@ export async function startEngineServer(
     setImmediate(() => {
       requestShutdown("SIGTERM");
     });
+  });
+
+  app.post("/v1/engine/reload", async (_request, reply) => {
+    logger.info("Reload requested via API");
+    try {
+      await reloadRuntime(options.settingsPath, options.runtime);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Runtime reload failed.";
+      reply.status(400).send({ ok: false, error: message });
+      return;
+    }
+    reply.send({ ok: true });
   });
 
   app.get("/v1/engine/events", async (request, reply) => {
@@ -362,4 +384,9 @@ function parseBody<T>(
 
 async function closeServer(app: FastifyInstance): Promise<void> {
   await app.close();
+}
+
+async function reloadRuntime(settingsPath: string, runtime: Engine): Promise<void> {
+  const config = await configLoad(settingsPath);
+  await runtime.reload(config);
 }

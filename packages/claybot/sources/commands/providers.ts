@@ -13,6 +13,7 @@ import {
   type SettingsConfig
 } from "../settings.js";
 import { getProviderDefinition } from "../providers/catalog.js";
+import { engineReloadRequest } from "./engineReloadRequest.js";
 
 export type ProviderCommandOptions = {
   settings?: string;
@@ -121,7 +122,8 @@ export async function setDefaultProviderCommand(
     };
   });
 
-  outro("Default provider updated.");
+  const reloaded = await engineReloadRequest(settingsPath);
+  outro(reloaded ? "Default provider updated (engine reloaded)." : "Default provider updated.");
 }
 
 async function fetchConnectedProviders(

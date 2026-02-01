@@ -13,14 +13,8 @@ import { PluginEventEngine } from "./plugins/event-engine.js";
 import { PluginEventQueue } from "./plugins/events.js";
 import { PluginManager } from "./plugins/manager.js";
 import { buildPluginCatalog } from "./plugins/catalog.js";
-import type { SettingsConfig } from "../settings.js";
-import {
-  ensureWorkspaceDir,
-  resolveWorkspaceDir,
-  type SessionPermissions
-} from "./permissions.js";
+import { ensureWorkspaceDir } from "./permissions.js";
 import { permissionApply } from "./permissions/permissionApply.js";
-import { permissionBuildDefault } from "./permissions/permissionBuildDefault.js";
 import { permissionClone } from "./permissions/permissionClone.js";
 import { permissionDescribeDecision } from "./permissions/permissionDescribeDecision.js";
 import { permissionFormatTag } from "./permissions/permissionFormatTag.js";
@@ -54,23 +48,18 @@ import { sessionDescriptorBuild } from "./sessions/sessionDescriptorBuild.js";
 import type { SessionState } from "./sessions/sessionStateTypes.js";
 import { EngineEventBus } from "./ipc/events.js";
 import { ProviderManager } from "../providers/manager.js";
+import type { Config } from "../config/configTypes.js";
 
 const logger = getLogger("engine.runtime");
 
 export type EngineOptions = {
-  settings: SettingsConfig;
-  dataDir: string;
-  authPath: string;
+  config: Config;
   eventBus: EngineEventBus;
-  configDir: string;
   verbose?: boolean;
 };
 
 export class Engine {
-  readonly settings: SettingsConfig;
-  readonly dataDir: string;
-  readonly configDir: string;
-  readonly defaultPermissions: SessionPermissions;
+  private config: Config;
   readonly authStore: AuthStore;
   readonly fileStore: FileStore;
   readonly modules: ModuleRegistry;
@@ -88,16 +77,12 @@ export class Engine {
   readonly verbose: boolean;
 
   constructor(options: EngineOptions) {
-    logger.debug(`Engine constructor starting, dataDir=${options.dataDir}`);
-    this.settings = options.settings;
-    this.dataDir = options.dataDir;
-    this.configDir = options.configDir;
+    logger.debug(`Engine constructor starting, dataDir=${options.config.dataDir}`);
+    this.config = options.config;
     this.verbose = options.verbose ?? false;
-    const workspaceDir = resolveWorkspaceDir(this.configDir, this.settings.assistant ?? null);
-    this.defaultPermissions = permissionBuildDefault(workspaceDir, this.configDir);
     this.eventBus = options.eventBus;
-    this.authStore = new AuthStore(options.authPath);
-    this.fileStore = new FileStore({ basePath: `${this.dataDir}/files` });
+    this.authStore = new AuthStore(this.config.authPath);
+    this.fileStore = new FileStore({ basePath: `${this.config.dataDir}/files` });
     logger.debug(`AuthStore and FileStore initialized`);
 
     this.pluginEventQueue = new PluginEventQueue();
@@ -124,7 +109,7 @@ export class Engine {
     });
 
     this.inferenceRouter = new InferenceRouter({
-      providers: listActiveInferenceProviders(this.settings),
+      providers: listActiveInferenceProviders(this.config.settings),
       registry: this.modules.inference,
       auth: this.authStore
     });
@@ -137,19 +122,18 @@ export class Engine {
     );
 
     this.pluginManager = new PluginManager({
-      settings: this.settings,
+      config: this.config,
       registry: this.pluginRegistry,
       auth: this.authStore,
       fileStore: this.fileStore,
       pluginCatalog: buildPluginCatalog(),
-      dataDir: this.dataDir,
       eventQueue: this.pluginEventQueue,
       inferenceRouter: this.inferenceRouter,
       engineEvents: this.eventBus
     });
 
     this.providerManager = new ProviderManager({
-      settings: this.settings,
+      settings: this.config.settings,
       auth: this.authStore,
       fileStore: this.fileStore,
       inferenceRegistry: this.modules.inference,
@@ -158,7 +142,7 @@ export class Engine {
 
     let agentSystem!: AgentSystem;
     this.crons = new Crons({
-      basePath: path.join(this.configDir, "cron"),
+      basePath: path.join(this.config.configDir, "cron"),
       eventBus: this.eventBus,
       onTask: async (task, context) => {
         const messageContext = agentSystem.withProviderContext({
@@ -189,7 +173,7 @@ export class Engine {
       }
     });
     this.heartbeats = new Heartbeats({
-      basePath: path.join(this.configDir, "heartbeat"),
+      basePath: path.join(this.config.configDir, "heartbeat"),
       eventBus: this.eventBus,
       intervalMs: 30 * 60 * 1000,
       runtime: {
@@ -211,10 +195,7 @@ export class Engine {
       })
     };
     agentSystem = new AgentSystem({
-      settings: this.settings,
-      dataDir: this.dataDir,
-      configDir: this.configDir,
-      defaultPermissions: this.defaultPermissions,
+      config: this.config,
       eventBus: this.eventBus,
       connectorRegistry: this.modules.connectors,
       imageRegistry: this.modules.images,
@@ -234,7 +215,7 @@ export class Engine {
 
   async start(): Promise<void> {
     logger.debug("Engine.start() beginning");
-    await ensureWorkspaceDir(this.defaultPermissions.workingDir);
+    await ensureWorkspaceDir(this.config.defaultPermissions.workingDir);
 
     logger.debug("Loading agent sessions");
     await this.agentSystem.load();
@@ -242,10 +223,10 @@ export class Engine {
     logger.debug("Agent sessions loaded");
 
     logger.debug("Syncing provider manager with settings");
-    await this.providerManager.sync(this.settings);
+    await this.providerManager.sync(this.config.settings);
     logger.debug("Provider manager sync complete");
     logger.debug("Loading enabled plugins");
-    await this.pluginManager.loadEnabled(this.settings);
+    await this.pluginManager.loadEnabled(this.config);
     logger.debug("Plugins loaded, starting plugin event engine");
     this.pluginEventEngine.start();
     logger.debug("Plugin event engine started");
@@ -374,7 +355,7 @@ export class Engine {
         state: {
           context: { messages: [] },
           providerId: undefined,
-          permissions: permissionClone(this.defaultPermissions),
+          permissions: permissionClone(this.config.defaultPermissions),
           session: undefined
         }
       },
@@ -393,7 +374,7 @@ export class Engine {
       fileStore: this.fileStore,
       auth: this.authStore,
       logger,
-      assistant: this.settings.assistant ?? null,
+      assistant: this.config.settings.assistant ?? null,
       permissions: session.context.state.permissions,
       session,
       source: "system",
@@ -402,24 +383,27 @@ export class Engine {
     });
   }
 
-  async updateSettings(settings: SettingsConfig): Promise<void> {
-    const mutableSettings = this.settings as Record<string, unknown>;
-    for (const key of Object.keys(mutableSettings)) {
-      delete mutableSettings[key];
+  async reload(config: Config): Promise<void> {
+    if (!this.isReloadable(config)) {
+      throw new Error("Config reload requires restart (paths changed).");
     }
-    Object.assign(mutableSettings, settings);
+    this.config = config;
+    this.agentSystem.reload(config);
+    this.pluginManager.reload(config);
+    await ensureWorkspaceDir(this.config.defaultPermissions.workingDir);
+    await this.providerManager.sync(this.config.settings);
+    await this.pluginManager.syncWithConfig(this.config);
+    this.inferenceRouter.updateProviders(listActiveInferenceProviders(this.config.settings));
+  }
 
-    const workspaceDir = resolveWorkspaceDir(this.configDir, this.settings.assistant ?? null);
-    const nextPermissions = permissionBuildDefault(workspaceDir, this.configDir);
-    this.defaultPermissions.workingDir = nextPermissions.workingDir;
-    this.defaultPermissions.writeDirs = [...nextPermissions.writeDirs];
-    this.defaultPermissions.readDirs = [...nextPermissions.readDirs];
-    this.defaultPermissions.web = nextPermissions.web;
-
-    await ensureWorkspaceDir(this.defaultPermissions.workingDir);
-    await this.providerManager.sync(settings);
-    await this.pluginManager.syncWithSettings(settings);
-    this.inferenceRouter.updateProviders(listActiveInferenceProviders(settings));
+  private isReloadable(next: Config): boolean {
+    return (
+      this.config.settingsPath === next.settingsPath &&
+      this.config.configDir === next.configDir &&
+      this.config.dataDir === next.dataDir &&
+      this.config.authPath === next.authPath &&
+      this.config.socketPath === next.socketPath
+    );
   }
 
   private async handlePermissionDecision(
