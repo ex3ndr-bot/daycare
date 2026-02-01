@@ -69,6 +69,15 @@
 - do not use barrel `index.ts` files
 - avoid backward-compatibility shims for internal code
 
+## Utility Functions
+Place general-purpose helpers in `sources/util/`. This includes:
+- String manipulation (`stringUtils.ts`, `trimIdent.ts`)
+- Time/date helpers (`time.ts`, `timeFormat.ts`, `isoDate.ts`)
+- Async primitives (`lock.ts`, `sync.ts`, `debounce.ts`)
+- Shutdown coordination (`shutdown.ts`)
+
+Keep utilities **domain-agnostic**. If a helper is specific to a domain (e.g., permissions, sessions), it belongs in that domain folder instead.
+
 ## Time Handling
 Use **unix timestamps** (milliseconds since epoch) for all time values in the application. Only use `Date` objects at boundaries for parsing or formatting.
 
