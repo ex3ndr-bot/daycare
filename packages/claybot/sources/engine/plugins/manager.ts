@@ -147,8 +147,21 @@ export class PluginManager {
         const entry = this.loaded.get(plugin.instanceId);
         if (entry) {
           this.logger.debug(`Plugin already loaded, updating config instanceId=${plugin.instanceId}`);
-          entry.config = plugin;
-          entry.settings = plugin.settings ?? {};
+          try {
+            const parsed = entry.module.settingsSchema.parse(plugin.settings ?? {});
+            entry.config = plugin;
+            entry.settings = parsed;
+          } catch (error) {
+            const message = error instanceof Error ? error.message : "Invalid plugin settings.";
+            this.logger.warn(
+              { instance: plugin.instanceId, plugin: plugin.pluginId, error },
+              "Plugin settings validation failed"
+            );
+            await this.unload(plugin.instanceId);
+            throw new Error(
+              `Plugin settings invalid for ${plugin.pluginId} (${plugin.instanceId}): ${message}`
+            );
+          }
         }
         continue;
       }

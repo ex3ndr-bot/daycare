@@ -3,10 +3,16 @@ import path from "node:path";
 import { z } from "zod";
 
 import { TelegramConnector, type TelegramConnectorOptions } from "./connector.js";
-import { definePlugin } from "../../engine/plugins/types.js";
+import { definePlugin, type PluginOnboardingApi } from "../../engine/plugins/types.js";
+
+const allowedUidSchema = z.union([z.string().trim().min(1), z.number().int()]);
 
 const settingsSchema = z
   .object({
+    allowedUids: z
+      .array(allowedUidSchema)
+      .min(1)
+      .transform((values) => Array.from(new Set(values.map((value) => String(value))))),
     polling: z.boolean().optional(),
     clearWebhook: z.boolean().optional(),
     statePath: z.string().nullable().optional(),
@@ -32,8 +38,12 @@ export const plugin = definePlugin({
     if (!token) {
       return null;
     }
+    const allowedUids = await promptAllowedUids(api);
+    if (!allowedUids) {
+      return null;
+    }
     await api.auth.setToken(api.instanceId, token);
-    return { settings: {} };
+    return { settings: { allowedUids } };
   },
   create: (api) => {
     const connectorId = api.instance.instanceId;
@@ -75,4 +85,30 @@ export const plugin = definePlugin({
 
 function resolvePluginPath(baseDir: string, target: string): string {
   return path.isAbsolute(target) ? target : path.join(baseDir, target);
+}
+
+async function promptAllowedUids(
+  api: PluginOnboardingApi
+): Promise<string[] | null> {
+  for (;;) {
+    const input = await api.prompt.input({
+      message: "Allowed Telegram user IDs (comma or space separated)"
+    });
+    if (input === null) {
+      return null;
+    }
+    const parsed = parseAllowedUids(input);
+    if (parsed.length > 0) {
+      return parsed;
+    }
+    api.note("Please enter at least one UID.", "Telegram");
+  }
+}
+
+function parseAllowedUids(input: string): string[] {
+  const entries = input
+    .split(/[,\s]+/)
+    .map((entry) => entry.trim())
+    .filter(Boolean);
+  return Array.from(new Set(entries));
 }

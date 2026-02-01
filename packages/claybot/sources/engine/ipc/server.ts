@@ -16,6 +16,7 @@ import {
   upsertPlugin
 } from "../../settings.js";
 import { buildPluginCatalog } from "../plugins/catalog.js";
+import { PluginModuleLoader } from "../plugins/loader.js";
 import { resolveExclusivePlugins } from "../plugins/exclusive.js";
 import type { EngineEventBus } from "./events.js";
 import { requestShutdown } from "../../util/shutdown.js";
@@ -144,33 +145,59 @@ export async function startEngineServer(
 
     const pluginId = payload.pluginId ?? payload.id ?? payload.instanceId;
     const requestedInstanceId = payload.instanceId ?? payload.id;
-    if (!pluginId) {
+
+    const currentSettings = await readSettingsFile(options.settingsPath);
+    const existing = requestedInstanceId
+      ? listPlugins(currentSettings).find((plugin) => plugin.instanceId === requestedInstanceId)
+      : undefined;
+    const resolvedPluginId = pluginId ?? existing?.pluginId;
+    if (!resolvedPluginId) {
       logger.debug("Missing pluginId");
       reply.status(400).send({ error: "pluginId required" });
       return;
     }
 
-    const currentSettings = await readSettingsFile(options.settingsPath);
-    const definition = pluginCatalog.get(pluginId);
+    const definition = pluginCatalog.get(resolvedPluginId);
     const instanceId =
-      requestedInstanceId ?? nextPluginInstanceId(pluginId, currentSettings.plugins, {
+      requestedInstanceId ??
+      nextPluginInstanceId(resolvedPluginId, currentSettings.plugins, {
         exclusive: definition?.descriptor.exclusive
       });
-    logger.info({ plugin: pluginId, instance: instanceId }, "Plugin load requested");
-    logger.debug(`Processing plugin load pluginId=${pluginId} instanceId=${instanceId} hasSettings=${!!payload.settings}`);
+    if (!definition) {
+      logger.debug(`Unknown pluginId=${resolvedPluginId}`);
+      reply.status(400).send({ error: `Unknown pluginId: ${resolvedPluginId}` });
+      return;
+    }
+    const nextConfig = {
+      ...(existing ?? { instanceId, pluginId: resolvedPluginId }),
+      enabled: true,
+      settings: payload.settings ?? existing?.settings
+    };
+    try {
+      const loader = new PluginModuleLoader(`plugin.validate:${instanceId}`);
+      const { module } = await loader.load(definition.entryPath);
+      module.settingsSchema.parse(nextConfig.settings ?? {});
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Plugin settings validation failed.";
+      reply.status(400).send({ error: message });
+      return;
+    }
+    logger.info({ plugin: resolvedPluginId, instance: instanceId }, "Plugin load requested");
+    logger.debug(`Processing plugin load pluginId=${resolvedPluginId} instanceId=${instanceId} hasSettings=${!!payload.settings}`);
 
     let settings;
     try {
       settings = await updateSettingsFile(options.settingsPath, (current) => {
-        const existing = listPlugins(current).find(
+        const existingEntry = listPlugins(current).find(
           (plugin) => plugin.instanceId === instanceId
         );
-        const config = existing ?? {
+        const config = existingEntry ?? {
           instanceId,
-          pluginId,
+          pluginId: resolvedPluginId,
           enabled: true
         };
-        logger.debug(`Updating settings file existing=${!!existing}`);
+        logger.debug(`Updating settings file existing=${!!existingEntry}`);
         const nextPlugins = upsertPlugin(current.plugins, {
           ...config,
           enabled: true,

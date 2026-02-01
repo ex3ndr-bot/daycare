@@ -21,6 +21,7 @@ import type { FileReference } from "../../files/types.js";
 
 export type TelegramConnectorOptions = {
   token: string;
+  allowedUids: string[];
   polling?: boolean;
   clearWebhook?: boolean;
   statePath?: string | null;
@@ -70,6 +71,7 @@ export class TelegramConnector implements Connector {
   private pendingRetry: NodeJS.Timeout | null = null;
   private persistTimer: NodeJS.Timeout | null = null;
   private typingTimers = new Map<string, NodeJS.Timeout>();
+  private allowedUids: Set<string>;
   private pendingPermissions = new Map<
     string,
     { request: PermissionRequest; context: MessageContext }
@@ -88,6 +90,7 @@ export class TelegramConnector implements Connector {
     this.onFatal = options.onFatal;
     this.fileStore = options.fileStore;
     this.dataDir = options.dataDir;
+    this.allowedUids = new Set(options.allowedUids.map((uid) => String(uid)));
     this.statePath =
       options.statePath === undefined
         ? path.join(this.dataDir, "telegram-offset.json")
@@ -110,6 +113,11 @@ export class TelegramConnector implements Connector {
     this.bot.on("message", async (message) => {
       if (message.chat?.type !== "private") {
         logger.debug(`Skipping non-private chat type=${message.chat?.type} chatId=${message.chat?.id}`);
+        return;
+      }
+      const senderId = message.from?.id ?? message.chat?.id;
+      if (!this.isAllowedUid(senderId)) {
+        logger.info({ senderId, chatId: message.chat?.id }, "Skipping telegram message from unapproved uid");
         return;
       }
       logger.debug(`Received Telegram message chatId=${message.chat.id} fromId=${message.from?.id} messageId=${message.message_id} hasText=${!!message.text} hasCaption=${!!message.caption} hasPhoto=${!!message.photo} hasDocument=${!!message.document}`);
@@ -140,6 +148,10 @@ export class TelegramConnector implements Connector {
     });
 
     this.bot.on("callback_query", async (query) => {
+      if (!this.isAllowedUid(query.from?.id)) {
+        logger.info({ senderId: query.from?.id }, "Skipping telegram callback from unapproved uid");
+        return;
+      }
       const data = query.data;
       if (!data || !data.startsWith("perm:")) {
         return;
@@ -212,6 +224,9 @@ export class TelegramConnector implements Connector {
 
   async sendMessage(targetId: string, message: ConnectorMessage): Promise<void> {
     logger.debug(`sendMessage() called targetId=${targetId} hasText=${!!message.text} textLength=${message.text?.length ?? 0} fileCount=${message.files?.length ?? 0}`);
+    if (!this.isAllowedTarget(targetId, "sendMessage")) {
+      return;
+    }
     const files = message.files ?? [];
     if (files.length === 0) {
       logger.debug(`Sending text-only message targetId=${targetId}`);
@@ -243,6 +258,9 @@ export class TelegramConnector implements Connector {
     request: PermissionRequest,
     context: MessageContext
   ): Promise<void> {
+    if (!this.isAllowedTarget(targetId, "requestPermission")) {
+      return;
+    }
     const { text, parseMode } = formatPermissionRequest(request);
     this.pendingPermissions.set(request.token, { request, context });
     await this.bot.sendMessage(targetId, text, {
@@ -259,6 +277,9 @@ export class TelegramConnector implements Connector {
   }
 
   startTyping(targetId: string): () => void {
+    if (!this.isAllowedTarget(targetId, "startTyping")) {
+      return () => undefined;
+    }
     const key = String(targetId);
     if (this.typingTimers.has(key)) {
       return () => {
@@ -286,6 +307,9 @@ export class TelegramConnector implements Connector {
     messageId: string,
     reaction: string
   ): Promise<void> {
+    if (!this.isAllowedTarget(targetId, "setReaction")) {
+      return;
+    }
     const emoji = reaction as TelegramBot.TelegramEmoji;
     await this.bot.setMessageReaction(targetId, Number(messageId), {
       reaction: [{ type: "emoji", emoji }]
@@ -512,6 +536,21 @@ export class TelegramConnector implements Connector {
       jitter: 0.2,
       ...(this.retryOptions ?? {})
     };
+  }
+
+  private isAllowedUid(uid: string | number | null | undefined): boolean {
+    if (uid === null || uid === undefined) {
+      return false;
+    }
+    return this.allowedUids.has(String(uid));
+  }
+
+  private isAllowedTarget(targetId: string, action: string): boolean {
+    if (this.isAllowedUid(targetId)) {
+      return true;
+    }
+    logger.warn({ targetId, action }, "Blocked telegram action for unapproved uid");
+    return false;
   }
 
   private attachSignalHandlers(): void {

@@ -97,7 +97,10 @@ describe("built-in plugins", () => {
   it("builds a telegram plugin instance without executing load", async () => {
     const dir = await createTempDir();
     const registrar = createRegistrar();
-    const settings = telegram.settingsSchema.parse({ polling: false });
+    const settings = telegram.settingsSchema.parse({
+      polling: false,
+      allowedUids: ["123456789"]
+    });
     const api = await createApi("telegram-main", "telegram", settings, registrar, dir);
     const instance = await telegram.create(api);
 
