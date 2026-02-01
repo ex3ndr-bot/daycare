@@ -1,7 +1,7 @@
 import { createId } from "@paralleldrive/cuid2";
 import type { Logger } from "pino";
 
-import type { MessageContext } from "../connectors/types.js";
+import type { MessageContext } from "../modules/connectors/types.js";
 import type { FileReference } from "../../files/types.js";
 import type { Session } from "./session.js";
 import type { SessionState } from "./sessionStateTypes.js";

@@ -1,4 +1,4 @@
-import type { ConnectorMessage, MessageContext } from "../connectors/types.js";
+import type { ConnectorMessage, MessageContext } from "../modules/connectors/types.js";
 import type { FileReference } from "../../files/types.js";
 
 export type SessionMessage = {

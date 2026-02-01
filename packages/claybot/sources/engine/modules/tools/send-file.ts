@@ -4,9 +4,9 @@ import path from "node:path";
 import type { ToolResultMessage } from "@mariozechner/pi-ai";
 
 import type { ConnectorFileDisposition } from "../connectors/types.js";
-import type { FileReference } from "../../files/types.js";
+import type { FileReference } from "../../../files/types.js";
 import type { ToolDefinition, ToolExecutionContext } from "./types.js";
-import { pathResolveSecure, openSecure } from "../permissions/pathResolveSecure.js";
+import { pathResolveSecure, openSecure } from "../../permissions/pathResolveSecure.js";
 
 const schema = Type.Object(
   {

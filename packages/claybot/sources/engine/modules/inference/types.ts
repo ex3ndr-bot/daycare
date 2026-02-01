@@ -6,7 +6,7 @@ import type {
 } from "@mariozechner/pi-ai";
 import type { Logger } from "pino";
 
-import type { AuthStore } from "../../auth/store.js";
+import type { AuthStore } from "../../../auth/store.js";
 
 export type InferenceClient = {
   modelId: string;

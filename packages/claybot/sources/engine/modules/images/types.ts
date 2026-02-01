@@ -1,6 +1,6 @@
-import type { FileReference } from "../../files/types.js";
-import type { FileStore } from "../../files/store.js";
-import type { AuthStore } from "../../auth/store.js";
+import type { FileReference } from "../../../files/types.js";
+import type { FileStore } from "../../../files/store.js";
+import type { AuthStore } from "../../../auth/store.js";
 import type { Logger } from "pino";
 
 export type ImageGenerationRequest = {

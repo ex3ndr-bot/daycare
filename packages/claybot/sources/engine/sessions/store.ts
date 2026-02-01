@@ -4,7 +4,7 @@ import path from "node:path";
 import { createId } from "@paralleldrive/cuid2";
 import type { Context } from "@mariozechner/pi-ai";
 
-import type { MessageContext } from "../connectors/types.js";
+import type { MessageContext } from "../modules/connectors/types.js";
 import type { FileReference } from "../../files/types.js";
 import type { Session } from "./session.js";
 import type { SessionMessage, SessionSummary } from "./types.js";

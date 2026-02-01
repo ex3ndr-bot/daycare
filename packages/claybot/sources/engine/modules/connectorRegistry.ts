@@ -7,7 +7,7 @@ import type {
   MessageUnsubscribe,
   PermissionDecision,
   PermissionHandler
-} from "../connectors/types.js";
+} from "./connectors/types.js";
 
 export type ConnectorActionResult =
   | { ok: true; status: "loaded" | "already-loaded" | "unloaded" | "not-loaded" }

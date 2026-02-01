@@ -6,7 +6,7 @@ import { DEFAULT_SOUL_PATH, DEFAULT_USER_PATH } from "../../paths.js";
 import { listActiveInferenceProviders } from "../../providers/catalog.js";
 import { cuid2Is } from "../../utils/cuid2Is.js";
 import { assumeWorkspace, createSystemPrompt } from "../createSystemPrompt.js";
-import type { MessageContext } from "../connectors/types.js";
+import type { MessageContext } from "../modules/connectors/types.js";
 import type { Engine } from "../engine.js";
 import { messageBuildUser } from "../messages/messageBuildUser.js";
 import { permissionBuildCron } from "../permissions/permissionBuildCron.js";
@@ -23,7 +23,7 @@ import { sessionRecordState } from "../sessions/sessionRecordState.js";
 import { sessionStateNormalize } from "../sessions/sessionStateNormalize.js";
 import type { SessionState } from "../sessions/sessionStateTypes.js";
 import type { SessionMessage } from "../sessions/types.js";
-import { toolListContextBuild } from "../tools/toolListContextBuild.js";
+import { toolListContextBuild } from "../modules/tools/toolListContextBuild.js";
 import type {
   AgentDescriptor,
   AgentInboundMessage,

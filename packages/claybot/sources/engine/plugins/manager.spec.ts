@@ -7,7 +7,7 @@ import { ConnectorRegistry } from "../modules/connectorRegistry.js";
 import { ImageGenerationRegistry } from "../modules/imageGenerationRegistry.js";
 import { InferenceRegistry } from "../modules/inferenceRegistry.js";
 import { ToolResolver } from "../modules/toolResolver.js";
-import { InferenceRouter } from "../inference/router.js";
+import { InferenceRouter } from "../modules/inference/router.js";
 import { FileStore } from "../../files/store.js";
 import { PluginEventQueue } from "./events.js";
 import { PluginManager } from "./manager.js";

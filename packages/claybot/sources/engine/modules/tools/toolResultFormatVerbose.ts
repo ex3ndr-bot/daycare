@@ -1,4 +1,4 @@
-import { stringTruncate } from "../../utils/stringTruncate.js";
+import { stringTruncate } from "../../../utils/stringTruncate.js";
 import type { ToolExecutionResult } from "./types.js";
 
 /**

@@ -1,9 +1,9 @@
 import type { Context, AssistantMessage } from "@mariozechner/pi-ai";
 
-import type { InferenceRegistry } from "../modules/inferenceRegistry.js";
-import type { ProviderSettings } from "../../settings.js";
-import type { AuthStore } from "../../auth/store.js";
-import { getLogger } from "../../log.js";
+import type { InferenceRegistry } from "../inferenceRegistry.js";
+import type { ProviderSettings } from "../../../settings.js";
+import type { AuthStore } from "../../../auth/store.js";
+import { getLogger } from "../../../log.js";
 
 export type InferenceResult = {
   message: AssistantMessage;

@@ -1,4 +1,4 @@
-import type { MessageContext } from "../connectors/types.js";
+import type { MessageContext } from "../modules/connectors/types.js";
 import { getLogger } from "../../log.js";
 import { CronStore } from "./cronStore.js";
 import type {

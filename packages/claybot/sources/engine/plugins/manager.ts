@@ -15,7 +15,7 @@ import type { PluginApi, PluginInstance, PluginModule } from "./types.js";
 import type { PluginRegistry } from "./registry.js";
 import type { EngineEventBus } from "../ipc/events.js";
 import { resolveExclusivePlugins } from "./exclusive.js";
-import type { InferenceRouter } from "../inference/router.js";
+import type { InferenceRouter } from "../modules/inference/router.js";
 import { PluginInferenceService } from "./inference.js";
 
 export type PluginManagerOptions = {

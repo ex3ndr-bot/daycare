@@ -5,7 +5,7 @@ import { getLogger } from "../../log.js";
 import { getProviderDefinition, listActiveInferenceProviders } from "../../providers/catalog.js";
 import type { ProviderModelInfo, ProviderModelSize } from "../../providers/types.js";
 import type { ProviderSettings, SettingsConfig } from "../../settings.js";
-import type { InferenceRouter } from "../inference/router.js";
+import type { InferenceRouter } from "../modules/inference/router.js";
 
 export type PluginInferenceStrategy = "default" | "small" | "normal" | "large";
 

@@ -14,7 +14,7 @@ import type {
   PermissionDecision,
   PermissionHandler,
   PermissionRequest
-} from "../../engine/connectors/types.js";
+} from "../../engine/modules/connectors/types.js";
 import { getLogger } from "../../log.js";
 import type { FileStore } from "../../files/store.js";
 import type { FileReference } from "../../files/types.js";

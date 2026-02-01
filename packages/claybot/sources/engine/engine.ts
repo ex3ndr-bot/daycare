@@ -12,9 +12,9 @@ import type {
   ConnectorMessage,
   MessageContext,
   PermissionDecision
-} from "./connectors/types.js";
+} from "./modules/connectors/types.js";
 import { FileStore } from "../files/store.js";
-import { InferenceRouter } from "./inference/router.js";
+import { InferenceRouter } from "./modules/inference/router.js";
 import { PluginRegistry } from "./plugins/registry.js";
 import { PluginEventEngine } from "./plugins/event-engine.js";
 import { PluginEventQueue } from "./plugins/events.js";
@@ -51,30 +51,30 @@ import {
   buildCronReadMemoryTool,
   buildCronTool,
   buildCronWriteMemoryTool
-} from "./tools/cron.js";
-import { buildImageGenerationTool } from "./tools/image-generation.js";
-import { buildReactionTool } from "./tools/reaction.js";
-import { buildPermissionRequestTool } from "./tools/permissions.js";
-import { buildSendFileTool } from "./tools/send-file.js";
+} from "./modules/tools/cron.js";
+import { buildImageGenerationTool } from "./modules/tools/image-generation.js";
+import { buildReactionTool } from "./modules/tools/reaction.js";
+import { buildPermissionRequestTool } from "./modules/tools/permissions.js";
+import { buildSendFileTool } from "./modules/tools/send-file.js";
 import {
   buildHeartbeatAddTool,
   buildHeartbeatListTool,
   buildHeartbeatRemoveTool,
   buildHeartbeatRunTool
-} from "./tools/heartbeat.js";
-import { buildSendSessionMessageTool, buildStartBackgroundAgentTool } from "./tools/background.js";
+} from "./modules/tools/heartbeat.js";
+import { buildSendSessionMessageTool, buildStartBackgroundAgentTool } from "./modules/tools/background.js";
 import { cuid2Is } from "../utils/cuid2Is.js";
 import type {
   AgentRuntime,
   HeartbeatAddArgs,
   HeartbeatRemoveArgs,
   ToolExecutionResult
-} from "./tools/types.js";
+} from "./modules/tools/types.js";
 import { CronScheduler } from "./cron/cronScheduler.js";
 import { CronStore } from "./cron/cronStore.js";
 import { HeartbeatScheduler } from "./heartbeat/heartbeatScheduler.js";
 import { heartbeatPromptBuildBatch } from "./heartbeat/heartbeatPromptBuildBatch.js";
-import { toolListContextBuild } from "./tools/toolListContextBuild.js";
+import { toolListContextBuild } from "./modules/tools/toolListContextBuild.js";
 import { messageBuildSystemText } from "./messages/messageBuildSystemText.js";
 import { messageFormatIncoming } from "./messages/messageFormatIncoming.js";
 import { messageIsSystemText } from "./messages/messageIsSystemText.js";

@@ -1,5 +1,5 @@
 import { getLogger } from "../../log.js";
-import type { InferenceProvider } from "../inference/types.js";
+import type { InferenceProvider } from "./inference/types.js";
 
 type RegisteredInferenceProvider = InferenceProvider & { pluginId: string };
 

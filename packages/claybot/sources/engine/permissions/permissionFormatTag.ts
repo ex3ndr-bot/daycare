@@ -1,4 +1,4 @@
-import type { PermissionAccess } from "../connectors/types.js";
+import type { PermissionAccess } from "../modules/connectors/types.js";
 
 export function permissionFormatTag(access: PermissionAccess): string {
   if (access.kind === "web") {

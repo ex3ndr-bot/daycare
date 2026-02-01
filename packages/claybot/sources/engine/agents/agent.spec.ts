@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { Agent } from "./agent.js";
 import type { Engine } from "../engine.js";
-import type { AgentRuntime } from "../tools/types.js";
+import type { AgentRuntime } from "../modules/tools/types.js";
 import { SessionStore } from "../sessions/store.js";
 import type { SessionPermissions } from "../permissions.js";
 import type { SessionDescriptor } from "../sessions/descriptor.js";
@@ -14,7 +14,7 @@ import type { SessionState } from "../sessions/sessionStateTypes.js";
 import type { ConnectorRegistry } from "../modules/connectorRegistry.js";
 import type { ImageGenerationRegistry } from "../modules/imageGenerationRegistry.js";
 import type { ToolResolver } from "../modules/toolResolver.js";
-import type { InferenceRouter } from "../inference/router.js";
+import type { InferenceRouter } from "../modules/inference/router.js";
 import type { FileStore } from "../../files/store.js";
 import type { AuthStore } from "../../auth/store.js";
 import type { PluginManager } from "../plugins/manager.js";

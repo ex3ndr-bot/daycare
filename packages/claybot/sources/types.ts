@@ -16,7 +16,7 @@ export type {
   PermissionDecision,
   PermissionKind,
   PermissionRequest
-} from "./engine/connectors/types.js";
+} from "./engine/modules/connectors/types.js";
 
 // Files
 export type { FileReference } from "./files/types.js";
@@ -38,14 +38,14 @@ export type {
   InferenceClient,
   InferenceProvider,
   InferenceProviderOptions
-} from "./engine/inference/types.js";
+} from "./engine/modules/inference/types.js";
 
 // Images
-export type { ImageGenerationProvider } from "./engine/images/types.js";
+export type { ImageGenerationProvider } from "./engine/modules/images/types.js";
 
 // Tools
 export type {
   AgentRuntime,
   ToolExecutionContext,
   ToolExecutionResult
-} from "./engine/tools/types.js";
+} from "./engine/modules/tools/types.js";

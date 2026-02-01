@@ -5,7 +5,7 @@ import path from "node:path";
 import { exec as execCallback, type ExecException } from "node:child_process";
 import { promisify } from "node:util";
 
-import type { ToolDefinition } from "../../engine/tools/types.js";
+import type { ToolDefinition } from "../../engine/modules/tools/types.js";
 import type { SessionPermissions } from "../../engine/permissions.js";
 import { resolveWorkspacePath } from "../../engine/permissions.js";
 import { wrapWithSandbox } from "../../sandbox/runtime.js";

@@ -1,6 +1,6 @@
 import type { Context } from "@mariozechner/pi-ai";
 
-import type { MessageContext } from "../connectors/types.js";
+import type { MessageContext } from "../modules/connectors/types.js";
 import type { SessionPermissions } from "../permissions.js";
 import type { SessionDescriptor } from "./descriptor.js";
 

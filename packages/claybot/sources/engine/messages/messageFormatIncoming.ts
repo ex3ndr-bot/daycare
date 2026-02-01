@@ -1,4 +1,4 @@
-import type { ConnectorMessage, MessageContext } from "../connectors/types.js";
+import type { ConnectorMessage, MessageContext } from "../modules/connectors/types.js";
 import { formatTimeAI } from "../../util/timeFormat.js";
 
 export function messageFormatIncoming(

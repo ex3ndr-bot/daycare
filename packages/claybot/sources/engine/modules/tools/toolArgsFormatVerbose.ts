@@ -1,4 +1,4 @@
-import { stringTruncate } from "../../utils/stringTruncate.js";
+import { stringTruncate } from "../../../utils/stringTruncate.js";
 
 /**
  * Formats tool arguments for verbose logging output.

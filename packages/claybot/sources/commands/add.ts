@@ -7,7 +7,7 @@ import { ImageGenerationRegistry } from "../engine/modules/imageGenerationRegist
 import { InferenceRegistry } from "../engine/modules/inferenceRegistry.js";
 import { ToolResolver } from "../engine/modules/toolResolver.js";
 import { FileStore } from "../files/store.js";
-import { InferenceRouter } from "../engine/inference/router.js";
+import { InferenceRouter } from "../engine/modules/inference/router.js";
 import { PluginManager } from "../engine/plugins/manager.js";
 import { buildPluginCatalog, type PluginDefinition } from "../engine/plugins/catalog.js";
 import { PluginEventQueue } from "../engine/plugins/events.js";

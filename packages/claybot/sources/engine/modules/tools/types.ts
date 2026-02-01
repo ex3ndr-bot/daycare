@@ -1,16 +1,16 @@
 import type { Tool, ToolResultMessage } from "@mariozechner/pi-ai";
 import type { TSchema } from "@sinclair/typebox";
 
-import type { FileReference } from "../../files/types.js";
-import type { ConnectorRegistry } from "../modules/connectorRegistry.js";
+import type { FileReference } from "../../../files/types.js";
+import type { ConnectorRegistry } from "../connectorRegistry.js";
 import type { MessageContext } from "../connectors/types.js";
-import type { FileStore } from "../../files/store.js";
-import type { Session } from "../sessions/session.js";
-import type { AuthStore } from "../../auth/store.js";
+import type { FileStore } from "../../../files/store.js";
+import type { Session } from "../../sessions/session.js";
+import type { AuthStore } from "../../../auth/store.js";
 import type { Logger } from "pino";
-import type { AssistantSettings } from "../../settings.js";
-import type { SessionPermissions } from "../permissions.js";
-import type { HeartbeatDefinition } from "../heartbeat/heartbeatTypes.js";
+import type { AssistantSettings } from "../../../settings.js";
+import type { SessionPermissions } from "../../permissions.js";
+import type { HeartbeatDefinition } from "../../heartbeat/heartbeatTypes.js";
 
 export type BackgroundAgentStartArgs = {
   prompt: string;

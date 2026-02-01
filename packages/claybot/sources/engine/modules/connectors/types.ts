@@ -1,4 +1,4 @@
-import type { FileReference } from "../../files/types.js";
+import type { FileReference } from "../../../files/types.js";
 
 export type ConnectorFileMode = "document" | "photo" | "video";
 export type ConnectorFileDisposition = ConnectorFileMode | "auto";

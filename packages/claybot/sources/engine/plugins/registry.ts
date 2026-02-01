@@ -1,13 +1,13 @@
 import path from "node:path";
 
-import type { Connector } from "../connectors/types.js";
+import type { Connector } from "../modules/connectors/types.js";
 import type { ConnectorRegistry } from "../modules/connectorRegistry.js";
 import type { ImageGenerationRegistry } from "../modules/imageGenerationRegistry.js";
 import type { InferenceRegistry } from "../modules/inferenceRegistry.js";
 import type { ToolResolver } from "../modules/toolResolver.js";
-import type { InferenceProvider } from "../inference/types.js";
-import type { ImageGenerationProvider } from "../images/types.js";
-import type { ToolDefinition } from "../tools/types.js";
+import type { InferenceProvider } from "../modules/inference/types.js";
+import type { ImageGenerationProvider } from "../modules/images/types.js";
+import type { ToolDefinition } from "../modules/tools/types.js";
 
 type PluginRegistrations = {
   connectors: Set<string>;

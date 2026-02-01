@@ -1,5 +1,5 @@
 import { getLogger } from "../../log.js";
-import type { ImageGenerationProvider } from "../images/types.js";
+import type { ImageGenerationProvider } from "./images/types.js";
 
 type RegisteredImageProvider = ImageGenerationProvider & { pluginId: string };
 
