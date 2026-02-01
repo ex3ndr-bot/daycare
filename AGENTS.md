@@ -68,3 +68,82 @@
 - document every change in `/docs/` with mermaid diagrams
 - do not use barrel `index.ts` files
 - avoid backward-compatibility shims for internal code
+
+## File Organization: One Function, Prefix Naming
+
+### Core Principle
+Write **one public function per file**. Name files and functions using **prefix notation** where the domain/noun comes first: `permissionCreate` not `createPermission`, `sessionNormalize` not `normalizeSession`.
+
+### Why Prefix Notation
+- **Autocomplete-friendly**: typing `permission` shows all permission operations
+- **File explorer grouping**: related files cluster alphabetically (`permissionApply.ts`, `permissionCreate.ts`, `permissionFormat.ts`)
+- **Import clarity**: `import { permissionCreate } from "./permissionCreate.js"` is self-documenting
+- **Avoids verb collision**: no more `createSession`, `createPermission`, `createTask` scattered everywhere
+
+### File Naming Convention
+```
+domainVerb.ts        # file name matches function name exactly
+domainVerb.spec.ts   # unit test lives next to the file
+```
+
+Example: `permissionApply.ts` exports `permissionApply()`, tested in `permissionApply.spec.ts`.
+
+### Grouping by Domain
+Organize files into domain folders. Each folder contains many small files:
+```
+engine/
+  permissions/
+    permissionApply.ts
+    permissionBuildDefault.ts
+    permissionFormatTag.ts
+    permissionMerge.ts
+    permissionTypes.ts         # types can share a file
+  sessions/
+    sessionNormalize.ts
+    sessionDescriptorBuild.ts
+    sessionKeyBuild.ts
+  messages/
+    messageBuildUser.ts
+    messageExtractText.ts
+    messageExtractToolCalls.ts
+    messageFormatIncoming.ts
+```
+
+### Pure Functions First
+- **Prefer pure functions**: input → output, no side effects, no mutations
+- **Isolate impure code**: I/O, state mutations, and side effects go in clearly named files (`session-persist.ts`, `connector-send.ts`)
+- **Dependency injection**: pass dependencies as arguments rather than importing singletons
+
+### Testing Pure Functions
+Every pure function gets a unit test in `*.spec.ts` next to it:
+```typescript
+// permissionApply.ts
+export function permissionApply(permissions: SessionPermissions, decision: PermissionDecision): SessionPermissions {
+  // pure transformation, returns new object
+}
+
+// permissionApply.spec.ts
+import { describe, it, expect } from "vitest";
+import { permissionApply } from "./permissionApply.js";
+
+describe("permissionApply", () => {
+  it("adds write path when approved", () => {
+    const result = permissionApply(basePermissions, writeDecision);
+    expect(result.writeDirs).toContain("/new/path");
+  });
+});
+```
+
+### When to Combine
+Some exceptions where multiple exports in one file make sense:
+- **Type definitions**: group related types in `*-types.ts`
+- **Tiny predicates**: `isCronContext()`, `isHeartbeatContext()` can share a file if under ~30 lines total
+- **Tightly coupled pairs**: a function and its inverse (`encode`/`decode`)
+
+### Migration Strategy
+When refactoring large files:
+1. Identify pure helper functions at the bottom of the file
+2. Extract each to its own file with prefix naming
+3. Write unit tests for extracted functions
+4. Keep the orchestrating class/function that wires everything together
+5. The orchestrator imports small, tested pieces
