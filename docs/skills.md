@@ -21,6 +21,22 @@ path** to each skill so the agent can read it directly.
 
 The system prompt lists skills in XML tags to make parsing explicit.
 
+## Skills catalog flow (code)
+
+ClayBot's skills catalog is composed from small helpers that focus on one task
+each, keeping listing and formatting composable.
+
+```mermaid
+flowchart TD
+  Core[skillListCore] --> FromRoot[skillListFromRoot]
+  Config[skillListConfig] --> FromRoot
+  FromRoot --> Resolve[skillResolve]
+  Resolve --> Sort[skillSort]
+  Plugin[skillListRegistered] --> Resolve
+  Plugin --> Sort
+  Sort --> Prompt[skillPromptFormat]
+```
+
 ## SKILL.md format (Agent Skills spec)
 
 `SKILL.md` must start with YAML frontmatter followed by Markdown content.

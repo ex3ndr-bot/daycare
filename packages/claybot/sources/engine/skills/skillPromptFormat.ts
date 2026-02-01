@@ -1,0 +1,62 @@
+import { skillSort } from "./skillSort.js";
+import type { AgentSkill } from "./skillTypes.js";
+
+/**
+ * Formats available skills into an XML prompt segment for the system prompt.
+ *
+ * Expects: skills may include duplicates; the first entry per path is used.
+ */
+export function skillPromptFormat(skills: AgentSkill[]): string {
+  const unique = new Map<string, AgentSkill>();
+  for (const skill of skills) {
+    if (!unique.has(skill.path)) {
+      unique.set(skill.path, skill);
+    }
+  }
+  const ordered = skillSort(Array.from(unique.values()));
+
+  if (ordered.length === 0) {
+    return "";
+  }
+
+  const lines = [
+    "<skills>",
+    "  <instructions>",
+    "    <load>Read the skill file to load it.</load>",
+    "    <reload>Read the skill file again to reload it.</reload>",
+    "    <unload>Explicitly ignore the skill guidance to unload it.</unload>",
+    "  </instructions>",
+    "  <available>"
+  ];
+
+  for (const skill of ordered) {
+    const sourceLabel =
+      skill.source === "plugin"
+        ? `plugin:${skill.pluginId ?? "unknown"}`
+        : skill.source;
+    const name = skillXmlEscape(skill.name);
+    const description = skill.description ? skillXmlEscape(skill.description) : "";
+    lines.push("    <skill>");
+    lines.push(`      <name>${name}</name>`);
+    if (description.length > 0) {
+      lines.push(`      <description>${description}</description>`);
+    }
+    lines.push(`      <source>${skillXmlEscape(sourceLabel)}</source>`);
+    lines.push(`      <path>${skillXmlEscape(skill.path)}</path>`);
+    lines.push("    </skill>");
+  }
+
+  lines.push("  </available>");
+  lines.push("</skills>");
+
+  return lines.join("\n");
+}
+
+function skillXmlEscape(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\"/g, "&quot;")
+    .replace(/'/g, "&apos;");
+}

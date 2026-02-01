@@ -12,7 +12,9 @@ import { messageBuildUser } from "../messages/messageBuildUser.js";
 import { permissionBuildCron } from "../permissions/permissionBuildCron.js";
 import { permissionEnsureDefaultFile } from "../permissions/permissionEnsureDefaultFile.js";
 import { permissionMergeDefault } from "../permissions/permissionMergeDefault.js";
-import { formatSkillsPrompt, listCoreSkills, listRegisteredSkills } from "../skills/catalog.js";
+import { skillListCore } from "../skills/skillListCore.js";
+import { skillListRegistered } from "../skills/skillListRegistered.js";
+import { skillPromptFormat } from "../skills/skillPromptFormat.js";
 import { Session } from "../sessions/session.js";
 import type { SessionDescriptor } from "../sessions/descriptor.js";
 import { sessionContextIsCron } from "../sessions/sessionContextIsCron.js";
@@ -264,10 +266,10 @@ export class Agent {
     const pluginManager = engine.getPluginManager();
     const pluginPrompts = await pluginManager.getSystemPrompts();
     const pluginPrompt = pluginPrompts.length > 0 ? pluginPrompts.join("\n\n") : "";
-    const coreSkills = await listCoreSkills();
-    const pluginSkills = await listRegisteredSkills(pluginManager.listRegisteredSkills());
+    const coreSkills = await skillListCore();
+    const pluginSkills = await skillListRegistered(pluginManager.listRegisteredSkills());
     const skills = [...coreSkills, ...pluginSkills];
-    const skillsPrompt = formatSkillsPrompt(skills);
+    const skillsPrompt = skillPromptFormat(skills);
     const agentKind = session.context.state.agent?.kind ?? entry.context.agent?.kind;
     const allowCronTools = sessionContextIsCron(entry.context, session.context.state.session);
     const systemPrompt = await createSystemPrompt({
