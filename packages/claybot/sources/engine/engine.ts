@@ -988,24 +988,38 @@ export class Engine {
     decision: PermissionDecision,
     context: MessageContext
   ): Promise<void> {
-    if (!context.channelId || !context.userId) {
+    if (!context.channelId) {
       logger.error(
         { source, channelId: context.channelId, userId: context.userId },
-        "Permission decision missing channelId or userId"
+        "Permission decision missing channelId"
       );
       return;
+    }
+    if (!context.userId) {
+      logger.warn(
+        { source, channelId: context.channelId },
+        "Permission decision missing userId"
+      );
     }
     const connector = this.connectorRegistry.get(source);
     const permissionTag = formatPermissionTag(decision.access);
     const permissionLabel = describePermissionDecision(decision.access);
+    let sessionId = context.sessionId;
+    if (!sessionId && context.userId) {
+      const key = this.buildSessionKey(source, context);
+      if (key) {
+        sessionId = this.sessionKeyMap.get(key);
+      }
+    }
+
     if (!decision.approved) {
       logger.info(
-        { source, permission: permissionTag, sessionId: context.sessionId },
+        { source, permission: permissionTag, sessionId },
         "Permission denied"
       );
     }
 
-    if (!context.sessionId) {
+    if (!sessionId) {
       logger.warn({ source, permission: permissionTag }, "Permission decision without session id");
       if (connector) {
         await connector.sendMessage(context.channelId, {
@@ -1016,10 +1030,10 @@ export class Engine {
       return;
     }
 
-    const session = this.sessionManager.getById(context.sessionId);
+    const session = this.sessionManager.getById(sessionId);
     if (!session) {
       logger.warn(
-        { source, sessionId: context.sessionId },
+        { source, sessionId },
         "Session not found for permission decision"
       );
       if (connector) {
