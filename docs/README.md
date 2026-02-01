@@ -15,6 +15,7 @@ This folder documents the current ClayBot CLI, plugins, sessions, and runtime.
 - `util.md` - shared utility helpers
 - `conventions.md` - import and compatibility rules
 - `sessions.md` - session queueing and sequencing
+- `session-types.md` - session descriptors and resolution
 - `config.md` - config files and resolution order
 - `logging.md` - logging configuration and output
 - `engine.md` - engine socket updates and control plane
@@ -30,6 +31,7 @@ flowchart TD
   Docs --> Dash[dashboard.md]
   Docs --> Memory[memory.md]
   Docs --> Sess[sessions.md]
+  Docs --> SessTypes[session-types.md]
   Docs --> Config[config.md]
   Docs --> Auth[auth.md]
   Docs --> Log[logging.md]
