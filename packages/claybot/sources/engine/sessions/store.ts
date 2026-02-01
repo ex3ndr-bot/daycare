@@ -28,8 +28,6 @@ export type SessionLogEntry<State = Record<string, unknown>> =
       source: string;
       messageId?: string;
       iteration?: number;
-      systemPrompt?: string;
-      toolNames?: string[];
       messages: Context["messages"];
       createdAt: string;
     }
@@ -138,11 +136,8 @@ export class SessionStore<State = Record<string, unknown>> {
   async recordIncoming(
     session: Session<State>,
     message: SessionMessage,
-    source: string,
-    options?: { text?: string | null; files?: FileReference[] }
+    source: string
   ): Promise<void> {
-    const hasTextOverride = options && Object.prototype.hasOwnProperty.call(options, "text");
-    const hasFilesOverride = options && Object.prototype.hasOwnProperty.call(options, "files");
     const entry: SessionLogEntry<State> = {
       type: "incoming",
       sessionId: session.id,
@@ -150,8 +145,8 @@ export class SessionStore<State = Record<string, unknown>> {
       source,
       messageId: message.id,
       context: message.context,
-      text: hasTextOverride ? options!.text ?? null : message.message.text,
-      files: hasFilesOverride ? options!.files : message.message.files,
+      text: message.message.text ?? null,
+      files: message.message.files,
       receivedAt: message.receivedAt.toISOString()
     };
     await this.appendEntry(session.storageId, entry);
@@ -164,10 +159,6 @@ export class SessionStore<State = Record<string, unknown>> {
     options: { messageId?: string; iteration?: number } = {}
   ): Promise<void> {
     const messages = JSON.parse(JSON.stringify(context.messages)) as Context["messages"];
-    const toolNames =
-      context.tools && context.tools.length > 0
-        ? context.tools.map((tool) => tool.name)
-        : undefined;
     const entry: SessionLogEntry<State> = {
       type: "model_context",
       sessionId: session.id,
@@ -175,8 +166,6 @@ export class SessionStore<State = Record<string, unknown>> {
       source,
       messageId: options.messageId,
       iteration: options.iteration,
-      systemPrompt: context.systemPrompt ?? undefined,
-      toolNames,
       messages,
       createdAt: new Date().toISOString()
     };

@@ -89,8 +89,6 @@ export type SessionEntry =
       source: string;
       messageId?: string;
       iteration?: number;
-      systemPrompt?: string;
-      toolNames?: string[];
       messages: Array<Record<string, unknown>>;
       createdAt: string;
     }

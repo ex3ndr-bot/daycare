@@ -323,24 +323,12 @@ export class Engine {
           },
           "Session updated"
         );
-        const rawText = entry.message.rawText ?? entry.message.text ?? "";
-        const isSystemMessage = isSystemMessageText(rawText);
-        if (!isSystemMessage) {
-          const command = resolveIncomingCommand(entry);
-          const logText =
-            command && ["reset", "compact", "clear"].includes(command.name.toLowerCase());
-          void this.sessionStore
-            .recordIncoming(session, entry, source, {
-              text: logText ? rawText : null,
-              files: logText ? entry.message.files : undefined
-            })
-            .catch((error) => {
-              logger.warn(
-                { sessionId: session.id, source, messageId: entry.id, error },
-                "Session persistence failed"
-              );
-            });
-        }
+        void this.sessionStore.recordIncoming(session, entry, source).catch((error) => {
+          logger.warn(
+            { sessionId: session.id, source, messageId: entry.id, error },
+            "Session persistence failed"
+          );
+        });
         this.eventBus.emit("session.updated", {
           sessionId: session.id,
           source,
@@ -1734,9 +1722,6 @@ async function recordOutgoingEntry(
   origin?: "model" | "system"
 ): Promise<void> {
   const messageId = createId();
-  if (origin === "system") {
-    return;
-  }
   try {
     await sessionStore.recordOutgoing(session, messageId, source, context, text, files, origin);
   } catch (error) {
@@ -1820,11 +1805,6 @@ function buildSystemMessageText(text: string, origin?: "background" | "system"):
   const trimmed = text.trim();
   const originTag = origin ? ` origin=\"${origin}\"` : "";
   return `<system_message${originTag}>${trimmed}</system_message>`;
-}
-
-function isSystemMessageText(text: string): boolean {
-  const trimmed = text.trim();
-  return trimmed.startsWith("<system_message");
 }
 
 function isNonBackgroundSession(source: string, context: MessageContext): boolean {
