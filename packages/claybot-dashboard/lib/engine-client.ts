@@ -83,6 +83,18 @@ export type SessionEntry =
       createdAt: string;
     }
   | {
+      type: "model_context";
+      sessionId: string;
+      storageId: string;
+      source: string;
+      messageId?: string;
+      iteration?: number;
+      systemPrompt?: string;
+      toolNames?: string[];
+      messages: Array<Record<string, unknown>>;
+      createdAt: string;
+    }
+  | {
       type: "incoming";
       sessionId: string;
       storageId: string;
@@ -104,6 +116,7 @@ export type SessionEntry =
       sessionId: string;
       storageId: string;
       source: string;
+      origin?: "model" | "system";
       messageId: string;
       context: Record<string, unknown>;
       text: string | null;
@@ -115,6 +128,26 @@ export type SessionEntry =
         path: string;
       }>;
       sentAt: string;
+    }
+  | {
+      type: "session_reset";
+      sessionId: string;
+      storageId: string;
+      source: string;
+      messageId?: string;
+      ok: boolean;
+      createdAt: string;
+    }
+  | {
+      type: "session_compaction";
+      sessionId: string;
+      storageId: string;
+      source: string;
+      messageId?: string;
+      ok: boolean;
+      summary?: string;
+      error?: string;
+      createdAt: string;
     }
   | {
       type: "state";

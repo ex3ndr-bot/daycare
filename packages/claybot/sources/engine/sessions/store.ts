@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import { createId } from "@paralleldrive/cuid2";
+import type { Context } from "@mariozechner/pi-ai";
 
 import type { MessageContext } from "../connectors/types.js";
 import type { FileReference } from "../../files/types.js";
@@ -21,6 +22,18 @@ export type SessionLogEntry<State = Record<string, unknown>> =
       createdAt: string;
     }
   | {
+      type: "model_context";
+      sessionId: string;
+      storageId: string;
+      source: string;
+      messageId?: string;
+      iteration?: number;
+      systemPrompt?: string;
+      toolNames?: string[];
+      messages: Context["messages"];
+      createdAt: string;
+    }
+  | {
       type: "incoming";
       sessionId: string;
       storageId: string;
@@ -36,11 +49,32 @@ export type SessionLogEntry<State = Record<string, unknown>> =
       sessionId: string;
       storageId: string;
       source: string;
+      origin?: "model" | "system";
       messageId: string;
       context: MessageContext;
       text: string | null;
       files?: FileReference[];
       sentAt: string;
+    }
+  | {
+      type: "session_reset";
+      sessionId: string;
+      storageId: string;
+      source: string;
+      messageId?: string;
+      ok: boolean;
+      createdAt: string;
+    }
+  | {
+      type: "session_compaction";
+      sessionId: string;
+      storageId: string;
+      source: string;
+      messageId?: string;
+      ok: boolean;
+      summary?: string;
+      error?: string;
+      createdAt: string;
     }
   | {
       type: "state";
@@ -104,8 +138,11 @@ export class SessionStore<State = Record<string, unknown>> {
   async recordIncoming(
     session: Session<State>,
     message: SessionMessage,
-    source: string
+    source: string,
+    options?: { text?: string | null; files?: FileReference[] }
   ): Promise<void> {
+    const hasTextOverride = options && Object.prototype.hasOwnProperty.call(options, "text");
+    const hasFilesOverride = options && Object.prototype.hasOwnProperty.call(options, "files");
     const entry: SessionLogEntry<State> = {
       type: "incoming",
       sessionId: session.id,
@@ -113,9 +150,35 @@ export class SessionStore<State = Record<string, unknown>> {
       source,
       messageId: message.id,
       context: message.context,
-      text: message.message.text,
-      files: message.message.files,
+      text: hasTextOverride ? options!.text ?? null : message.message.text,
+      files: hasFilesOverride ? options!.files : message.message.files,
       receivedAt: message.receivedAt.toISOString()
+    };
+    await this.appendEntry(session.storageId, entry);
+  }
+
+  async recordModelContext(
+    session: Session<State>,
+    source: string,
+    context: Context,
+    options: { messageId?: string; iteration?: number } = {}
+  ): Promise<void> {
+    const messages = JSON.parse(JSON.stringify(context.messages)) as Context["messages"];
+    const toolNames =
+      context.tools && context.tools.length > 0
+        ? context.tools.map((tool) => tool.name)
+        : undefined;
+    const entry: SessionLogEntry<State> = {
+      type: "model_context",
+      sessionId: session.id,
+      storageId: session.storageId,
+      source,
+      messageId: options.messageId,
+      iteration: options.iteration,
+      systemPrompt: context.systemPrompt ?? undefined,
+      toolNames,
+      messages,
+      createdAt: new Date().toISOString()
     };
     await this.appendEntry(session.storageId, entry);
   }
@@ -126,18 +189,56 @@ export class SessionStore<State = Record<string, unknown>> {
     source: string,
     context: MessageContext,
     text: string | null,
-    files?: FileReference[]
+    files?: FileReference[],
+    origin?: "model" | "system"
   ): Promise<void> {
     const entry: SessionLogEntry<State> = {
       type: "outgoing",
       sessionId: session.id,
       storageId: session.storageId,
       source,
+      origin,
       messageId,
       context,
       text,
       files,
       sentAt: new Date().toISOString()
+    };
+    await this.appendEntry(session.storageId, entry);
+  }
+
+  async recordSessionReset(
+    session: Session<State>,
+    source: string,
+    options: { messageId?: string; ok: boolean }
+  ): Promise<void> {
+    const entry: SessionLogEntry<State> = {
+      type: "session_reset",
+      sessionId: session.id,
+      storageId: session.storageId,
+      source,
+      messageId: options.messageId,
+      ok: options.ok,
+      createdAt: new Date().toISOString()
+    };
+    await this.appendEntry(session.storageId, entry);
+  }
+
+  async recordSessionCompaction(
+    session: Session<State>,
+    source: string,
+    options: { messageId?: string; ok: boolean; summary?: string; error?: string }
+  ): Promise<void> {
+    const entry: SessionLogEntry<State> = {
+      type: "session_compaction",
+      sessionId: session.id,
+      storageId: session.storageId,
+      source,
+      messageId: options.messageId,
+      ok: options.ok,
+      summary: options.summary,
+      error: options.error,
+      createdAt: new Date().toISOString()
     };
     await this.appendEntry(session.storageId, entry);
   }
@@ -230,6 +331,14 @@ export class SessionStore<State = Record<string, unknown>> {
           context = parsed.context;
           lastEntryType = "outgoing";
           updatedAt = new Date(parsed.sentAt);
+        }
+
+        if (parsed.type === "model_context") {
+          updatedAt = new Date(parsed.createdAt);
+        }
+
+        if (parsed.type === "session_reset" || parsed.type === "session_compaction") {
+          updatedAt = new Date(parsed.createdAt);
         }
 
         if (parsed.type === "state") {

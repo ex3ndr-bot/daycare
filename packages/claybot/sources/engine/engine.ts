@@ -324,7 +324,15 @@ export class Engine {
           },
           "Session updated"
         );
-        void this.sessionStore.recordIncoming(session, entry, source).catch((error) => {
+        const command = resolveIncomingCommand(entry);
+        const logText =
+          command && ["reset", "compact", "clear"].includes(command.name.toLowerCase());
+        void this.sessionStore
+          .recordIncoming(session, entry, source, {
+            text: logText ? entry.message.rawText ?? entry.message.text ?? null : null,
+            files: logText ? entry.message.files : undefined
+          })
+          .catch((error) => {
           logger.warn(
             { sessionId: session.id, source, messageId: entry.id, error },
             "Session persistence failed"
@@ -737,11 +745,26 @@ export class Engine {
     if (name === "reset") {
       const ok = this.resetSession(session.id);
       const message = ok ? "Session reset." : "Failed to reset session.";
+      void this.sessionStore
+        .recordSessionReset(session, source, { messageId: entry.id, ok })
+        .catch((error) => {
+          logger.warn({ sessionId: session.id, source, messageId: entry.id, error }, "Session persistence failed");
+        });
       await this.replyToCommand(connector, entry, session, source, message);
       return true;
     }
 
     const result = await this.compactSession(session, entry, source);
+    void this.sessionStore
+      .recordSessionCompaction(session, source, {
+        messageId: entry.id,
+        ok: result.ok,
+        summary: result.ok ? result.summary : undefined,
+        error: result.ok ? undefined : result.error
+      })
+      .catch((error) => {
+        logger.warn({ sessionId: session.id, source, messageId: entry.id, error }, "Session persistence failed");
+      });
     await this.replyToCommand(
       connector,
       entry,
@@ -764,7 +787,15 @@ export class Engine {
         text,
         replyToMessageId: entry.context.messageId
       });
-      await recordOutgoingEntry(this.sessionStore, session, source, entry.context, text);
+      await recordOutgoingEntry(
+        this.sessionStore,
+        session,
+        source,
+        entry.context,
+        text,
+        undefined,
+        "system"
+      );
     } catch (error) {
       logger.warn({ connector: source, error }, "Failed to send command reply");
     } finally {
@@ -1479,6 +1510,7 @@ export class Engine {
     let response: Awaited<ReturnType<InferenceRouter["complete"]>> | null = null;
     let toolLoopExceeded = false;
     const generatedFiles: FileReference[] = [];
+    let lastResponseTextSent = false;
     logger.debug(`Starting typing indicator channelId=${entry.context.channelId}`);
     const stopTyping = connector?.startTyping?.(entry.context.channelId);
 
@@ -1486,6 +1518,14 @@ export class Engine {
       logger.debug(`Starting inference loop maxIterations=${MAX_TOOL_ITERATIONS}`);
       for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration += 1) {
         logger.debug(`Inference loop iteration=${iteration} sessionId=${session.id} messageCount=${context.messages.length}`);
+        try {
+          await this.sessionStore.recordModelContext(session, source, context, {
+            messageId: entry.id,
+            iteration
+          });
+        } catch (error) {
+          logger.warn({ sessionId: session.id, source, messageId: entry.id, error }, "Session persistence failed");
+        }
         response = await this.inferenceRouter.complete(context, session.id, {
           providersOverride: providersForSession,
           onAttempt: (providerId, modelId) => {
@@ -1520,6 +1560,36 @@ export class Engine {
 
         logger.debug(`Inference response received providerId=${response.providerId} modelId=${response.modelId} stopReason=${response.message.stopReason}`);
         context.messages.push(response.message);
+
+        const responseText = extractAssistantText(response.message);
+        const hasResponseText = !!responseText && responseText.trim().length > 0;
+        lastResponseTextSent = false;
+        if (hasResponseText && connector) {
+          try {
+            await connector.sendMessage(entry.context.channelId, {
+              text: responseText,
+              replyToMessageId: entry.context.messageId
+            });
+            await recordOutgoingEntry(
+              this.sessionStore,
+              session,
+              source,
+              entry.context,
+              responseText,
+              undefined,
+              "model"
+            );
+            this.eventBus.emit("session.outgoing", {
+              sessionId: session.id,
+              source,
+              message: { text: responseText },
+              context: entry.context
+            });
+            lastResponseTextSent = true;
+          } catch (error) {
+            logger.warn({ connector: source, error }, "Failed to send response text");
+          }
+        }
 
         const toolCalls = extractToolCalls(response.message);
         logger.debug(`Extracted tool calls from response toolCallCount=${toolCalls.length}`);
@@ -1588,7 +1658,15 @@ export class Engine {
           text: message,
           replyToMessageId: entry.context.messageId
         });
-        await recordOutgoingEntry(this.sessionStore, session, source, entry.context, message);
+        await recordOutgoingEntry(
+          this.sessionStore,
+          session,
+          source,
+          entry.context,
+          message,
+          undefined,
+          "system"
+        );
       }
       await recordSessionState(this.sessionStore, session, source);
       logger.debug("handleSessionMessage completed with error");
@@ -1620,7 +1698,15 @@ export class Engine {
             text: message,
             replyToMessageId: entry.context.messageId
           });
-          await recordOutgoingEntry(this.sessionStore, session, source, entry.context, message);
+          await recordOutgoingEntry(
+            this.sessionStore,
+            session,
+            source,
+            entry.context,
+            message,
+            undefined,
+            "system"
+          );
           this.eventBus.emit("session.outgoing", {
             sessionId: session.id,
             source,
@@ -1638,9 +1724,10 @@ export class Engine {
     }
 
     const responseText = extractAssistantText(response.message);
-    logger.debug(`Extracted assistant text hasText=${!!responseText} textLength=${responseText?.length ?? 0} generatedFileCount=${generatedFiles.length}`);
+    const hasResponseText = !!responseText && responseText.trim().length > 0;
+    logger.debug(`Extracted assistant text hasText=${hasResponseText} textLength=${responseText?.length ?? 0} generatedFileCount=${generatedFiles.length}`);
 
-    if (!responseText && generatedFiles.length === 0) {
+    if (!hasResponseText && generatedFiles.length === 0) {
       if (toolLoopExceeded) {
         const message = "Tool execution limit reached.";
         logger.debug("Tool loop exceeded, sending error message");
@@ -1651,7 +1738,15 @@ export class Engine {
               text: message,
               replyToMessageId: entry.context.messageId
             });
-            await recordOutgoingEntry(this.sessionStore, session, source, entry.context, message);
+            await recordOutgoingEntry(
+              this.sessionStore,
+              session,
+              source,
+              entry.context,
+              message,
+              undefined,
+              "system"
+            );
           }
         } catch (error) {
           logger.warn({ connector: source, error }, "Failed to send tool error");
@@ -1663,23 +1758,38 @@ export class Engine {
       return;
     }
 
-    const outgoingText = responseText ?? (generatedFiles.length > 0 ? "Generated files." : null);
+    const shouldSendText = hasResponseText && !lastResponseTextSent;
+    const shouldSendFiles = generatedFiles.length > 0;
+    const outgoingText =
+      shouldSendText
+        ? responseText
+        : !hasResponseText && shouldSendFiles
+          ? "Generated files."
+          : null;
     logger.debug(`Sending response to user textLength=${outgoingText?.length ?? 0} fileCount=${generatedFiles.length} channelId=${entry.context.channelId}`);
     try {
-      if (connector) {
+      if (connector && (outgoingText || shouldSendFiles)) {
         await connector.sendMessage(entry.context.channelId, {
           text: outgoingText,
-          files: generatedFiles.length > 0 ? generatedFiles : undefined,
+          files: shouldSendFiles ? generatedFiles : undefined,
           replyToMessageId: entry.context.messageId
         });
         logger.debug("Response sent successfully");
-        await recordOutgoingEntry(this.sessionStore, session, source, entry.context, outgoingText, generatedFiles);
+        await recordOutgoingEntry(
+          this.sessionStore,
+          session,
+          source,
+          entry.context,
+          outgoingText,
+          shouldSendFiles ? generatedFiles : undefined,
+          "model"
+        );
         this.eventBus.emit("session.outgoing", {
           sessionId: session.id,
           source,
           message: {
             text: outgoingText,
-            files: generatedFiles.length > 0 ? generatedFiles : undefined
+            files: shouldSendFiles ? generatedFiles : undefined
           },
           context: entry.context
         });
@@ -1775,11 +1885,12 @@ async function recordOutgoingEntry(
   source: string,
   context: MessageContext,
   text: string | null,
-  files?: FileReference[]
+  files?: FileReference[],
+  origin?: "model" | "system"
 ): Promise<void> {
   const messageId = createId();
   try {
-    await sessionStore.recordOutgoing(session, messageId, source, context, text, files);
+    await sessionStore.recordOutgoing(session, messageId, source, context, text, files, origin);
   } catch (error) {
     logger.warn({ sessionId: session.id, source, messageId, error }, "Session persistence failed");
   }

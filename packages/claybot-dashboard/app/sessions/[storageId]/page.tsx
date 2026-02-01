@@ -292,6 +292,11 @@ function entryTimestamp(entry: SessionEntry) {
     case "outgoing":
       timestamp = Date.parse(entry.sentAt);
       break;
+    case "model_context":
+    case "session_reset":
+    case "session_compaction":
+      timestamp = Date.parse(entry.createdAt);
+      break;
     case "session_created":
       timestamp = Date.parse(entry.createdAt);
       break;
@@ -310,6 +315,12 @@ function formatEntryType(entry: SessionEntry) {
       return "Incoming";
     case "outgoing":
       return "Outgoing";
+    case "model_context":
+      return "Model context";
+    case "session_reset":
+      return "Session reset";
+    case "session_compaction":
+      return "Session compaction";
     case "session_created":
       return "Created";
     case "state":
@@ -328,6 +339,15 @@ function formatEntrySummary(entry: SessionEntry) {
       return `${entry.files.length} file${entry.files.length === 1 ? "" : "s"}`;
     }
     return "Message received";
+  }
+  if (entry.type === "model_context") {
+    return entry.messages.length > 0 ? `${entry.messages.length} messages` : "Model context";
+  }
+  if (entry.type === "session_reset") {
+    return entry.ok ? "Session reset" : "Session reset failed";
+  }
+  if (entry.type === "session_compaction") {
+    return entry.ok ? "Compaction complete" : "Compaction failed";
   }
   if (entry.type === "session_created") {
     return "Session created";
