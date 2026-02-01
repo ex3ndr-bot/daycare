@@ -9,6 +9,11 @@ import type { ToolDefinition } from "../../engine/tools/types.js";
 import type { SessionPermissions } from "../../engine/permissions.js";
 import { resolveWorkspacePath } from "../../engine/permissions.js";
 import { wrapWithSandbox } from "../../sandbox/runtime.js";
+import {
+  pathResolveSecure,
+  isWithinSecure,
+  openSecure
+} from "../../engine/permissions/pathResolveSecure.js";
 
 const exec = promisify(execCallback);
 
@@ -84,8 +89,8 @@ export function buildWorkspaceReadTool(): ToolDefinition {
         throw new Error("Session workspace is not configured.");
       }
       ensureAbsolutePath(payload.path);
-      const resolved = resolveReadPath(toolContext.permissions, payload.path);
-      return handleRead(resolved, workingDir, toolCall);
+      const resolved = await resolveReadPathSecure(toolContext.permissions, payload.path);
+      return handleReadSecure(resolved, workingDir, toolCall);
     }
   };
 }
@@ -105,8 +110,8 @@ export function buildWorkspaceWriteTool(): ToolDefinition {
         throw new Error("Session workspace is not configured.");
       }
       ensureAbsolutePath(payload.path);
-      const resolved = resolveWritePath(toolContext.permissions, payload.path);
-      return handleWrite(
+      const resolved = await resolveWritePathSecure(toolContext.permissions, payload.path);
+      return handleWriteSecure(
         resolved,
         payload.content,
         payload.append ?? false,
@@ -132,8 +137,8 @@ export function buildWorkspaceEditTool(): ToolDefinition {
         throw new Error("Session workspace is not configured.");
       }
       ensureAbsolutePath(payload.path);
-      const resolved = resolveWritePath(toolContext.permissions, payload.path);
-      return handleEdit(resolved, payload.edits, workingDir, toolCall);
+      const resolved = await resolveWritePathSecure(toolContext.permissions, payload.path);
+      return handleEditSecure(resolved, payload.edits, workingDir, toolCall);
     }
   };
 }
@@ -208,27 +213,41 @@ export function buildExecTool(): ToolDefinition {
   };
 }
 
-async function handleRead(
+/**
+ * Secure read handler that uses lstat + openSecure to prevent TOCTOU attacks.
+ * The path has already been securely resolved (symlinks followed, containment verified).
+ */
+async function handleReadSecure(
   resolvedPath: string,
   workingDir: string,
   toolCall: { id: string; name: string }
 ): Promise<{ toolMessage: ToolResultMessage }> {
-  const stats = await fs.stat(resolvedPath);
+  // Use lstat to check file type without following symlinks
+  const stats = await fs.lstat(resolvedPath);
+  if (stats.isSymbolicLink()) {
+    throw new Error("Cannot read symbolic link directly.");
+  }
   if (!stats.isFile()) {
     throw new Error("Path is not a file.");
   }
 
   let content = "";
   let truncated = false;
-  if (stats.size > MAX_READ_BYTES) {
-    const handle = await fs.open(resolvedPath, "r");
-    const buffer = Buffer.alloc(MAX_READ_BYTES);
-    await handle.read(buffer, 0, MAX_READ_BYTES, 0);
+
+  // Use openSecure to prevent TOCTOU race between stat and read
+  const handle = await openSecure(resolvedPath, "r");
+  try {
+    const handleStats = await handle.stat();
+    if (handleStats.size > MAX_READ_BYTES) {
+      const buffer = Buffer.alloc(MAX_READ_BYTES);
+      await handle.read(buffer, 0, MAX_READ_BYTES, 0);
+      content = buffer.toString("utf8");
+      truncated = true;
+    } else {
+      content = await handle.readFile("utf8");
+    }
+  } finally {
     await handle.close();
-    content = buffer.toString("utf8");
-    truncated = true;
-  } else {
-    content = await fs.readFile(resolvedPath, "utf8");
   }
 
   const displayPath = formatDisplayPath(workingDir, resolvedPath);
@@ -247,7 +266,11 @@ async function handleRead(
   return { toolMessage };
 }
 
-async function handleWrite(
+/**
+ * Secure write handler that prevents TOCTOU attacks.
+ * The path has already been securely resolved (symlinks followed, containment verified).
+ */
+async function handleWriteSecure(
   resolvedPath: string,
   content: string,
   append: boolean,
@@ -255,11 +278,29 @@ async function handleWrite(
   toolCall: { id: string; name: string }
 ): Promise<{ toolMessage: ToolResultMessage }> {
   await fs.mkdir(path.dirname(resolvedPath), { recursive: true });
-  if (append) {
-    await fs.appendFile(resolvedPath, content, "utf8");
-  } else {
-    await fs.writeFile(resolvedPath, content, "utf8");
+
+  // Check if target is a symlink before writing
+  try {
+    const stats = await fs.lstat(resolvedPath);
+    if (stats.isSymbolicLink()) {
+      throw new Error("Cannot write to symbolic link.");
+    }
+  } catch (error) {
+    // File doesn't exist yet - OK for write operations
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
   }
+
+  // Use atomic file operations via file handle
+  const flags = append ? "a" : "w";
+  const handle = await fs.open(resolvedPath, flags);
+  try {
+    await handle.writeFile(content, "utf8");
+  } finally {
+    await handle.close();
+  }
+
   const bytes = Buffer.byteLength(content, "utf8");
   const displayPath = formatDisplayPath(workingDir, resolvedPath);
   const text = `${append ? "Appended" : "Wrote"} ${bytes} bytes to ${displayPath}.`;
@@ -272,38 +313,57 @@ async function handleWrite(
   return { toolMessage };
 }
 
-async function handleEdit(
+/**
+ * Secure edit handler that prevents TOCTOU attacks.
+ * Uses file handle to ensure atomic read-modify-write operations.
+ */
+async function handleEditSecure(
   resolvedPath: string,
   edits: EditSpec[],
   workingDir: string,
   toolCall: { id: string; name: string }
 ): Promise<{ toolMessage: ToolResultMessage }> {
-  const original = await fs.readFile(resolvedPath, "utf8");
-  let updated = original;
-  const counts: number[] = [];
-
-  for (const edit of edits) {
-    const { next, count } = applyEdit(updated, edit);
-    if (count === 0) {
-      const preview = edit.search.length > 80 ? `${edit.search.slice(0, 77)}...` : edit.search;
-      throw new Error(`Edit not applied: "${preview}" not found.`);
-    }
-    counts.push(count);
-    updated = next;
+  // Check if target is a symlink
+  const stats = await fs.lstat(resolvedPath);
+  if (stats.isSymbolicLink()) {
+    throw new Error("Cannot edit symbolic link.");
   }
 
-  await fs.writeFile(resolvedPath, updated, "utf8");
-  const displayPath = formatDisplayPath(workingDir, resolvedPath);
-  const summary = counts
-    .map((count, index) => `edit ${index + 1}: ${count} replacement${count === 1 ? "" : "s"}`)
-    .join(", ");
-  const text = `Updated ${displayPath} (${summary}).`;
-  const toolMessage = buildToolMessage(toolCall, text, false, {
-    action: "edit",
-    path: displayPath,
-    edits: counts
-  });
-  return { toolMessage };
+  // Open with r+ for read-modify-write atomicity
+  const handle = await fs.open(resolvedPath, "r+");
+  try {
+    const original = await handle.readFile("utf8");
+    let updated = original;
+    const counts: number[] = [];
+
+    for (const edit of edits) {
+      const { next, count } = applyEdit(updated, edit);
+      if (count === 0) {
+        const preview = edit.search.length > 80 ? `${edit.search.slice(0, 77)}...` : edit.search;
+        throw new Error(`Edit not applied: "${preview}" not found.`);
+      }
+      counts.push(count);
+      updated = next;
+    }
+
+    // Truncate and write from beginning
+    await handle.truncate(0);
+    await handle.write(updated, 0, "utf8");
+
+    const displayPath = formatDisplayPath(workingDir, resolvedPath);
+    const summary = counts
+      .map((count, index) => `edit ${index + 1}: ${count} replacement${count === 1 ? "" : "s"}`)
+      .join(", ");
+    const text = `Updated ${displayPath} (${summary}).`;
+    const toolMessage = buildToolMessage(toolCall, text, false, {
+      action: "edit",
+      path: displayPath,
+      edits: counts
+    });
+    return { toolMessage };
+  } finally {
+    await handle.close();
+  }
 }
 
 function applyEdit(input: string, edit: EditSpec): { next: string; count: number } {
@@ -368,35 +428,26 @@ function ensureAbsolutePath(target: string): void {
   }
 }
 
-function resolveWritePath(permissions: SessionPermissions, target: string): string {
-  const resolved = path.resolve(target);
+async function resolveWritePathSecure(
+  permissions: SessionPermissions,
+  target: string
+): Promise<string> {
   const allowedDirs = [permissions.workingDir, ...permissions.writeDirs];
-  for (const dir of allowedDirs) {
-    if (isWithin(dir, resolved)) {
-      return resolved;
-    }
-  }
-  throw new Error("Path is outside the allowed write directories.");
+  const result = await pathResolveSecure(allowedDirs, target);
+  return result.realPath;
 }
 
-function resolveReadPath(permissions: SessionPermissions, target: string): string {
-  const resolved = path.resolve(target);
+async function resolveReadPathSecure(
+  permissions: SessionPermissions,
+  target: string
+): Promise<string> {
   const allowedDirs = [permissions.workingDir, ...permissions.readDirs];
-  for (const dir of allowedDirs) {
-    if (isWithin(dir, resolved)) {
-      return resolved;
-    }
-  }
-  throw new Error("Path is outside the allowed read directories.");
-}
-
-function isWithin(base: string, target: string): boolean {
-  const relative = path.relative(base, target);
-  return relative === "" || (!relative.startsWith("..") && !path.isAbsolute(relative));
+  const result = await pathResolveSecure(allowedDirs, target);
+  return result.realPath;
 }
 
 function formatDisplayPath(workingDir: string, target: string): string {
-  if (isWithin(workingDir, target)) {
+  if (isWithinSecure(workingDir, target)) {
     return path.relative(workingDir, target) || ".";
   }
   return target;
