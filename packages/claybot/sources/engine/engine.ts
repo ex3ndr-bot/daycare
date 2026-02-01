@@ -323,12 +323,15 @@ export class Engine {
           },
           "Session updated"
         );
-        void this.sessionStore.recordIncoming(session, entry, source).catch((error) => {
-          logger.warn(
-            { sessionId: session.id, source, messageId: entry.id, error },
-            "Session persistence failed"
-          );
-        });
+        const rawText = entry.message.rawText ?? entry.message.text ?? "";
+        if (!isSystemMessageText(rawText)) {
+          void this.sessionStore.recordIncoming(session, entry, source).catch((error) => {
+            logger.warn(
+              { sessionId: session.id, source, messageId: entry.id, error },
+              "Session persistence failed"
+            );
+          });
+        }
         this.eventBus.emit("session.updated", {
           sessionId: session.id,
           source,
@@ -1479,7 +1482,6 @@ export class Engine {
     } catch (error) {
       logger.debug(`Inference loop caught error error=${String(error)}`);
       logger.warn({ connector: source, error }, "Inference failed");
-      await this.notifySubagentFailure(session, "Inference failed.");
       const message =
         error instanceof Error && error.message === "No inference provider available"
           ? "No inference provider available."
@@ -1584,7 +1586,6 @@ export class Engine {
         } catch (error) {
           logger.warn({ connector: source, error }, "Failed to send tool error");
         }
-        await this.notifySubagentFailure(session, "Tool execution limit reached");
       }
       await recordSessionState(this.sessionStore, session, source);
       logger.debug("handleSessionMessage completed with no response text");
@@ -1805,6 +1806,11 @@ function buildSystemMessageText(text: string, origin?: "background" | "system"):
   const trimmed = text.trim();
   const originTag = origin ? ` origin=\"${origin}\"` : "";
   return `<system_message${originTag}>${trimmed}</system_message>`;
+}
+
+function isSystemMessageText(text: string): boolean {
+  const trimmed = text.trim();
+  return trimmed.startsWith("<system_message");
 }
 
 function isNonBackgroundSession(source: string, context: MessageContext): boolean {

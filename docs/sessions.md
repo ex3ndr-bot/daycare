@@ -41,7 +41,7 @@ sequenceDiagram
 - Sessions are written to `.claybot/sessions/<cuid2>.jsonl` as append-only logs.
 - Entries include `session_created`, `model_context`, `outgoing`, `session_reset`, `session_compaction`, and `state` snapshots.
 - `model_context` records the raw messages sent to the inference model.
-- `incoming` entries store the full incoming text and files.
+- `incoming` entries store the full incoming text and files (excluding system_message inputs).
 - `outgoing` entries store the user-facing reply and files (origin is tagged as `model` or `system`).
 
 ## Model context logging
@@ -67,6 +67,18 @@ flowchart LR
   Restore[restoreContextMessages]
   Recovered[Context.messages]
   InMemory --> Serialize --> Logged --> Restore --> Recovered
+```
+
+## Subagent failure notifications
+Background sessions emit a single failure notification to the parent session.
+
+```mermaid
+sequenceDiagram
+  participant Subagent
+  participant Engine
+  participant ParentSession
+  Subagent-->>Engine: error or tool limit
+  Engine->>ParentSession: send_session_message(failure)
 ```
 
 ## Resetting sessions
