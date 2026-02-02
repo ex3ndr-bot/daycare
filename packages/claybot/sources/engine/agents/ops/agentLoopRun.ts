@@ -83,6 +83,9 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
   const generatedFiles: FileReference[] = [];
   let lastResponseTextSent = false;
   let finalResponseText: string | null = null;
+  let compactionLocked = false;
+  let compactionExtraIterationUsed = false;
+  let compactionRequired = false;
   const historyRecords: AgentHistoryRecord[] = [];
   const target = agentDescriptorTargetResolve(agent.descriptor);
   const targetId = target?.targetId ?? null;
@@ -150,12 +153,17 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
 
       const responseText = messageExtractText(response.message);
       const toolCalls = messageExtractToolCalls(response.message);
+      const compactionNotice = findCompactionNotice(context.messages);
+      const compactionNoticeActive = compactionNotice !== null;
+      if (compactionNoticeActive) {
+        compactionRequired = true;
+      }
       const hasCompactionCall = toolCalls.some((toolCall) => toolCall.name === "compact");
       const trimmedText = responseText?.trim() ?? "";
       const hasResponseText = trimmedText.length > 0;
       finalResponseText = hasResponseText ? responseText : null;
       lastResponseTextSent = false;
-      if (hasResponseText && connector && targetId && !hasCompactionCall) {
+      if (hasResponseText && connector && targetId && !hasCompactionCall && !compactionNoticeActive) {
         try {
           await connector.sendMessage(targetId, {
             text: responseText,
@@ -171,6 +179,26 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
         } catch (error) {
           logger.warn({ connector: source, error }, "Failed to send response text");
         }
+      }
+
+      if (compactionNoticeActive && toolCalls.length === 0) {
+        logger.warn(
+          { agentId: agent.id },
+          "Compaction notice ignored; retrying without sending response"
+        );
+        context.messages.pop();
+        if (compactionNotice) {
+          context.messages.push({
+            role: "user",
+            content: compactionNotice,
+            timestamp: Date.now()
+          });
+        }
+        if (iteration === MAX_TOOL_ITERATIONS - 1) {
+          logger.warn({ agentId: agent.id }, "Compaction notice ignored; stopping inference loop");
+          break;
+        }
+        continue;
       }
 
       logger.debug(`Extracted tool calls from response toolCallCount=${toolCalls.length}`);
@@ -192,6 +220,22 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
         logger.debug(
           `Executing tool call toolName=${toolCall.name} toolCallId=${toolCall.id} args=${argsPreview}`
         );
+
+        if (toolCall.name === "compact" && compactionLocked) {
+          logger.warn({ agentId: agent.id }, "Compaction already applied; ignoring compact tool call");
+          const toolMessage = buildToolErrorMessage(
+            toolCall,
+            "Compaction already applied for this request."
+          );
+          context.messages.push(toolMessage);
+          historyRecords.push({
+            type: "tool_result",
+            at: Date.now(),
+            toolCallId: toolCall.id,
+            output: { toolMessage, files: [] }
+          });
+          continue;
+        }
 
         if (verbose && connector && targetId) {
           const argsFormatted = toolArgsFormatVerbose(toolCall.arguments);
@@ -246,8 +290,16 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
               content: messageBuildSystemText(summary, "system"),
               timestamp: compactionAt
             };
+            const compactionGuard = {
+              role: "user" as const,
+              content: messageBuildSystemText(
+                "Compaction complete for this request. Do not call compact again.",
+                "system"
+              ),
+              timestamp: compactionAt
+            };
             context.messages.length = 0;
-            context.messages.push(compactionMessage);
+            context.messages.push(compactionMessage, compactionGuard);
             if (userMessageForCompaction) {
               context.messages.push(userMessageForCompaction);
             }
@@ -257,6 +309,9 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
               message: summary
             });
             compactionApplied = true;
+            compactionLocked = true;
+            disableCompactionTool(context);
+            compactionRequired = false;
             break;
           }
         }
@@ -264,9 +319,10 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
 
       if (compactionApplied) {
         logger.info({ agentId: agent.id }, "Compaction applied; resuming inference with compacted context");
-        if (iteration === MAX_TOOL_ITERATIONS - 1) {
+        if (!compactionExtraIterationUsed && iteration === MAX_TOOL_ITERATIONS - 1) {
           // Allow a follow-up inference pass after compaction.
           iteration -= 1;
+          compactionExtraIterationUsed = true;
         }
         continue;
       }
@@ -305,6 +361,11 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
 
   if (!response) {
     logger.debug("No response received, returning without completion");
+    return { responseText: finalResponseText, historyRecords };
+  }
+
+  if (compactionRequired) {
+    logger.debug("Compaction required; skipping final response send");
     return { responseText: finalResponseText, historyRecords };
   }
 
@@ -529,4 +590,41 @@ function findLatestUserMessage(
     return message;
   }
   return null;
+}
+
+function disableCompactionTool(context: Context): void {
+  if (!context.tools) {
+    return;
+  }
+  context.tools = context.tools.filter((tool) => tool.name !== "compact");
+}
+
+function findCompactionNotice(messages: Context["messages"]): string | null {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message) {
+      continue;
+    }
+    if (typeof message.content !== "string") {
+      continue;
+    }
+    if (!messageIsSystemText(message.content)) {
+      continue;
+    }
+    if (message.content.includes("[compaction-warning]")) {
+      return message.content;
+    }
+  }
+  return null;
+}
+
+function buildToolErrorMessage(toolCall: ToolCall, text: string): ToolResultMessage {
+  return {
+    role: "toolResult",
+    toolCallId: toolCall.id,
+    toolName: toolCall.name,
+    content: [{ type: "text", text }],
+    isError: true,
+    timestamp: Date.now()
+  };
 }

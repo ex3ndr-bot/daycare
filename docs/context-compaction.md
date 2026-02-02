@@ -11,6 +11,8 @@ thresholds are crossed.
 - Estimates include the system prompt tokens (length / 4 heuristic).
 - When warning/critical, a `<system_message>` notice is injected with the compaction prompt and
   instructions to call the `compact` tool.
+- If the model responds without a `compact` tool call while the notice is active, the response is
+  suppressed and the notice is re-injected for another attempt.
 
 ## `compact` tool
 
@@ -21,7 +23,8 @@ Arguments:
 When the tool runs, the agent records a reset marker with the summary and rebuilds the active
 context as:
 1) the compaction summary system message
-2) the latest user message (so the next inference can resume)
+2) a guard system message preventing repeat compaction in the same loop
+3) the latest user message (so the next inference can resume)
 
 ## Flow
 
@@ -32,5 +35,6 @@ flowchart TD
   B -->|Warning/critical| D[Inject compaction notice]
   D --> E[Inference response]
   E -->|compact tool call| F[Apply reset + summary]
+  E -->|no compact tool call| D
   F --> G[Resume inference with compacted context]
 ```
