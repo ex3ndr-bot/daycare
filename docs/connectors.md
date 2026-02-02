@@ -59,6 +59,7 @@ flowchart TD
 ## Telegram message formatting
 - Connector prompts the model to follow MarkdownV2 rules.
 - Permission prompts are formatted with MarkdownV2-safe escaping.
+- If Telegram rejects a message due to parsing, the connector retries without `parse_mode`.
 
 ```mermaid
 flowchart LR
@@ -66,6 +67,7 @@ flowchart LR
   Model --> Format[MarkdownV2 formatting + escaping]
   Format --> Send[TelegramConnector.sendMessage]
   Send --> API[Telegram API parse_mode=MarkdownV2]
+  API -->|parse error| Fallback[retry without parse_mode]
 ```
 
 ## Telegram commands

@@ -259,9 +259,7 @@ export class TelegramConnector implements Connector {
     const files = message.files ?? [];
     if (files.length === 0) {
       logger.debug(`Sending text-only message targetId=${targetId}`);
-      await this.bot.sendMessage(targetId, message.text ?? "", {
-        parse_mode: "MarkdownV2"
-      });
+      await this.sendTextWithFallback(targetId, message.text ?? "");
       logger.debug(`Text message sent targetId=${targetId}`);
       return;
     }
@@ -355,6 +353,37 @@ export class TelegramConnector implements Connector {
       ? { caption, parse_mode: "MarkdownV2" as TelegramBot.ParseMode }
       : undefined;
     const sendAs = file.sendAs ?? "auto";
+    try {
+      await this.sendFileWithOptions(targetId, file, sendAs, options);
+    } catch (error) {
+      if (!caption || !isTelegramParseError(error)) {
+        throw error;
+      }
+      logger.warn({ error }, "Telegram MarkdownV2 caption parse error; retrying without parse_mode");
+      await this.sendFileWithOptions(targetId, file, sendAs, { caption });
+    }
+  }
+
+  private async sendTextWithFallback(targetId: string, text: string): Promise<void> {
+    try {
+      await this.bot.sendMessage(targetId, text, {
+        parse_mode: "MarkdownV2"
+      });
+    } catch (error) {
+      if (!isTelegramParseError(error)) {
+        throw error;
+      }
+      logger.warn({ error }, "Telegram MarkdownV2 parse error; retrying without parse_mode");
+      await this.bot.sendMessage(targetId, text);
+    }
+  }
+
+  private async sendFileWithOptions(
+    targetId: string,
+    file: ConnectorFile,
+    sendAs: ConnectorFile["sendAs"] | "auto",
+    options?: TelegramBot.SendPhotoOptions | TelegramBot.SendVideoOptions | TelegramBot.SendDocumentOptions
+  ): Promise<void> {
     if (sendAs === "photo") {
       await this.bot.sendPhoto(targetId, file.path, options);
       return;
@@ -859,6 +888,30 @@ function escapeMarkdownV2(value: string): string {
 
 function escapeMarkdownV2Code(value: string): string {
   return value.replace(/([`\\])/g, "\\$1");
+}
+
+function isTelegramParseError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const maybe = error as {
+    code?: string;
+    message?: string;
+    response?: { statusCode?: number; body?: { description?: string; error_code?: number } };
+  };
+
+  if (maybe.code !== "ETELEGRAM") {
+    return false;
+  }
+
+  const description = maybe.response?.body?.description ?? maybe.message ?? "";
+  if (typeof description !== "string") {
+    return false;
+  }
+
+  const normalized = description.toLowerCase();
+  return normalized.includes("can't parse entities") || normalized.includes("cant parse entities");
 }
 
 function isTelegramConflictError(error: unknown): boolean {
