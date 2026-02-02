@@ -156,6 +156,9 @@ export class AgentSystem {
       const agentType = "descriptor" in target ? target.descriptor.type : "agent";
       logger.warn({ agentType }, "AgentSystem received message before load");
     }
+    const targetLabel =
+      "descriptor" in target ? `descriptor:${target.descriptor.type}` : `agent:${target.agentId}`;
+    logger.debug(`post() received itemType=${item.type} target=${targetLabel} stage=${this.stage}`);
     const entry = await this.resolveEntry(target, item);
     entry.inbox.post(item);
     this.startEntryIfRunning(entry);
@@ -174,16 +177,6 @@ export class AgentSystem {
 
   reload(config: Config): void {
     this.config = config;
-  }
-
-  resetAgent(agentId: string): boolean {
-    const entry = this.entries.get(agentId);
-    if (!entry) {
-      return false;
-    }
-    entry.inbox.post({ type: "reset" });
-    this.startEntryIfRunning(entry);
-    return true;
   }
 
   agentFor(strategy: AgentFetchStrategy): string | null {
@@ -241,6 +234,9 @@ export class AgentSystem {
       descriptor.type === "subagent" && descriptor.id !== agentId
         ? { ...descriptor, id: agentId }
         : descriptor;
+    logger.debug(
+      `Creating agent entry agentId=${agentId} type=${resolvedDescriptor.type}`
+    );
     const inbox = new AgentInbox(agentId);
     const agent = await Agent.create(agentId, resolvedDescriptor, inbox, this);
     const entry = this.registerEntry({
@@ -249,6 +245,7 @@ export class AgentSystem {
       agent,
       inbox
     });
+    logger.debug(`Agent entry registered agentId=${agentId}`);
     return entry;
   }
 
@@ -274,9 +271,15 @@ export class AgentSystem {
   }
 
   private startEntryIfRunning(entry: AgentEntry): void {
-    if (this.stage !== "running" || entry.running) {
+    if (this.stage !== "running") {
+      logger.debug(`startEntryIfRunning skipped agentId=${entry.agentId} reason=stage:${this.stage}`);
       return;
     }
+    if (entry.running) {
+      logger.debug(`startEntryIfRunning skipped agentId=${entry.agentId} reason=already-running`);
+      return;
+    }
+    logger.debug(`startEntryIfRunning starting agentId=${entry.agentId} type=${entry.descriptor.type}`);
     entry.running = true;
     entry.agent.start();
   }

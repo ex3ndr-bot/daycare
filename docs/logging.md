@@ -65,6 +65,22 @@ Debug logs include key data embedded in the message text using `key=value` forma
 | Telegram | `connector.telegram` | Polling, message send/receive, file handling |
 | IPC Server | `engine.server` | API requests, SSE connections |
 
+### Agent lifecycle traces
+
+Debug logs now include explicit lifecycle steps that show when an incoming message
+creates and starts an agent loop.
+
+```mermaid
+sequenceDiagram
+  participant C as Connector
+  participant AS as AgentSystem
+  participant A as Agent
+  C->>AS: post(message)
+  AS->>AS: resolveEntry()
+  AS->>AS: startEntryIfRunning()
+  AS->>A: start()
+```
+
 ### Example: Debug Message Flow
 
 ```bash

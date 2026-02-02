@@ -151,6 +151,9 @@ export class Agent {
       return;
     }
     this.started = true;
+    logger.debug(
+      `Agent loop starting agentId=${this.id} type=${this.descriptor.type}`
+    );
     void this.runLoop().catch((error) => {
       this.started = false;
       logger.warn({ agentId: this.id, error }, "Agent loop exited unexpectedly");
