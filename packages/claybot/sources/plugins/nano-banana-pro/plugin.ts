@@ -57,15 +57,15 @@ type GeminiResponse = {
 export const plugin = definePlugin({
   settingsSchema,
   onboarding: async (api) => {
-    const existingKey = await api.auth.getApiKey(api.pluginId);
+    const existingKey = await api.auth.getApiKey("google");
     if (!existingKey) {
       const apiKey = await api.prompt.input({
-        message: "Gemini API key"
+        message: "Google AI API key (or configure 'google' provider first)"
       });
       if (!apiKey) {
         return null;
       }
-      await api.auth.setApiKey(api.pluginId, apiKey);
+      await api.auth.setApiKey("google", apiKey);
     }
 
     return {
@@ -77,9 +77,10 @@ export const plugin = definePlugin({
   create: (api) => {
     const settings = api.settings as NanoBananaProSettings;
     const providerId = settings.providerId ?? api.instance.pluginId;
-    const authId = settings.authId ?? providerId;
     const label = settings.label ?? providerId;
     const apiMode = settings.api ?? (settings.endpoint ? "custom" : "gemini");
+    const authId =
+      settings.authId ?? (apiMode === "gemini" ? "google" : providerId);
 
     return {
       load: async () => {

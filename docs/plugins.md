@@ -158,6 +158,14 @@ flowchart TD
   Validate --> Plugin["use or prompt"]
 ```
 
+Nano Banana Pro uses the same Google API key as Gemini tools.
+
+```mermaid
+flowchart TD
+  GeminiSearch["gemini_search"] --> GoogleKey["auth: google"]
+  NanoBanana["nano-banana-pro"] --> GoogleKey
+```
+
 ## Built-in plugins
 - `telegram` (connector)
 - `brave-search` (tool)
