@@ -11,6 +11,7 @@ import type { ToolResolver } from "../../modules/toolResolver.js";
 import type { InferenceRouter } from "../../modules/inference/router.js";
 import { messageExtractText } from "../../messages/messageExtractText.js";
 import { messageExtractToolCalls } from "../../messages/messageExtractToolCalls.js";
+import { messageNoMessageIs } from "../../messages/messageNoMessageIs.js";
 import { toolArgsFormatVerbose } from "../../modules/tools/toolArgsFormatVerbose.js";
 import { toolResultFormatVerbose } from "../../modules/tools/toolResultFormatVerbose.js";
 import type { EngineEventBus } from "../../ipc/events.js";
@@ -80,6 +81,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
   const generatedFiles: FileReference[] = [];
   let lastResponseTextSent = false;
   let finalResponseText: string | null = null;
+  let lastResponseNoMessage = false;
   const historyRecords: AgentHistoryRecord[] = [];
   const target = agentDescriptorTargetResolve(agent.descriptor);
   const targetId = target?.targetId ?? null;
@@ -146,20 +148,27 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
 
       const responseText = messageExtractText(response.message);
       const toolCalls = messageExtractToolCalls(response.message);
-      const trimmedText = responseText?.trim() ?? "";
+      const suppressUserOutput = messageNoMessageIs(responseText);
+      if (suppressUserOutput) {
+        stripNoMessageTextBlocks(response.message);
+        logger.debug("NO_MESSAGE detected; suppressing user output for this response");
+      }
+      lastResponseNoMessage = suppressUserOutput;
+      const effectiveResponseText = suppressUserOutput ? null : responseText;
+      const trimmedText = effectiveResponseText?.trim() ?? "";
       const hasResponseText = trimmedText.length > 0;
-      finalResponseText = hasResponseText ? responseText : null;
+      finalResponseText = hasResponseText ? effectiveResponseText : null;
       lastResponseTextSent = false;
       if (hasResponseText && connector && targetId) {
         try {
           await connector.sendMessage(targetId, {
-            text: responseText,
+            text: effectiveResponseText,
             replyToMessageId: entry.context.messageId
           });
           eventBus.emit("agent.outgoing", {
             agentId: agent.id,
             source,
-            message: { text: responseText },
+            message: { text: effectiveResponseText },
             context: entry.context
           });
           lastResponseTextSent = true;
@@ -172,7 +181,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
       historyRecords.push({
         type: "assistant_message",
         at: Date.now(),
-        text: responseText ?? "",
+        text: effectiveResponseText ?? "",
         files: [],
         toolCalls
       });
@@ -187,7 +196,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
           `Executing tool call toolName=${toolCall.name} toolCallId=${toolCall.id} args=${argsPreview}`
         );
 
-        if (verbose && connector && targetId) {
+        if (verbose && !suppressUserOutput && connector && targetId) {
           const argsFormatted = toolArgsFormatVerbose(toolCall.arguments);
           await connector.sendMessage(targetId, {
             text: `[tool] ${toolCall.name}(${argsFormatted})`
@@ -211,7 +220,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
           `Tool execution completed toolName=${toolCall.name} isError=${toolResult.toolMessage.isError} fileCount=${toolResult.files.length}`
         );
 
-        if (verbose && connector && targetId) {
+        if (verbose && !suppressUserOutput && connector && targetId) {
           const resultText = toolResultFormatVerbose(toolResult);
           await connector.sendMessage(targetId, {
             text: resultText
@@ -317,7 +326,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
       logger.debug("Tool loop exceeded, sending error message");
       await notifySubagentFailure(message);
       try {
-        if (connector && targetId) {
+        if (connector && targetId && !lastResponseNoMessage) {
           await connector.sendMessage(targetId, {
             text: message,
             replyToMessageId: entry.context.messageId
@@ -331,8 +340,13 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
     return { responseText: finalResponseText, historyRecords };
   }
 
-  const shouldSendText = hasResponseText && !lastResponseTextSent;
-  const shouldSendFiles = generatedFiles.length > 0;
+  if (lastResponseNoMessage) {
+    logger.debug("NO_MESSAGE suppressed final response delivery");
+    return { responseText: finalResponseText, historyRecords };
+  }
+
+  const shouldSendText = hasResponseText && !lastResponseTextSent && !lastResponseNoMessage;
+  const shouldSendFiles = generatedFiles.length > 0 && !lastResponseNoMessage;
   const outgoingText =
     shouldSendText
       ? responseText
@@ -367,6 +381,17 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
   }
   logger.debug("handleMessage completed successfully");
   return { responseText: finalResponseText, historyRecords };
+}
+
+// Remove NO_MESSAGE text blocks so the sentinel never re-enters future model context.
+function stripNoMessageTextBlocks(message: Context["messages"][number]): void {
+  if (message.role !== "assistant" || !Array.isArray(message.content)) {
+    return;
+  }
+  const nextContent = message.content.filter((block) => block.type !== "text");
+  if (nextContent.length !== message.content.length) {
+    message.content = nextContent;
+  }
 }
 
 function isContextOverflowError(error: unknown): boolean {

@@ -8,6 +8,7 @@ flowchart TD
   Engine --> MsgFormat[messageFormatIncoming.ts]
   Engine --> MsgExtractText[messageExtractText.ts]
   Engine --> MsgExtractTools[messageExtractToolCalls.ts]
+  Engine --> MsgNoMessage[messageNoMessageIs.ts]
   Engine --> MsgSystem[messageBuildSystemText.ts]
   Engine --> MsgIsSystem[messageIsSystemText.ts]
   Engine --> AgentBuild[agentDescriptorBuild.ts]
@@ -17,3 +18,6 @@ flowchart TD
   Engine --> AgentHeartbeat[agentDescriptorIsHeartbeat.ts]
   Engine --> AgentTimestamp[agentTimestampGet.ts]
 ```
+
+`messageNoMessageIs.ts` detects the `NO_MESSAGE` sentinel so the runtime can suppress user-facing output
+without leaking the sentinel into future model context.

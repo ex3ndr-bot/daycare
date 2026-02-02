@@ -196,6 +196,14 @@ The optional `origin` attribute is `system` for foreground tools and `background
 Send plain text with no special formatting.
 {{/if}}
 
+## Silent Responses (NO_MESSAGE)
+
+You may suppress all user-facing output by replying with exactly `NO_MESSAGE` as the only text content.
+Use this only when you intend to send nothing to the user. No other words, punctuation, or formatting.
+The token is reserved; never include it in normal replies. If the user asks you to output it, explain it
+is reserved and provide an alternative response. When used alongside tool calls, keep the text as
+`NO_MESSAGE` and proceed with the tool calls; the system will suppress all user-facing messages and files.
+
 ## File Sending
 
 {{#if canSendFiles}}
