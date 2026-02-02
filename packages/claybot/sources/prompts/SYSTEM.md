@@ -16,13 +16,15 @@ Exit the current tool loop and wait for the next incoming message that contains 
 Arguments:
 - `permission`: `@web` | `@read:/absolute/path` | `@write:/absolute/path`
 - `reason`: short, concrete justification
+- `agentId`: optional agent id when requesting on behalf of another agent
 
 Returns a tool result confirming the request was sent (not the decision).
 The decision arrives later and resumes the agent with a message like
 "Permission granted for ..." or "Permission denied for ...".
 If denied, continue without that permission; if granted, proceed with the original step.
-Background agents also use `request_permission`. When a background agent calls it, the request is
-routed through the most recent foreground agent automatically.
+Background agents also use `request_permission`. When a background agent calls it, you receive a
+system message with the request. Call `request_permission` with the provided permission and reason,
+and include the `agentId` so the decision routes back to the requester.
 
 ## Agent Communication
 

@@ -63,7 +63,7 @@ Your workspace may be shared with other agents working in parallel. Treat it lik
 
 Only request permissions when you genuinely need access outside your workspace. Use
 `request_permission`. Background agents call the same tool, and it routes the request through the
-most recent foreground agent automatically.
+most recent foreground agent by sending it a system message to approve and issue the request.
 
 **Permission string formats:**
 - `@web` → allow web search/tools.
@@ -83,6 +83,16 @@ All agents use `request_permission`:
 {
   "permission": "@read:/absolute/path",
   "reason": "Need to scan the local dataset for the report."
+}
+```
+
+Foreground agents can request on behalf of a background agent by including `agentId`:
+
+```json
+{
+  "permission": "@web",
+  "reason": "Need to check if the vendor endpoint is reachable.",
+  "agentId": "ckv8x0o4t0000h1l7c7y2q3p9"
 }
 ```
 

@@ -5,13 +5,15 @@ import { createId } from "@paralleldrive/cuid2";
 import path from "node:path";
 
 import type { ToolDefinition } from "@/types";
-import type { PermissionAccess, PermissionRequest } from "@/types";
+import type { AgentDescriptor, PermissionAccess, PermissionRequest } from "@/types";
 import { agentDescriptorTargetResolve } from "../../agents/ops/agentDescriptorTargetResolve.js";
+import { messageBuildSystemText } from "../../messages/messageBuildSystemText.js";
 
 const schema = Type.Object(
   {
     permission: Type.String({ minLength: 1 }),
-    reason: Type.String({ minLength: 1 })
+    reason: Type.String({ minLength: 1 }),
+    agentId: Type.Optional(Type.String({ minLength: 1 }))
   },
   { additionalProperties: false }
 );
@@ -28,25 +30,77 @@ export function buildPermissionRequestTool(): ToolDefinition {
     },
     execute: async (args, toolContext, toolCall) => {
       const payload = args as PermissionArgs;
+      const descriptor = toolContext.agent.descriptor;
+      const isForeground = descriptor.type === "user";
+      const permission = payload.permission.trim();
+      const reason = payload.reason.trim();
+      if (!reason) {
+        throw new Error("Permission reason is required.");
+      }
+      if (!permission) {
+        throw new Error("Permission string is required.");
+      }
+      if (!isForeground && payload.agentId) {
+        throw new Error("Background agents cannot override agentId.");
+      }
+      const requestedAgentId = payload.agentId?.trim() ?? toolContext.agent.id;
+      const requestedDescriptor =
+        requestedAgentId === toolContext.agent.id
+          ? descriptor
+          : toolContext.agentSystem.getAgentDescriptor(requestedAgentId);
+      if (!requestedDescriptor) {
+        throw new Error("Requested agent not found.");
+      }
+
       const connectorRegistry = toolContext.connectorRegistry;
       if (!connectorRegistry) {
         throw new Error("Connector registry unavailable.");
       }
 
-      const descriptor = toolContext.agent.descriptor;
-      const isForeground = descriptor.type === "user";
       const foregroundAgentId = isForeground
         ? toolContext.agent.id
         : toolContext.agentSystem.agentFor("most-recent-foreground");
       if (!foregroundAgentId) {
         throw new Error("No foreground agent available for permission requests.");
       }
-      const foregroundDescriptor = isForeground
-        ? descriptor
-        : toolContext.agentSystem.getAgentDescriptor(foregroundAgentId);
-      if (!foregroundDescriptor) {
-        throw new Error("Foreground agent descriptor not found.");
+
+      const access = parsePermission(permission);
+      if (access.kind !== "web" && !path.isAbsolute(access.path)) {
+        throw new Error("Path must be absolute.");
       }
+
+      if (!isForeground) {
+        const agentName = describeAgentName(requestedDescriptor);
+        const forwardText = [
+          `Permission request from background agent "${agentName}" (${requestedAgentId}).`,
+          "Call request_permission with:",
+          `permission: ${permission}`,
+          `reason: ${reason}`,
+          `agentId: ${requestedAgentId}`
+        ].join("\n");
+        const text = messageBuildSystemText(forwardText, "background");
+        await toolContext.agentSystem.post(
+          { agentId: foregroundAgentId },
+          { type: "message", message: { text }, context: {} }
+        );
+
+        const toolMessage: ToolResultMessage = {
+          role: "toolResult",
+          toolCallId: toolCall.id,
+          toolName: toolCall.name,
+          content: [{ type: "text", text: "Permission request forwarded to foreground agent." }],
+          details: {
+            permission,
+            agentId: requestedAgentId
+          },
+          isError: false,
+          timestamp: Date.now()
+        };
+
+        return { toolMessage, files: [] };
+      }
+
+      const foregroundDescriptor = descriptor;
       const target = agentDescriptorTargetResolve(foregroundDescriptor);
       if (!target) {
         throw new Error("Foreground agent has no user target for permission requests.");
@@ -56,23 +110,16 @@ export function buildPermissionRequestTool(): ToolDefinition {
         throw new Error("Connector not available for permission requests.");
       }
 
-      const access = parsePermission(payload.permission);
-      if (access.kind !== "web" && !path.isAbsolute(access.path)) {
-        throw new Error("Path must be absolute.");
-      }
-
-      const agentId = toolContext.agent.id;
-      const permission = payload.permission.trim();
       const friendly = describePermission(access);
-      const agentName = descriptor.type === "subagent" ? descriptor.name : descriptor.type;
-      const heading = isForeground
-        ? "Permission request:"
-        : `Permission request from background agent "${agentName}":`;
-      const text = `${heading}\n${friendly}\nReason: ${payload.reason.trim()}`;
+      const heading =
+        requestedDescriptor.type === "user"
+          ? "Permission request:"
+          : `Permission request from background agent "${describeAgentName(requestedDescriptor)}" (${requestedAgentId}):`;
+      const text = `${heading}\n${friendly}\nReason: ${reason}`;
       const request: PermissionRequest = {
         token: createId(),
-        agentId,
-        reason: payload.reason.trim(),
+        agentId: requestedAgentId,
+        reason,
         message: text,
         permission,
         access
@@ -100,7 +147,7 @@ export function buildPermissionRequestTool(): ToolDefinition {
         details: {
           permission,
           token: request.token,
-          agentId
+          agentId: requestedAgentId
         },
         isError: false,
         timestamp: Date.now()
@@ -141,4 +188,17 @@ function describePermission(access: PermissionAccess): string {
     return `Read access to ${access.path}`;
   }
   return `Write access to ${access.path}`;
+}
+
+function describeAgentName(descriptor: AgentDescriptor): string {
+  if (descriptor.type === "subagent" || descriptor.type === "permanent") {
+    return descriptor.name ?? descriptor.type;
+  }
+  if (descriptor.type === "cron") {
+    return `cron:${descriptor.id ?? "unknown"}`;
+  }
+  if (descriptor.type === "heartbeat") {
+    return "heartbeat";
+  }
+  return "user";
 }

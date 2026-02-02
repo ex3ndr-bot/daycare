@@ -78,8 +78,9 @@ flowchart LR
 ```
 
 ## Permission request forwarding
-Background agents use `request_permission`. The engine routes those requests through the most
-recent foreground agent and includes the requesting agent id so approvals route back correctly.
+Background agents use `request_permission`. The engine forwards the request as a system message
+to the most recent foreground agent, which calls `request_permission` with the original agent id
+so approvals route back correctly.
 
 ```mermaid
 sequenceDiagram
@@ -87,7 +88,9 @@ sequenceDiagram
   participant AgentSystem
   participant Foreground as Foreground Agent
   Background->>AgentSystem: request_permission
-  AgentSystem->>Foreground: requestPermission (foreground connector)
+  AgentSystem->>Foreground: system message (permission request)
+  Foreground->>AgentSystem: request_permission (agentId=background)
+  AgentSystem->>Foreground: connector requestPermission
 ```
 
 ## Agent persistence
