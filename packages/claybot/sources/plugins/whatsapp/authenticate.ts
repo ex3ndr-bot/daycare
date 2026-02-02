@@ -1,15 +1,15 @@
-import { promises as fs } from "node:fs";
-
 import makeWASocket, {
-  useMultiFileAuthState,
   fetchLatestBaileysVersion,
-  DisconnectReason
+  DisconnectReason,
+  type AuthenticationState
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import pino from "pino";
 import qrcodeTerminal from "qrcode-terminal";
 
 import { getLogger } from "../../log.js";
+import type { AuthStore } from "../../auth/store.js";
+import { useAuthStoreState } from "./authState.js";
 
 const logger = getLogger("plugin.whatsapp");
 
@@ -18,7 +18,8 @@ export type AuthenticateResult =
   | { success: false; reason: string };
 
 export type AuthenticateOptions = {
-  authDir: string;
+  authStore: AuthStore;
+  instanceId: string;
   timeoutMs?: number;
   onQRCode?: (qr: string) => void;
 };
@@ -27,17 +28,15 @@ export type AuthenticateOptions = {
  * Performs WhatsApp authentication during onboarding.
  * Displays QR code and waits for user to scan it.
  *
- * Expects: authDir to store credentials.
+ * Expects: AuthStore and instanceId for credential storage.
  * Returns: success or failure with reason.
  */
 export async function authenticate(
   options: AuthenticateOptions
 ): Promise<AuthenticateResult> {
-  const { authDir, timeoutMs = 120_000 } = options;
+  const { authStore, instanceId, timeoutMs = 120_000 } = options;
 
-  await fs.mkdir(authDir, { recursive: true });
-
-  const { state, saveCreds } = await useMultiFileAuthState(authDir);
+  const { state, saveCreds } = await useAuthStoreState(authStore, instanceId);
   const { version } = await fetchLatestBaileysVersion();
 
   return new Promise((resolve) => {

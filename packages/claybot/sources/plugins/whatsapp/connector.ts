@@ -2,12 +2,12 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import makeWASocket, {
-  useMultiFileAuthState,
   fetchLatestBaileysVersion,
   DisconnectReason,
   type WASocket,
   type BaileysEventMap,
   type proto,
+  type AuthenticationState,
   downloadMediaMessage
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
@@ -30,11 +30,14 @@ import type {
 } from "@/types";
 import { getLogger } from "../../log.js";
 import type { FileStore } from "../../files/store.js";
+import type { AuthStore } from "../../auth/store.js";
 import { markdownToWhatsAppText } from "./markdownToWhatsAppText.js";
+import { useAuthStoreState } from "./authState.js";
 
 export type WhatsAppConnectorOptions = {
   allowedPhones: string[];
-  authDir: string;
+  authStore: AuthStore;
+  instanceId: string;
   fileStore: FileStore;
   dataDir: string;
   printQRInTerminal?: boolean;
@@ -70,7 +73,8 @@ export class WhatsAppConnector implements Connector {
   private commandHandlers: CommandHandler[] = [];
   private permissionHandlers: PermissionHandler[] = [];
   private allowedPhones: Set<string>;
-  private authDir: string;
+  private authStore: AuthStore;
+  private instanceId: string;
   private fileStore: FileStore;
   private dataDir: string;
   private printQRInTerminal: boolean;
@@ -84,11 +88,12 @@ export class WhatsAppConnector implements Connector {
   >();
 
   constructor(options: WhatsAppConnectorOptions) {
-    logger.debug(`WhatsAppConnector constructor authDir=${options.authDir}`);
+    logger.debug(`WhatsAppConnector constructor instanceId=${options.instanceId}`);
     this.allowedPhones = new Set(
       options.allowedPhones.map((phone) => normalizePhoneNumber(phone))
     );
-    this.authDir = options.authDir;
+    this.authStore = options.authStore;
+    this.instanceId = options.instanceId;
     this.fileStore = options.fileStore;
     this.dataDir = options.dataDir;
     this.printQRInTerminal = options.printQRInTerminal ?? true;
@@ -240,7 +245,6 @@ export class WhatsAppConnector implements Connector {
 
   private async initialize(): Promise<void> {
     logger.debug("initialize() starting");
-    await fs.mkdir(this.authDir, { recursive: true });
     await this.connect();
   }
 
@@ -251,14 +255,14 @@ export class WhatsAppConnector implements Connector {
 
     logger.debug("Connecting to WhatsApp");
 
-    const { state, saveCreds } = await useMultiFileAuthState(this.authDir);
+    const { state, saveCreds } = await useAuthStoreState(this.authStore, this.instanceId);
     const { version } = await fetchLatestBaileysVersion();
 
     const socket = makeWASocket({
       version,
       auth: state,
       logger: pino({ level: "silent" }) as never,
-      printQRInTerminal: this.printQRInTerminal
+      printQRInTerminal: false // QR should already be scanned during onboarding
     });
 
     this.socket = socket;

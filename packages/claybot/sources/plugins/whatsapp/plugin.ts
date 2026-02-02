@@ -1,6 +1,3 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
-
 import { z } from "zod";
 
 import { WhatsAppConnector, type WhatsAppConnectorOptions } from "./connector.js";
@@ -18,17 +15,14 @@ const settingsSchema = z
       .transform((values) =>
         Array.from(new Set(values.map((value) => String(value).replace(/\D/g, ""))))
       ),
-    authDir: z.string().optional(),
     printQRInTerminal: z.boolean().optional()
   })
   .passthrough();
 
 type WhatsAppPluginConfig = Omit<
   WhatsAppConnectorOptions,
-  "fileStore" | "dataDir" | "authDir"
-> & {
-  authDir?: string;
-};
+  "authStore" | "instanceId" | "fileStore" | "dataDir"
+>;
 
 export const plugin = definePlugin({
   settingsSchema,
@@ -38,17 +32,14 @@ export const plugin = definePlugin({
       return null;
     }
 
-    // Create auth directory and run authentication
-    const authDir = path.join(api.dataDir, "whatsapp-auth");
-    await fs.mkdir(authDir, { recursive: true });
-
     api.note(
       "Scan the QR code below with WhatsApp on your phone.\nOpen WhatsApp > Settings > Linked Devices > Link a Device",
       "WhatsApp Authentication"
     );
 
     const result = await authenticate({
-      authDir,
+      authStore: api.auth,
+      instanceId: api.instanceId,
       timeoutMs: 120_000 // 2 minutes to scan
     });
 
@@ -71,13 +62,11 @@ export const plugin = definePlugin({
         }
 
         const config = api.settings as WhatsAppPluginConfig;
-        const authDir = config.authDir
-          ? resolvePluginPath(api.dataDir, config.authDir)
-          : path.join(api.dataDir, "whatsapp-auth");
 
         connector = new WhatsAppConnector({
           ...config,
-          authDir,
+          authStore: api.auth,
+          instanceId: connectorId,
           fileStore: api.fileStore,
           dataDir: api.dataDir,
           onQRCode: (qr) => {
@@ -99,10 +88,6 @@ export const plugin = definePlugin({
     };
   }
 });
-
-function resolvePluginPath(baseDir: string, target: string): string {
-  return path.isAbsolute(target) ? target : path.join(baseDir, target);
-}
 
 async function promptAllowedPhones(
   api: PluginOnboardingApi
