@@ -1,0 +1,6 @@
+{
+  "id": "anthropic-search",
+  "name": "Anthropic Search",
+  "description": "Web search tool powered by Claude with web search.",
+  "entry": "./plugin.js"
+}
