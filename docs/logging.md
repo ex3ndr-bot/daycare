@@ -93,6 +93,20 @@ flowchart LR
   UserMsg --> Loop[agentLoopRun]
 ```
 
+### Agent inbox failure logs
+
+If an inbox item throws, the loop logs a warn entry before rejecting the pending completion.
+
+```mermaid
+sequenceDiagram
+  participant A as Agent
+  participant L as Logger
+  A->>A: handleInboxItem()
+  A-->>A: throw error
+  A->>L: warn("Agent inbox item failed")
+  A-->>A: reject completion
+```
+
 ### Example: Debug Message Flow
 
 ```bash

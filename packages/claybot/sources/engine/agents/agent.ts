@@ -179,6 +179,10 @@ export class Agent {
           entry.completion?.resolve(result);
         } catch (error) {
           const failure = error instanceof Error ? error : new Error(String(error));
+          logger.warn(
+            { agentId: this.id, error: failure, itemType: entry.item.type },
+            "Agent inbox item failed"
+          );
           entry.completion?.reject(failure);
         } finally {
           this.processing = false;
@@ -601,11 +605,15 @@ export class Agent {
   ): Promise<string> {
     const soulPath = context.soulPath ?? DEFAULT_SOUL_PATH;
     const userPath = context.userPath ?? DEFAULT_USER_PATH;
+    logger.debug(`buildSystemPrompt reading soul prompt path=${soulPath}`);
     const soul = await promptFileRead(soulPath, "SOUL.md");
+    logger.debug(`buildSystemPrompt reading user prompt path=${userPath}`);
     const user = await promptFileRead(userPath, "USER.md");
     const templateName =
       context.agentKind === "background" ? "SYSTEM_BACKGROUND.md" : "SYSTEM.md";
+    logger.debug(`buildSystemPrompt reading system template name=${templateName}`);
     const systemTemplate = await agentPromptBundledRead(templateName);
+    logger.debug("buildSystemPrompt reading permissions template");
     const permissions = (await agentPromptBundledRead("PERMISSIONS.md")).trim();
     const additionalWriteDirs = resolveAdditionalWriteDirs(
       context.writeDirs ?? [],
@@ -618,7 +626,9 @@ export class Agent {
     const skillsPath =
       context.skillsPath ?? (context.configDir ? `${context.configDir}/skills` : "");
 
+    logger.debug("buildSystemPrompt compiling template");
     const template = Handlebars.compile(systemTemplate);
+    logger.debug("buildSystemPrompt rendering template");
     const rendered = template({
       date: new Date().toISOString().split("T")[0],
       os: `${os.type()} ${os.release()}`,
