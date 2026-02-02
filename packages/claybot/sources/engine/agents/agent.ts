@@ -100,7 +100,7 @@ export class Agent {
       permissions: permissionClone(agentSystem.config.defaultPermissions),
       createdAt: now,
       updatedAt: now,
-      sleeping: false
+      state: "active"
     };
 
     const agent = new Agent(agentId, descriptor, state, inbox, agentSystem);

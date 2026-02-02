@@ -83,12 +83,12 @@ flowchart LR
 
 ## State vs History
 
-`state.json` only stores durable metadata (permissions, timestamps).
+`state.json` only stores durable metadata (permissions, timestamps, lifecycle state).
 Conversation context is rebuilt from `history.jsonl` instead of being persisted in state.
 
 ```mermaid
 flowchart LR
-  State[state.json] --> Meta[permissions + timestamps]
+  State[state.json] --> Meta[permissions + timestamps + lifecycle state]
   History[history.jsonl] --> Context[context messages]
   Context --> Loop[inference loop]
 ```
@@ -107,10 +107,10 @@ sequenceDiagram
   participant Disk
   Agent->>System: sleepIfIdle()
   System->>Inbox: check empty
-  System->>Disk: write state.sleeping=true
+  System->>Disk: write state.state=\"sleeping\"
   Note right of Agent: skipped on boot
   Inbox-->>System: post item
-  System->>Disk: write state.sleeping=false
+  System->>Disk: write state.state=\"active\"
   System->>Inbox: enqueue item
   System->>Agent: start/restore
 ```

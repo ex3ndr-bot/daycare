@@ -48,7 +48,7 @@ describe("database plugin", () => {
       permissions,
       createdAt: now.getTime(),
       updatedAt: now.getTime(),
-      sleeping: false
+      state: "active"
     };
     const agent = Agent.restore(
       agentId,

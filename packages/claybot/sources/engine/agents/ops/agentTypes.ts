@@ -22,8 +22,10 @@ export type AgentState = {
   permissions: SessionPermissions;
   createdAt: number;
   updatedAt: number;
-  sleeping: boolean;
+  state: AgentLifecycleState;
 };
+
+export type AgentLifecycleState = "active" | "sleeping";
 
 export type AgentHistoryRecord =
   | { type: "start"; at: number }

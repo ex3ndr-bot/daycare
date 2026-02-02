@@ -98,7 +98,8 @@ export function permanentAgentToolBuild(): ToolDefinition {
           context: { messages: [] },
           permissions,
           createdAt: now,
-          updatedAt: now
+          updatedAt: now,
+          state: "active"
         };
         await agentDescriptorWrite(config, agentId, descriptor);
         await agentStateWrite(config, agentId, state);

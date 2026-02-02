@@ -135,7 +135,7 @@ export class AgentSystem {
       if (!descriptor || !state) {
         continue;
       }
-      if (state.sleeping) {
+      if (state.state === "sleeping") {
         const key = agentPathForDescriptor(descriptor);
         if (key) {
           this.keyMap.set(key, agentId);
@@ -220,10 +220,10 @@ export class AgentSystem {
       if (entry.inbox.size() > 0) {
         return;
       }
-      if (entry.agent.state.sleeping) {
+      if (entry.agent.state.state === "sleeping") {
         return;
       }
-      entry.agent.state.sleeping = true;
+      entry.agent.state.state = "sleeping";
       await agentStateWrite(this.config, agentId, entry.agent.state);
       this.eventBus.emit("agent.sleep", { agentId, reason });
       logger.debug({ agentId, reason }, "Agent entered sleep mode");
@@ -391,10 +391,10 @@ export class AgentSystem {
   }
 
   private async wakeEntryIfSleeping(entry: AgentEntry): Promise<void> {
-    if (!entry.agent.state.sleeping) {
+    if (entry.agent.state.state !== "sleeping") {
       return;
     }
-    entry.agent.state.sleeping = false;
+    entry.agent.state.state = "active";
     await agentStateWrite(this.config, entry.agentId, entry.agent.state);
     this.eventBus.emit("agent.woke", { agentId: entry.agentId });
     logger.debug({ agentId: entry.agentId }, "Agent woke from sleep");
@@ -416,7 +416,7 @@ export class AgentSystem {
     if (!descriptor || !state) {
       return null;
     }
-    if (state.sleeping && !options?.allowSleeping) {
+    if (state.state === "sleeping" && !options?.allowSleeping) {
       return null;
     }
     const inbox = new AgentInbox(agentId);

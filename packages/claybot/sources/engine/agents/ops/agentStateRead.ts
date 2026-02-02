@@ -21,6 +21,7 @@ const agentStateSchema = z
     permissions: permissionsSchema,
     createdAt: z.number().int(),
     updatedAt: z.number().int(),
+    state: z.enum(["active", "sleeping"]).optional(),
     sleeping: z.boolean().optional()
   })
   .strip();
@@ -42,12 +43,13 @@ export async function agentStateRead(config: Config, agentId: string): Promise<A
     throw error;
   }
   const parsed = JSON.parse(raw) as unknown;
-  const state = agentStateSchema.parse(parsed);
+  const persisted = agentStateSchema.parse(parsed);
+  const lifecycle = persisted.state ?? (persisted.sleeping ? "sleeping" : "active");
   return {
     context: { messages: [] },
-    permissions: state.permissions,
-    createdAt: state.createdAt,
-    updatedAt: state.updatedAt,
-    sleeping: state.sleeping ?? false
+    permissions: persisted.permissions,
+    createdAt: persisted.createdAt,
+    updatedAt: persisted.updatedAt,
+    state: lifecycle
   };
 }
