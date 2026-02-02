@@ -46,14 +46,8 @@ export function buildPermissionRequestProxyTool(
         throw new Error("Use request_permission for foreground agents.");
       }
 
-      // Find the foreground agent to proxy through
-      let foregroundAgentId: string | null = null;
-      if (descriptor.type === "subagent") {
-        foregroundAgentId = descriptor.parentAgentId ?? null;
-      }
-      if (!foregroundAgentId) {
-        foregroundAgentId = toolContext.agentSystem.agentFor("most-recent-foreground");
-      }
+      // Always proxy via the most recent foreground agent.
+      const foregroundAgentId = toolContext.agentSystem.agentFor("most-recent-foreground");
       if (!foregroundAgentId) {
         throw new Error("No foreground agent available to proxy permission request.");
       }

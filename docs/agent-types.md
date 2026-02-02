@@ -125,7 +125,8 @@ Delivery notes:
 ### Permission request via foreground agent
 
 Background agents cannot request permissions directly. They use
-`request_permission_via_parent` to proxy requests through a foreground agent.
+`request_permission_via_parent` to proxy requests through the most recent
+foreground agent.
 
 ```mermaid
 sequenceDiagram

@@ -37,7 +37,8 @@ flowchart TD
 ## Background agent permission requests
 
 Background agents cannot request permissions directly from users. They use
-`request_permission_via_parent` to proxy requests through a foreground agent.
+`request_permission_via_parent` to proxy requests through the most recent
+foreground agent.
 
 ```mermaid
 sequenceDiagram
