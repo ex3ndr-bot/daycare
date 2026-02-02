@@ -69,6 +69,18 @@ flowchart LR
   Build --> Context[Context.messages]
 ```
 
+## Emergency context pruning
+The agent estimates context size from history and compares it to the emergency limit
+(`settings.agents.emergencyContextLimit`, default 200000).
+
+```mermaid
+flowchart LR
+  History[history.jsonl] --> Estimate[contextEstimateTokens]
+  Estimate --> Compare[contextNeedsEmergencyReset]
+  Compare -->|>= limit| Reset[reset agent]
+  Compare -->|< limit| Keep[keep context]
+```
+
 ## Subagent failure notifications
 Background agents post a single failure notification to the parent agent.
 

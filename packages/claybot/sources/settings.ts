@@ -41,12 +41,17 @@ export type ProviderSettings = {
   image?: ProviderImageSettings;
 };
 
+export type AgentSettings = {
+  emergencyContextLimit?: number;
+};
+
 export type SettingsConfig = {
   engine?: {
     socketPath?: string;
     dataDir?: string;
   };
   assistant?: AssistantSettings;
+  agents?: AgentSettings;
   plugins?: Array<PluginInstanceSettings | LegacyPluginSettings>;
   providers?: ProviderSettings[];
   inference?: {
