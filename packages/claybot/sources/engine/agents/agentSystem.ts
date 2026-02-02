@@ -6,7 +6,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { getLogger } from "../../log.js";
 import type { FileStore } from "../../files/store.js";
 import type { AuthStore } from "../../auth/store.js";
-import type { Config } from "@/types";
+import type { Config, SessionPermissions } from "@/types";
 import { cuid2Is } from "../../utils/cuid2Is.js";
 import type { ConnectorRegistry } from "../modules/connectorRegistry.js";
 import type { ImageGenerationRegistry } from "../modules/imageGenerationRegistry.js";
@@ -214,6 +214,32 @@ export class AgentSystem {
   getAgentDescriptor(agentId: string): AgentDescriptor | null {
     const entry = this.entries.get(agentId);
     return entry?.descriptor ?? null;
+  }
+
+  /**
+   * Updates a loaded agent descriptor in memory without changing its identity.
+   * Expects: descriptor type does not require keyMap changes (e.g. permanent agents).
+   */
+  updateAgentDescriptor(agentId: string, descriptor: AgentDescriptor): void {
+    const entry = this.entries.get(agentId);
+    if (!entry) {
+      return;
+    }
+    Object.assign(entry.descriptor, descriptor);
+    Object.assign(entry.agent.descriptor, descriptor);
+  }
+
+  /**
+   * Updates a loaded agent's permissions in memory.
+   * Expects: permissions have already been persisted if needed.
+   */
+  updateAgentPermissions(agentId: string, permissions: SessionPermissions, updatedAt: number): void {
+    const entry = this.entries.get(agentId);
+    if (!entry) {
+      return;
+    }
+    entry.agent.state.permissions = permissions;
+    entry.agent.state.updatedAt = updatedAt;
   }
 
   private async resolveEntry(

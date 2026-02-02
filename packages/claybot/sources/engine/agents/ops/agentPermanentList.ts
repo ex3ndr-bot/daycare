@@ -1,16 +1,15 @@
 import { promises as fs } from "node:fs";
 
 import type { Config } from "@/types";
-import type { BackgroundAgentState } from "./agentTypes.js";
-import type { AgentDescriptor } from "./agentDescriptorTypes.js";
+import type { PermanentAgentSummary } from "./agentPermanentTypes.js";
 import { agentDescriptorRead } from "./agentDescriptorRead.js";
 import { agentStateRead } from "./agentStateRead.js";
 
 /**
- * Lists persisted background agents with coarse status (no in-memory queue data).
+ * Lists persisted permanent agents with descriptors and timestamps.
  * Expects: agentsDir may be missing when no agents have been created yet.
  */
-export async function agentBackgroundList(config: Config): Promise<BackgroundAgentState[]> {
+export async function agentPermanentList(config: Config): Promise<PermanentAgentSummary[]> {
   let entries: Array<{ name: string; isDirectory: () => boolean }> = [];
   try {
     entries = await fs.readdir(config.agentsDir, { withFileTypes: true });
@@ -21,44 +20,34 @@ export async function agentBackgroundList(config: Config): Promise<BackgroundAge
     throw error;
   }
 
-  const results: BackgroundAgentState[] = [];
+  const results: PermanentAgentSummary[] = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) {
       continue;
     }
     const agentId = entry.name;
+    let descriptor: Awaited<ReturnType<typeof agentDescriptorRead>> = null;
     let state: Awaited<ReturnType<typeof agentStateRead>> = null;
-    let descriptor: AgentDescriptor | null = null;
     try {
       descriptor = await agentDescriptorRead(config, agentId);
       state = await agentStateRead(config, agentId);
     } catch {
       continue;
     }
-    if (!state || !descriptor) {
+    if (!descriptor || !state || descriptor.type !== "permanent") {
       continue;
     }
-    if (descriptor.type === "user") {
-      continue;
-    }
-    const name =
-      descriptor.type === "subagent"
-        ? descriptor.name ?? "subagent"
-        : descriptor.type === "permanent"
-          ? descriptor.name ?? "permanent"
-          : descriptor.type === "cron"
-            ? "cron"
-            : "heartbeat";
-    const parentAgentId =
-      descriptor.type === "subagent" ? descriptor.parentAgentId ?? null : null;
     results.push({
       agentId,
-      name,
-      parentAgentId,
-      status: "idle",
-      pending: 0,
+      descriptor: {
+        ...descriptor,
+        name: descriptor.name.trim(),
+        systemPrompt: descriptor.systemPrompt.trim(),
+        ...(descriptor.workspaceDir ? { workspaceDir: descriptor.workspaceDir } : {})
+      },
       updatedAt: state.updatedAt
     });
   }
+
   return results;
 }

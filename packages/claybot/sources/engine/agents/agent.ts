@@ -31,6 +31,8 @@ import { skillListCore } from "../skills/skillListCore.js";
 import { skillListRegistered } from "../skills/skillListRegistered.js";
 import { skillPromptFormat } from "../skills/skillPromptFormat.js";
 import { toolListContextBuild } from "../modules/tools/toolListContextBuild.js";
+import { agentPermanentList } from "./ops/agentPermanentList.js";
+import { agentPermanentPromptBuild } from "./ops/agentPermanentPromptBuild.js";
 import { agentDescriptorIsCron } from "./ops/agentDescriptorIsCron.js";
 import { agentDescriptorIsHeartbeat } from "./ops/agentDescriptorIsHeartbeat.js";
 import { agentDescriptorTargetResolve } from "./ops/agentDescriptorTargetResolve.js";
@@ -291,6 +293,10 @@ export class Agent {
     const pluginSkills = await skillListRegistered(pluginManager.listRegisteredSkills());
     const skills = [...coreSkills, ...pluginSkills];
     const skillsPrompt = skillPromptFormat(skills);
+    const permanentAgents = await agentPermanentList(this.agentSystem.config);
+    const permanentAgentsPrompt = agentPermanentPromptBuild(permanentAgents);
+    const agentPrompt =
+      this.descriptor.type === "permanent" ? this.descriptor.systemPrompt.trim() : "";
     const agentKind = this.resolveAgentKind();
     const allowCronTools = agentDescriptorIsCron(this.descriptor);
 
@@ -331,6 +337,8 @@ export class Agent {
       userPath: DEFAULT_USER_PATH,
       pluginPrompt,
       skillsPrompt,
+      permanentAgentsPrompt,
+      agentPrompt,
       agentKind,
       parentAgentId: this.descriptor.type === "subagent"
         ? this.descriptor.parentAgentId ?? ""
@@ -801,7 +809,9 @@ export class Agent {
       soul,
       user,
       permissions,
-      additionalWriteDirs
+      additionalWriteDirs,
+      permanentAgentsPrompt: context.permanentAgentsPrompt ?? "",
+      agentPrompt: context.agentPrompt ?? ""
     });
 
     return rendered.trim();
@@ -829,6 +839,8 @@ type AgentSystemPromptContext = {
   userPath?: string;
   pluginPrompt?: string;
   skillsPrompt?: string;
+  permanentAgentsPrompt?: string;
+  agentPrompt?: string;
   agentKind?: "background" | "foreground";
   parentAgentId?: string;
   configDir?: string;

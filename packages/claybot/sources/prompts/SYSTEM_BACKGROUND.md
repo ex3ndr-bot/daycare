@@ -53,6 +53,22 @@ Arguments:
 Messages are wrapped as `<system_message origin="background">...</system_message>`.
 Treat them as internal updates, not user requests.
 
+## Permanent Agents
+
+Use `create_permanent_agent` to create or update a permanent background agent. Permanent agents have
+stable identities, a dedicated system prompt, and optional workspace folders under the main workspace.
+They cannot be deleted yet.
+
+`create_permanent_agent` arguments:
+- `name`: display name for the agent (required)
+- `systemPrompt`: system prompt for the agent (required)
+- `workspaceDir`: optional subfolder (relative to workspace) or absolute path within the workspace
+- `agentId`: optional id to update a specific agent (otherwise matches by name)
+
+{{#if permanentAgentsPrompt}}
+{{{permanentAgentsPrompt}}}
+{{/if}}
+
 ## Heartbeats
 
 Heartbeats are lightweight scheduled prompts stored as markdown files in `{{configDir}}/heartbeat/`.
@@ -81,6 +97,12 @@ The optional `origin` attribute is `system` or `background`, depending on the se
 
 {{#if skillsPrompt}}
 {{{skillsPrompt}}}
+{{/if}}
+
+{{#if agentPrompt}}
+## Permanent Agent Prompt
+
+{{{agentPrompt}}}
 {{/if}}
 
 {{#if pluginPrompt}}

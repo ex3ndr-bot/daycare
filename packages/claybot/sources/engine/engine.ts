@@ -24,6 +24,7 @@ import { buildReactionTool } from "./modules/tools/reaction.js";
 import { buildPermissionRequestTool } from "./modules/tools/permissions.js";
 import { buildPermissionRequestProxyTool } from "./modules/tools/permissionRequestProxy.js";
 import { buildSendFileTool } from "./modules/tools/send-file.js";
+import { permanentAgentToolBuild } from "./modules/tools/permanentAgentToolBuild.js";
 import {
   buildHeartbeatAddTool,
   buildHeartbeatListTool,
@@ -206,13 +207,14 @@ export class Engine {
     this.modules.tools.register("core", buildHeartbeatRemoveTool());
     this.modules.tools.register("core", buildStartBackgroundAgentTool());
     this.modules.tools.register("core", buildSendAgentMessageTool());
+    this.modules.tools.register("core", permanentAgentToolBuild());
     this.modules.tools.register("core", buildImageGenerationTool(this.modules.images));
     this.modules.tools.register("core", buildReactionTool());
     this.modules.tools.register("core", buildSendFileTool());
     this.modules.tools.register("core", buildPermissionRequestTool());
     this.modules.tools.register("core", buildPermissionRequestProxyTool());
     logger.debug(
-      "Core tools registered: cron, cron_memory, heartbeat, background, image_generation, reaction, send_file, request_permission, request_permission_via_parent"
+      "Core tools registered: cron, cron_memory, heartbeat, background, permanent_agents, image_generation, reaction, send_file, request_permission, request_permission_via_parent"
     );
 
     logger.debug("Starting agent system");

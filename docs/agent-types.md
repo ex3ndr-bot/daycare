@@ -23,7 +23,14 @@ type AgentDescriptor =
   | { type: "user"; connector: string; userId: string; channelId: string }
   | { type: "cron"; id: string }
   | { type: "heartbeat" }
-  | { type: "subagent"; id: string; parentAgentId: string; name: string };
+  | { type: "subagent"; id: string; parentAgentId: string; name: string }
+  | {
+      type: "permanent";
+      id: string;
+      name: string;
+      systemPrompt: string;
+      workspaceDir?: string;
+    };
 ```
 
 Notes:
@@ -31,6 +38,24 @@ Notes:
 - `cron` maps to a scheduled task uid.
 - `heartbeat` maps to the single heartbeat batch agent.
 - `subagent` is any background agent and always includes a parent + name.
+- `permanent` is a background agent with a stable name, system prompt, and optional workspace folder.
+
+## Permanent agents
+
+Permanent agents are created via tool calls and persisted like any other agent,
+but their descriptors carry a stable name + system prompt for reuse.
+
+```mermaid
+sequenceDiagram
+  participant Foreground
+  participant Tool
+  participant AgentStore
+  participant AgentSystem
+  Foreground->>Tool: create_permanent_agent(name, systemPrompt)
+  Tool->>AgentStore: write descriptor/state/history
+  Tool->>AgentSystem: update in-memory descriptor/permissions (if loaded)
+  Tool-->>Foreground: permanent agent id
+```
 
 ## Persistence rules
 

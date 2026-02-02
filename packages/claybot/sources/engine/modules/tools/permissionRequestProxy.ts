@@ -71,7 +71,10 @@ export function buildPermissionRequestProxyTool(): ToolDefinition {
 
       const permission = payload.permission.trim();
       const friendly = describePermission(access);
-      const agentName = descriptor.type === "subagent" ? descriptor.name : descriptor.type;
+      const agentName =
+        descriptor.type === "subagent" || descriptor.type === "permanent"
+          ? descriptor.name
+          : descriptor.type;
       const text = `Permission request from background agent "${agentName}":\n${friendly}\nReason: ${payload.reason}`;
       const token = createId();
 

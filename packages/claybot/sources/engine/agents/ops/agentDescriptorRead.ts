@@ -34,6 +34,15 @@ const descriptorSchema = z.discriminatedUnion("type", [
       parentAgentId: z.string().min(1),
       name: z.string().min(1)
     })
+    .strict(),
+  z
+    .object({
+      type: z.literal("permanent"),
+      id: z.string().min(1),
+      name: z.string().min(1),
+      systemPrompt: z.string().min(1),
+      workspaceDir: z.string().min(1).optional()
+    })
     .strict()
 ]);
 
