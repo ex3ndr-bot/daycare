@@ -19,6 +19,7 @@ import type {
 } from "@/types";
 import { getLogger } from "../../log.js";
 import type { FileStore } from "../../files/store.js";
+import { markdownToTelegramHtml } from "./markdownToTelegramHtml.js";
 
 export type TelegramConnectorOptions = {
   token: string;
@@ -41,14 +42,13 @@ export type TelegramConnectorOptions = {
 const logger = getLogger("plugin.telegram");
 
 const TELEGRAM_MESSAGE_FORMAT_PROMPT = [
-  "Messages sent on Telegram are parsed as MarkdownV2.",
-  "Safest option: plain text with no formatting.",
-  "If you need formatting, use MarkdownV2 entities: *bold*, _italic_, __underline__, ~strikethrough~, ||spoiler||, `inline code`, ```code block```, and [label](url).",
-  "Keep entities properly nested; do not nest inside `code` or ```pre``` blocks.",
-  "Outside code/pre, escape these characters with a backslash: _ * [ ] ( ) ~ ` > # + - = | { } . !",
-  "Inside code/pre, escape only ` and the backslash (\\\\).",
-  "Inside link URLs (the (...) part), escape ) and the backslash (\\\\).",
-  "Any ASCII 1-126 character can be escaped with a backslash to force literal text."
+  "Format messages using GitHub-flavored markdown (GFM).",
+  "Supported: **bold**, *italic*, ~~strikethrough~~, `inline code`, ```code blocks``` (with optional language), [links](url), > blockquotes, and lists (- or 1.).",
+  "Headers (# Title) render as bold text.",
+  "Tables render as plain text.",
+  "Task lists (- [x] item) render with checkbox symbols.",
+  "Do NOT use raw HTML tags; they will be escaped.",
+  "Keep formatting simple and well-nested."
 ].join(" ");
 
 export class TelegramConnector implements Connector {
@@ -349,8 +349,9 @@ export class TelegramConnector implements Connector {
     file: ConnectorFile,
     caption?: string
   ): Promise<void> {
-    const options = caption
-      ? { caption, parse_mode: "MarkdownV2" as TelegramBot.ParseMode }
+    const htmlCaption = caption ? markdownToTelegramHtml(caption) : undefined;
+    const options = htmlCaption
+      ? { caption: htmlCaption, parse_mode: "HTML" as TelegramBot.ParseMode }
       : undefined;
     const sendAs = file.sendAs ?? "auto";
     try {
@@ -359,21 +360,22 @@ export class TelegramConnector implements Connector {
       if (!caption || !isTelegramParseError(error)) {
         throw error;
       }
-      logger.warn({ error }, "Telegram MarkdownV2 caption parse error; retrying without parse_mode");
+      logger.warn({ error }, "Telegram HTML caption parse error; retrying without parse_mode");
       await this.sendFileWithOptions(targetId, file, sendAs, { caption });
     }
   }
 
   private async sendTextWithFallback(targetId: string, text: string): Promise<void> {
+    const html = markdownToTelegramHtml(text);
     try {
-      await this.bot.sendMessage(targetId, text, {
-        parse_mode: "MarkdownV2"
+      await this.bot.sendMessage(targetId, html, {
+        parse_mode: "HTML"
       });
     } catch (error) {
       if (!isTelegramParseError(error)) {
         throw error;
       }
-      logger.warn({ error }, "Telegram MarkdownV2 parse error; retrying without parse_mode");
+      logger.warn({ error }, "Telegram HTML parse error; retrying without parse_mode");
       await this.bot.sendMessage(targetId, text);
     }
   }
@@ -843,32 +845,32 @@ function formatPermissionMessage(
   status: PermissionStatus
 ): { text: string; parseMode: TelegramBot.ParseMode } {
   const access = describePermissionKind(request.access);
-  const escapedAccess = escapeMarkdownV2(access);
-  const escapedReason = escapeMarkdownV2(request.reason);
+  const escapedAccess = escapeHtml(access);
+  const escapedReason = escapeHtml(request.reason);
   const escapedPath =
-    request.access.kind === "web" ? null : escapeMarkdownV2Code(request.access.path);
+    request.access.kind === "web" ? null : escapeHtml(request.access.path);
   const heading =
     status === "approved"
-      ? "✅ *Permission granted*"
+      ? "✅ <b>Permission granted</b>"
       : status === "denied"
-        ? "❌ *Permission denied*"
-        : "🔐 *Permission request*";
+        ? "❌ <b>Permission denied</b>"
+        : "🔐 <b>Permission request</b>";
   const footer =
     status === "pending"
-      ? "Approve to continue or deny to refuse\\."
-      : "Decision recorded\\.";
+      ? "Approve to continue or deny to refuse."
+      : "Decision recorded.";
   const lines = [
     heading,
     "",
-    `*Access*: ${escapedAccess}`,
-    escapedPath ? `*Path*: \`${escapedPath}\`` : null,
-    `*Reason*: ${escapedReason}`,
+    `<b>Access</b>: ${escapedAccess}`,
+    escapedPath ? `<b>Path</b>: <code>${escapedPath}</code>` : null,
+    `<b>Reason</b>: ${escapedReason}`,
     "",
     footer
   ];
   return {
     text: lines.filter((line): line is string => Boolean(line)).join("\n"),
-    parseMode: "MarkdownV2"
+    parseMode: "HTML"
   };
 }
 
@@ -882,12 +884,11 @@ function describePermissionKind(access: PermissionRequest["access"]): string {
   return "Web browsing";
 }
 
-function escapeMarkdownV2(value: string): string {
-  return value.replace(/([\\_*\\[\\]\\(\\)~`>#+\-=|{}.!])/g, "\\$1");
-}
-
-function escapeMarkdownV2Code(value: string): string {
-  return value.replace(/([`\\])/g, "\\$1");
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function isTelegramParseError(error: unknown): boolean {

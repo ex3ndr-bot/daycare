@@ -87,7 +87,7 @@ describe("TelegramConnector permissions", () => {
       parse_mode?: string;
       reply_markup?: { inline_keyboard?: Array<Array<{ text?: string }>> };
     };
-    expect(options.parse_mode).toBe("MarkdownV2");
+    expect(options.parse_mode).toBe("HTML");
     expect(options.reply_markup?.inline_keyboard?.[0]?.[0]?.text).toBe("Allow");
 
     const handler = bot!.handlers.get("callback_query")?.[0];
@@ -108,7 +108,7 @@ describe("TelegramConnector permissions", () => {
     expect(editOptions).toMatchObject({
       chat_id: 123,
       message_id: 44,
-      parse_mode: "MarkdownV2",
+      parse_mode: "HTML",
       reply_markup: { inline_keyboard: [] }
     });
   });
