@@ -40,6 +40,7 @@ import type {
   AgentHistoryRecord,
   AgentInboxItem,
   AgentInboxMessage,
+  AgentInboxSystemMessage,
   AgentInboxPermission,
   AgentInboxReset,
   AgentInboxRestore,
@@ -206,11 +207,22 @@ export class Agent {
     await this.agentSystem.sleepIfIdle(this.id, item.type);
   }
 
-  private async handleInboxItem(item: AgentInboxMessage | AgentInboxReset | AgentInboxRestore | AgentInboxPermission): Promise<AgentInboxResult> {
+  private async handleInboxItem(
+    item:
+      | AgentInboxMessage
+      | AgentInboxSystemMessage
+      | AgentInboxReset
+      | AgentInboxRestore
+      | AgentInboxPermission
+  ): Promise<AgentInboxResult> {
     switch (item.type) {
       case "message": {
         const responseText = await this.handleMessage(item);
         return { type: "message", responseText };
+      }
+      case "system_message": {
+        const responseText = await this.handleSystemMessage(item);
+        return { type: "system_message", responseText };
       }
       case "reset": {
         const ok = await this.handleReset(item);
@@ -486,6 +498,18 @@ export class Agent {
     return result.responseText ?? null;
   }
 
+  private async handleSystemMessage(
+    item: AgentInboxSystemMessage
+  ): Promise<string | null> {
+    const text = messageBuildSystemText(item.text, item.origin);
+    const messageItem: AgentInboxMessage = {
+      type: "message",
+      message: { text },
+      context: item.context ?? {}
+    };
+    return this.handleMessage(messageItem);
+  }
+
   private async handleReset(item: AgentInboxReset): Promise<boolean> {
     const now = Date.now();
     const resetMessage = item.message?.trim() ?? "";
@@ -629,13 +653,13 @@ export class Agent {
     const errorText = error instanceof Error ? error.message : error ? String(error) : "";
     const detail = errorText ? `${reason} (${errorText})` : reason;
     try {
-      const text = messageBuildSystemText(
-        `Subagent ${name} (${this.id}) failed: ${detail}.`,
-        "background"
-      );
       await this.agentSystem.post(
         { agentId: parentAgentId },
-        { type: "message", message: { text }, context: {} }
+        {
+          type: "system_message",
+          text: `Subagent ${name} (${this.id}) failed: ${detail}.`,
+          origin: "background"
+        }
       );
     } catch (sendError) {
       logger.warn(

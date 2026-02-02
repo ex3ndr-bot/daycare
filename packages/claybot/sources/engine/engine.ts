@@ -1,9 +1,7 @@
 import { getLogger } from "../log.js";
 import { AgentSystem } from "./agents/agentSystem.js";
 import { ModuleRegistry } from "./modules/moduleRegistry.js";
-import type {
-  Config,
-} from "@/types";
+import type { Config } from "@/types";
 import { FileStore } from "../files/store.js";
 import { InferenceRouter } from "./modules/inference/router.js";
 import { PluginRegistry } from "./plugins/registry.js";
@@ -36,6 +34,8 @@ import { Heartbeats } from "./heartbeat/heartbeats.js";
 import { toolListContextBuild } from "./modules/tools/toolListContextBuild.js";
 import { EngineEventBus } from "./ipc/events.js";
 import { ProviderManager } from "../providers/manager.js";
+import { agentDescriptorLabel } from "./agents/ops/agentDescriptorLabel.js";
+import { permissionDescribeDecision } from "./permissions/permissionDescribeDecision.js";
 
 const logger = getLogger("engine.runtime");
 
@@ -105,6 +105,20 @@ export class Engine {
             { agentId: decision.agentId },
             { type: "permission", decision, context }
           );
+          const requester = this.agentSystem.getAgentDescriptor(decision.agentId);
+          if (!requester || requester.type !== "user") {
+            const status = decision.approved ? "approved" : "denied";
+            const permissionLabel = permissionDescribeDecision(decision.access);
+            const agentLabel = requester ? agentDescriptorLabel(requester) : "agent";
+            const notice = [
+              `User ${status} ${permissionLabel} for background agent "${agentLabel}" (${decision.agentId}).`,
+              "Decision delivered to background agent."
+            ].join("\n");
+            void this.agentSystem.post(
+              { descriptor },
+              { type: "system_message", text: notice, origin: "system", context }
+            );
+          }
           return;
         }
         void this.agentSystem.post(

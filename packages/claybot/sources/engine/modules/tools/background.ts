@@ -3,7 +3,6 @@ import type { ToolResultMessage } from "@mariozechner/pi-ai";
 import { createId } from "@paralleldrive/cuid2";
 
 import type { ToolDefinition } from "@/types";
-import { messageBuildSystemText } from "../../messages/messageBuildSystemText.js";
 
 const startSchema = Type.Object(
   {
@@ -88,10 +87,9 @@ export function buildSendAgentMessageTool(): ToolDefinition {
       if (!resolvedTarget) {
         throw new Error("No recent foreground agent found.");
       }
-      const text = messageBuildSystemText(payload.text, origin);
       await toolContext.agentSystem.post(
         { agentId: resolvedTarget },
-        { type: "message", message: { text }, context: {} }
+        { type: "system_message", text: payload.text, origin }
       );
 
       const toolMessage: ToolResultMessage = {

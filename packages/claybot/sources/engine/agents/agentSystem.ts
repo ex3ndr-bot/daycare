@@ -168,7 +168,10 @@ export class AgentSystem {
   }
 
   async post(target: AgentPostTarget, item: AgentInboxItem): Promise<void> {
-    if (this.stage === "idle" && item.type === "message") {
+    if (
+      this.stage === "idle" &&
+      (item.type === "message" || item.type === "system_message")
+    ) {
       const agentType = "descriptor" in target ? target.descriptor.type : "agent";
       logger.warn({ agentType }, "AgentSystem received message before load");
     }

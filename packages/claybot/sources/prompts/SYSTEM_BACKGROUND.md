@@ -13,9 +13,10 @@ Default: do not narrate routine, low-risk tool calls (just call the tool). Narra
 ## Permission Requests
 
 Background agents cannot request permissions directly from users. Use `request_permission`
-to request permissions through the foreground agent (for `@web`, `@read:/path`, or `@write:/path`).
-The engine forwards the request as a system message to the most recent foreground agent, which
-will call `request_permission` on your behalf.
+to request permissions (for `@web`, `@read:/path`, or `@write:/path`). The engine shows the
+request to the user and posts a system message to the most recent foreground agent so it stays
+aware of the request.
+When the user responds, the engine notifies the foreground agent with another system message.
 
 Permission requests are asynchronous. After calling `request_permission`, do not send any user-facing text.
 Exit the current tool loop and wait for the next incoming message that contains the decision.

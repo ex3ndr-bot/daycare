@@ -31,35 +31,35 @@ flowchart LR
 ```
 
 ## System message delivery
-When `send_agent_message` omits a target agent id, the tool asks for the most recent
-foreground agent and posts a system message using the target agent’s connector.
+`send_agent_message` posts a `system_message` inbox item. The agent wraps the text
+as a `<system_message>` tag before running the inference loop. When a target agent id
+is omitted, the tool resolves the most recent foreground agent.
 
 ```mermaid
 flowchart LR
-  Target[Target agent descriptor] --> Source[connector source]
-  Source --> Post[agentSystem.post]
+  SendTool[send_agent_message] --> Post[agentSystem.post(system_message)]
+  Post --> Agent[Agent.handleSystemMessage]
+  Agent --> Wrap[messageBuildSystemText]
 ```
 
 ```mermaid
 sequenceDiagram
   participant Subagent
   participant AgentSystem
-  participant AgentInbox
   participant Agent
   Subagent->>AgentSystem: agentFor("most-recent-foreground")
   AgentSystem-->>Subagent: agentId
-  Subagent->>AgentSystem: post(message)
-  AgentSystem->>AgentInbox: enqueue(message)
-  AgentInbox->>Agent: run
+  Subagent->>AgentSystem: post(system_message)
+  AgentSystem->>Agent: handleSystemMessage
 ```
 
 ## System message format
-`send_agent_message` wraps the payload in a `<system_message>` tag with an origin attribute so
-agents can distinguish internal updates from user input.
+Agents wrap system message text in a `<system_message>` tag with an origin attribute so
+they can distinguish internal updates from user input.
 
 ```mermaid
 flowchart LR
-  SendTool[send_agent_message] --> Build[messageBuildSystemText]
+  SystemItem[system_message item] --> Build[messageBuildSystemText]
   Build --> Wrapped["<system_message origin='system|background'>text</system_message>"]
   Wrapped --> Inbox[AgentInbox]
 ```
@@ -78,19 +78,24 @@ flowchart LR
 ```
 
 ## Permission request forwarding
-Background agents use `request_permission`. The engine forwards the request as a system message
-to the most recent foreground agent, which calls `request_permission` with the original agent id
-so approvals route back correctly.
+Background agents use `request_permission`. The engine shows the request to the user and also
+notifies the most recent foreground agent via system messages (request presented + decision).
 
 ```mermaid
 sequenceDiagram
   participant Background as Background Agent
   participant AgentSystem
   participant Foreground as Foreground Agent
+  participant Connector
+  participant User
   Background->>AgentSystem: request_permission
-  AgentSystem->>Foreground: system message (permission request)
-  Foreground->>AgentSystem: request_permission (agentId=background)
-  AgentSystem->>Foreground: connector requestPermission
+  AgentSystem->>Connector: requestPermission (prompt user)
+  Connector->>User: approval UI
+  AgentSystem->>Foreground: system_message (request presented)
+  User-->>Connector: decision
+  Connector->>AgentSystem: permission decision
+  AgentSystem->>Background: permission decision
+  AgentSystem->>Foreground: system_message (decision)
 ```
 
 ## Agent persistence

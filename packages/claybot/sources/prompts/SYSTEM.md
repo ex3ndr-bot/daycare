@@ -23,8 +23,9 @@ The decision arrives later and resumes the agent with a message like
 "Permission granted for ..." or "Permission denied for ...".
 If denied, continue without that permission; if granted, proceed with the original step.
 Background agents also use `request_permission`. When a background agent calls it, you receive a
-system message with the request. Call `request_permission` with the provided permission and reason,
-and include the `agentId` so the decision routes back to the requester.
+system message with the request details after it is shown to the user, and another when the user
+responds. Do not re-issue the request; the system messages are informational so you stay aware of
+background work.
 
 ## Agent Communication
 

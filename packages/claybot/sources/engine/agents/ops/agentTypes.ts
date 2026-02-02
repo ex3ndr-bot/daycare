@@ -58,6 +58,12 @@ export type AgentInboxItem =
       context: MessageContext;
     }
   | {
+      type: "system_message";
+      text: string;
+      origin?: "system" | "background";
+      context?: MessageContext;
+    }
+  | {
       type: "reset";
       message?: string;
     }
@@ -71,6 +77,10 @@ export type AgentInboxItem =
     };
 
 export type AgentInboxMessage = Extract<AgentInboxItem, { type: "message" }>;
+export type AgentInboxSystemMessage = Extract<
+  AgentInboxItem,
+  { type: "system_message" }
+>;
 
 export type AgentInboxReset = Extract<AgentInboxItem, { type: "reset" }>;
 export type AgentInboxRestore = Extract<AgentInboxItem, { type: "restore" }>;
@@ -79,6 +89,10 @@ export type AgentInboxPermission = Extract<AgentInboxItem, { type: "permission" 
 export type AgentInboxResult =
   | {
       type: "message";
+      responseText: string | null;
+    }
+  | {
+      type: "system_message";
       responseText: string | null;
     }
   | {

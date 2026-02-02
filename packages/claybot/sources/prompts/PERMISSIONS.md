@@ -62,8 +62,8 @@ Your workspace may be shared with other agents working in parallel. Treat it lik
 ## Requesting Additional Permissions
 
 Only request permissions when you genuinely need access outside your workspace. Use
-`request_permission`. Background agents call the same tool, and it routes the request through the
-most recent foreground agent by sending it a system message to approve and issue the request.
+`request_permission`. Background agents call the same tool; the engine shows the request to the
+user and posts a system message to the most recent foreground agent so it stays aware.
 
 **Permission string formats:**
 - `@web` → allow web search/tools.
@@ -103,3 +103,5 @@ The approval or denial arrives later as a permission decision that resumes the a
 "Permission granted for ..." or "Permission denied for ...".
 
 If denied, continue without that permission. If approved, proceed with the original step.
+Foreground agents receive informational system messages about background permission requests and
+their decisions; no additional action is required.

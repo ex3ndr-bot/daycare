@@ -5,9 +5,9 @@ import { createId } from "@paralleldrive/cuid2";
 import path from "node:path";
 
 import type { ToolDefinition } from "@/types";
-import type { AgentDescriptor, PermissionAccess, PermissionRequest } from "@/types";
+import type { PermissionAccess, PermissionRequest } from "@/types";
 import { agentDescriptorTargetResolve } from "../../agents/ops/agentDescriptorTargetResolve.js";
-import { messageBuildSystemText } from "../../messages/messageBuildSystemText.js";
+import { agentDescriptorLabel } from "../../agents/ops/agentDescriptorLabel.js";
 
 const schema = Type.Object(
   {
@@ -63,44 +63,12 @@ export function buildPermissionRequestTool(): ToolDefinition {
       if (!foregroundAgentId) {
         throw new Error("No foreground agent available for permission requests.");
       }
-
-      const access = parsePermission(permission);
-      if (access.kind !== "web" && !path.isAbsolute(access.path)) {
-        throw new Error("Path must be absolute.");
+      const foregroundDescriptor = isForeground
+        ? descriptor
+        : toolContext.agentSystem.getAgentDescriptor(foregroundAgentId);
+      if (!foregroundDescriptor) {
+        throw new Error("Foreground agent descriptor not found.");
       }
-
-      if (!isForeground) {
-        const agentName = describeAgentName(requestedDescriptor);
-        const forwardText = [
-          `Permission request from background agent "${agentName}" (${requestedAgentId}).`,
-          "Call request_permission with:",
-          `permission: ${permission}`,
-          `reason: ${reason}`,
-          `agentId: ${requestedAgentId}`
-        ].join("\n");
-        const text = messageBuildSystemText(forwardText, "background");
-        await toolContext.agentSystem.post(
-          { agentId: foregroundAgentId },
-          { type: "message", message: { text }, context: {} }
-        );
-
-        const toolMessage: ToolResultMessage = {
-          role: "toolResult",
-          toolCallId: toolCall.id,
-          toolName: toolCall.name,
-          content: [{ type: "text", text: "Permission request forwarded to foreground agent." }],
-          details: {
-            permission,
-            agentId: requestedAgentId
-          },
-          isError: false,
-          timestamp: Date.now()
-        };
-
-        return { toolMessage, files: [] };
-      }
-
-      const foregroundDescriptor = descriptor;
       const target = agentDescriptorTargetResolve(foregroundDescriptor);
       if (!target) {
         throw new Error("Foreground agent has no user target for permission requests.");
@@ -110,11 +78,16 @@ export function buildPermissionRequestTool(): ToolDefinition {
         throw new Error("Connector not available for permission requests.");
       }
 
+      const access = parsePermission(permission);
+      if (access.kind !== "web" && !path.isAbsolute(access.path)) {
+        throw new Error("Path must be absolute.");
+      }
+
       const friendly = describePermission(access);
       const heading =
         requestedDescriptor.type === "user"
           ? "Permission request:"
-          : `Permission request from background agent "${describeAgentName(requestedDescriptor)}" (${requestedAgentId}):`;
+          : `Permission request from background agent "${agentDescriptorLabel(requestedDescriptor)}" (${requestedAgentId}):`;
       const text = `${heading}\n${friendly}\nReason: ${reason}`;
       const request: PermissionRequest = {
         token: createId(),
@@ -137,6 +110,19 @@ export function buildPermissionRequestTool(): ToolDefinition {
           text,
           replyToMessageId: toolContext.messageContext.messageId
         });
+      }
+
+      if (!isForeground && requestedDescriptor.type !== "user") {
+        const agentName = agentDescriptorLabel(requestedDescriptor);
+        const notice = [
+          `Permission request from background agent "${agentName}" (${requestedAgentId}) was presented to the user.`,
+          `permission: ${permission}`,
+          `reason: ${reason}`
+        ].join("\n");
+        await toolContext.agentSystem.post(
+          { agentId: foregroundAgentId },
+          { type: "system_message", text: notice, origin: "background" }
+        );
       }
 
       const toolMessage: ToolResultMessage = {
@@ -188,17 +174,4 @@ function describePermission(access: PermissionAccess): string {
     return `Read access to ${access.path}`;
   }
   return `Write access to ${access.path}`;
-}
-
-function describeAgentName(descriptor: AgentDescriptor): string {
-  if (descriptor.type === "subagent" || descriptor.type === "permanent") {
-    return descriptor.name ?? descriptor.type;
-  }
-  if (descriptor.type === "cron") {
-    return `cron:${descriptor.id ?? "unknown"}`;
-  }
-  if (descriptor.type === "heartbeat") {
-    return "heartbeat";
-  }
-  return "user";
 }
