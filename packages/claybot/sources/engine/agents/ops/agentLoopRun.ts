@@ -46,6 +46,7 @@ type AgentLoopRunOptions = {
 type AgentLoopResult = {
   responseText?: string | null;
   historyRecords: AgentHistoryRecord[];
+  contextOverflow?: boolean;
 };
 
 /**
@@ -238,6 +239,10 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
     logger.debug("Inference loop completed");
   } catch (error) {
     logger.debug(`Inference loop caught error error=${String(error)}`);
+    if (isContextOverflowError(error)) {
+      logger.warn({ agentId: agent.id, error }, "Inference context overflow detected");
+      return { responseText: finalResponseText, historyRecords, contextOverflow: true };
+    }
     logger.warn({ connector: source, error }, "Inference failed");
     const message =
       error instanceof Error && error.message === "No inference provider available"
@@ -264,6 +269,13 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
   }
 
   if (response.message.stopReason === "error" || response.message.stopReason === "aborted") {
+    if (isContextOverflowError(response.message.errorMessage ?? "")) {
+      logger.warn(
+        { agentId: agent.id, error: response.message.errorMessage },
+        "Inference context overflow detected"
+      );
+      return { responseText: finalResponseText, historyRecords, contextOverflow: true };
+    }
     const message = "Inference failed.";
     const errorDetail =
       response.message.errorMessage && response.message.errorMessage.length > 0
@@ -355,4 +367,67 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
   }
   logger.debug("handleMessage completed successfully");
   return { responseText: finalResponseText, historyRecords };
+}
+
+function isContextOverflowError(error: unknown): boolean {
+  const candidates = new Set<string>();
+
+  const add = (value: unknown) => {
+    if (typeof value === "string" && value.trim().length > 0) {
+      candidates.add(value);
+    }
+  };
+
+  if (error instanceof Error) {
+    add(error.message);
+    add((error as { code?: unknown }).code);
+    add((error as { type?: unknown }).type);
+    add((error as { name?: unknown }).name);
+    add((error as { status?: unknown }).status);
+    add((error as { statusCode?: unknown }).statusCode);
+    add((error as { error?: unknown }).error);
+    add((error as { reason?: unknown }).reason);
+    add((error as { details?: unknown }).details);
+    add((error as { cause?: unknown }).cause);
+  } else if (typeof error === "object" && error !== null) {
+    const record = error as Record<string, unknown>;
+    add(record.message);
+    add(record.code);
+    add(record.type);
+    add(record.name);
+    add(record.status);
+    add(record.statusCode);
+    add(record.error);
+    add(record.reason);
+    add(record.details);
+    add(record.cause);
+  } else {
+    add(error);
+  }
+
+  const patterns = [
+    "context_length_exceeded",
+    "context length exceeded",
+    "maximum context length",
+    "max context length",
+    "context window",
+    "context limit",
+    "context too long",
+    "prompt too long",
+    "input too long",
+    "input is too long",
+    "input token limit",
+    "exceeds the maximum context",
+    "exceeds context",
+    "token limit exceeded",
+    "too many tokens"
+  ];
+
+  for (const value of candidates) {
+    const normalized = value.toLowerCase();
+    if (patterns.some((pattern) => normalized.includes(pattern))) {
+      return true;
+    }
+  }
+  return false;
 }

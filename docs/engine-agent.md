@@ -58,13 +58,13 @@ flowchart LR
 
 ## Emergency Context Reset
 
-When the estimated history size crosses the emergency limit, the session is
-hard reset and foreground users are notified.
+When inference returns a context overflow error, the session is hard reset and
+foreground users are notified.
 
 ```mermaid
 flowchart LR
-  History[history.jsonl] --> Check[contextNeedsEmergencyReset]
-  Check -->|exceeded| Reset[Agent.handleEmergencyReset]
+  Inference[inference/router.ts] --> Overflow[context overflow error]
+  Overflow --> Reset[Agent.handleEmergencyReset]
   Reset --> State[state.json + reset marker]
   Reset --> Notify[connector.sendMessage (foreground only)]
 ```

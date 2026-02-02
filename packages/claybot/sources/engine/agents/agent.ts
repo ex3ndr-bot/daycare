@@ -48,7 +48,6 @@ import { agentHistoryAppend } from "./ops/agentHistoryAppend.js";
 import { agentHistoryLoad } from "./ops/agentHistoryLoad.js";
 import { agentStateWrite } from "./ops/agentStateWrite.js";
 import { agentDescriptorWrite } from "./ops/agentDescriptorWrite.js";
-import { contextNeedsEmergencyReset } from "./ops/contextNeedsEmergencyReset.js";
 import type { AgentSystem } from "./agentSystem.js";
 
 const logger = getLogger("engine.agent");
@@ -258,13 +257,6 @@ export class Agent {
       });
     }
 
-    const history = await agentHistoryLoad(this.agentSystem.config, this.id);
-    if (contextNeedsEmergencyReset(this.agentSystem.config, history)) {
-      logger.warn({ agentId: this.id }, "Emergency context limit reached; resetting session");
-      await this.handleEmergencyReset(entry, source);
-      return null;
-    }
-
     const agentContext = this.state.context;
     const providers = listActiveInferenceProviders(this.agentSystem.config.settings);
     const providerId = this.resolveAgentProvider(providers);
@@ -381,6 +373,12 @@ export class Agent {
       logger,
       notifySubagentFailure: (reason, error) => this.notifySubagentFailure(reason, error)
     });
+
+    if (result.contextOverflow) {
+      logger.warn({ agentId: this.id }, "Inference context overflow; resetting session");
+      await this.handleEmergencyReset(entry, source);
+      return null;
+    }
 
     for (const record of result.historyRecords) {
       await agentHistoryAppend(this.agentSystem.config, this.id, record);
