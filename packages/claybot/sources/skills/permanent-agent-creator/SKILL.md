@@ -40,6 +40,7 @@ Default to the main workspace when no isolation is required.
 
 1. **Gather inputs**
    - Agent name
+   - Short description
    - System prompt
    - Optional workspace subfolder
 
@@ -56,6 +57,7 @@ Create a release helper:
 ```
 create_permanent_agent({
   name: "Release Tracker",
+  description: "Tracks release readiness and reports risks.",
   systemPrompt: "You track release status, summarize risks, and report progress to the main agent.",
   workspaceDir: "release-notes"
 })

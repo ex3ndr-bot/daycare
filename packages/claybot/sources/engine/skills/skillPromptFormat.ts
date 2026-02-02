@@ -1,5 +1,6 @@
 import { skillSort } from "./skillSort.js";
 import type { AgentSkill } from "./skillTypes.js";
+import { xmlEscape } from "../../util/xmlEscape.js";
 
 /**
  * Formats available skills into an XML prompt segment for the system prompt.
@@ -34,15 +35,15 @@ export function skillPromptFormat(skills: AgentSkill[]): string {
       skill.source === "plugin"
         ? `plugin:${skill.pluginId ?? "unknown"}`
         : skill.source;
-    const name = skillXmlEscape(skill.name);
-    const description = skill.description ? skillXmlEscape(skill.description) : "";
+    const name = xmlEscape(skill.name);
+    const description = skill.description ? xmlEscape(skill.description) : "";
     lines.push("    <skill>");
     lines.push(`      <name>${name}</name>`);
     if (description.length > 0) {
       lines.push(`      <description>${description}</description>`);
     }
-    lines.push(`      <source>${skillXmlEscape(sourceLabel)}</source>`);
-    lines.push(`      <path>${skillXmlEscape(skill.path)}</path>`);
+    lines.push(`      <source>${xmlEscape(sourceLabel)}</source>`);
+    lines.push(`      <path>${xmlEscape(skill.path)}</path>`);
     lines.push("    </skill>");
   }
 
@@ -50,13 +51,4 @@ export function skillPromptFormat(skills: AgentSkill[]): string {
   lines.push("</skills>");
 
   return lines.join("\n");
-}
-
-function skillXmlEscape(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&apos;");
 }

@@ -28,6 +28,7 @@ type AgentDescriptor =
       type: "permanent";
       id: string;
       name: string;
+      description: string;
       systemPrompt: string;
       workspaceDir?: string;
     };
@@ -38,7 +39,7 @@ Notes:
 - `cron` maps to a scheduled task uid.
 - `heartbeat` maps to the single heartbeat batch agent.
 - `subagent` is any background agent and always includes a parent + name.
-- `permanent` is a background agent with a stable name, system prompt, and optional workspace folder.
+- `permanent` is a background agent with a stable name, short description, system prompt, and optional workspace folder.
 
 ## Permanent agents
 
@@ -51,7 +52,7 @@ sequenceDiagram
   participant Tool
   participant AgentStore
   participant AgentSystem
-  Foreground->>Tool: create_permanent_agent(name, systemPrompt)
+  Foreground->>Tool: create_permanent_agent(name, description, systemPrompt)
   Tool->>AgentStore: write descriptor/state/history
   Tool->>AgentSystem: update in-memory descriptor/permissions (if loaded)
   Tool-->>Foreground: permanent agent id

@@ -61,6 +61,7 @@ They cannot be deleted yet.
 
 `create_permanent_agent` arguments:
 - `name`: display name for the agent (required)
+- `description`: short description of the agent (required)
 - `systemPrompt`: system prompt for the agent (required)
 - `workspaceDir`: optional subfolder (relative to workspace) or absolute path within the workspace
 - `agentId`: optional id to update a specific agent (otherwise matches by name)

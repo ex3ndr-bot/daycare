@@ -6,7 +6,8 @@ const baseAgent = {
   type: "permanent" as const,
   id: "agent-id",
   name: "",
-  systemPrompt: ""
+  systemPrompt: "",
+  description: ""
 };
 
 describe("agentPermanentPromptBuild", () => {
@@ -22,7 +23,8 @@ describe("agentPermanentPromptBuild", () => {
           ...baseAgent,
           id: "b-id",
           name: "Beta",
-          systemPrompt: "Use <tags>"
+          systemPrompt: "Use <tags>",
+          description: "Handles & checks"
         },
         updatedAt: 2
       },
@@ -33,6 +35,7 @@ describe("agentPermanentPromptBuild", () => {
           id: "a-id",
           name: "alpha",
           systemPrompt: "Stay & calm",
+          description: "Tracks <releases>",
           workspaceDir: "/workspace/alpha"
         },
         updatedAt: 1
@@ -42,8 +45,9 @@ describe("agentPermanentPromptBuild", () => {
     expect(result.indexOf("<name>alpha</name>")).toBeLessThan(
       result.indexOf("<name>Beta</name>")
     );
+    expect(result).not.toContain("system_prompt");
     expect(result).toContain("<workspace>/workspace/alpha</workspace>");
-    expect(result).toContain("Stay &amp; calm");
-    expect(result).toContain("Use &lt;tags&gt;");
+    expect(result).toContain("Tracks &lt;releases&gt;");
+    expect(result).toContain("Handles &amp; checks");
   });
 });

@@ -1,4 +1,5 @@
 import type { PermanentAgentSummary } from "./agentPermanentTypes.js";
+import { xmlEscape } from "../../../util/xmlEscape.js";
 
 /**
  * Formats permanent agents into an XML prompt segment for the system prompt.
@@ -23,6 +24,7 @@ export function agentPermanentPromptBuild(agents: PermanentAgentSummary[]): stri
     "<permanent_agents>",
     "  <instructions>",
     "    <create>Use create_permanent_agent to add or update a permanent agent.</create>",
+    "    <describe>Descriptions summarize each agent's role.</describe>",
     "    <message>Use send_agent_message with agentId to coordinate.</message>",
     "  </instructions>",
     "  <available>"
@@ -32,15 +34,10 @@ export function agentPermanentPromptBuild(agents: PermanentAgentSummary[]): stri
     lines.push("    <agent>");
     lines.push(`      <id>${xmlEscape(agent.agentId)}</id>`);
     lines.push(`      <name>${xmlEscape(agent.descriptor.name)}</name>`);
+    lines.push(`      <description>${xmlEscape(agent.descriptor.description)}</description>`);
     if (agent.descriptor.workspaceDir) {
       lines.push(`      <workspace>${xmlEscape(agent.descriptor.workspaceDir)}</workspace>`);
     }
-    lines.push("      <system_prompt>");
-    const promptLines = agent.descriptor.systemPrompt.split("\n");
-    for (const line of promptLines) {
-      lines.push(`        ${xmlEscape(line)}`);
-    }
-    lines.push("      </system_prompt>");
     lines.push("    </agent>");
   }
 
@@ -48,13 +45,4 @@ export function agentPermanentPromptBuild(agents: PermanentAgentSummary[]): stri
   lines.push("</permanent_agents>");
 
   return lines.join("\n");
-}
-
-function xmlEscape(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&apos;");
 }

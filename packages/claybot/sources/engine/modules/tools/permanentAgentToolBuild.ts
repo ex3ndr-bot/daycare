@@ -20,6 +20,7 @@ import { agentStateWrite } from "../../agents/ops/agentStateWrite.js";
 const schema = Type.Object(
   {
     name: Type.String({ minLength: 1 }),
+    description: Type.String({ minLength: 1 }),
     systemPrompt: Type.String({ minLength: 1 }),
     workspaceDir: Type.Optional(Type.String({ minLength: 1 })),
     agentId: Type.Optional(Type.String({ minLength: 1 }))
@@ -46,6 +47,10 @@ export function permanentAgentToolBuild(): ToolDefinition {
       if (!name) {
         throw new Error("Permanent agent name is required.");
       }
+      const description = payload.description.trim();
+      if (!description) {
+        throw new Error("Permanent agent description is required.");
+      }
       const systemPrompt = payload.systemPrompt.trim();
       if (!systemPrompt) {
         throw new Error("Permanent agent system prompt is required.");
@@ -63,6 +68,7 @@ export function permanentAgentToolBuild(): ToolDefinition {
         type: "permanent" as const,
         id: agentId,
         name,
+        description,
         systemPrompt,
         ...(resolvedWorkspaceDir ? { workspaceDir: resolvedWorkspaceDir } : {})
       };

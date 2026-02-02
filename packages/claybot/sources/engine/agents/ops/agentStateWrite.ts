@@ -4,6 +4,7 @@ import path from "node:path";
 import type { Config } from "@/types";
 import type { AgentState } from "./agentTypes.js";
 import { agentPathBuild } from "./agentPathBuild.js";
+import { atomicWrite } from "../../../util/atomicWrite.js";
 
 /**
  * Writes agent state to disk with an atomic rename.
@@ -26,11 +27,5 @@ export async function agentStateWrite(
     null,
     2
   )}\n`;
-  await writeFileAtomic(filePath, payload);
-}
-
-async function writeFileAtomic(filePath: string, payload: string): Promise<void> {
-  const tempPath = `${filePath}.tmp-${process.pid}-${Date.now()}`;
-  await fs.writeFile(tempPath, payload, { mode: 0o600 });
-  await fs.rename(tempPath, filePath);
+  await atomicWrite(filePath, payload);
 }
