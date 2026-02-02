@@ -802,9 +802,14 @@ function BackgroundAgentsPanel({ agents }: { agents: BackgroundAgentState[] }) {
                     {agent.parentAgentId ? `Parent ${agent.parentAgentId}` : agent.agentId}
                   </div>
                 </div>
-                <Badge variant={agent.status === "running" ? "default" : "outline"} className="text-xs capitalize">
-                  {agent.status}
-                </Badge>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant={agent.status === "running" ? "default" : "outline"} className="text-xs capitalize">
+                    {agent.status}
+                  </Badge>
+                  <Badge variant="outline" className="text-xs capitalize">
+                    {agent.lifecycle}
+                  </Badge>
+                </div>
               </div>
               <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
                 <Cable className="h-3 w-3" />

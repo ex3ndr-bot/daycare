@@ -55,6 +55,7 @@ export async function agentBackgroundList(config: Config): Promise<BackgroundAge
       agentId,
       name,
       parentAgentId,
+      lifecycle: state.state,
       status: "idle",
       pending: 0,
       updatedAt: state.updatedAt

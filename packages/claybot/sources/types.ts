@@ -40,6 +40,7 @@ export type {
 export type {
   AgentMessage,
   AgentState,
+  AgentLifecycleState,
   AgentHistoryRecord,
   AgentInboxItem,
   AgentInboxResult,

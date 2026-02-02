@@ -114,6 +114,7 @@ export type BackgroundAgentState = {
   agentId: string;
   name: string | null;
   parentAgentId: string | null;
+  lifecycle: AgentLifecycleState;
   status: "running" | "queued" | "idle";
   pending: number;
   updatedAt: number;
