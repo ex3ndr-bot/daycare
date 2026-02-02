@@ -12,6 +12,7 @@ import makeWASocket, {
 } from "@whiskeysockets/baileys";
 import { Boom } from "@hapi/boom";
 import pino from "pino";
+import qrcodeTerminal from "qrcode-terminal";
 
 import type {
   Connector,
@@ -280,8 +281,14 @@ export class WhatsAppConnector implements Connector {
   ): void {
     const { connection, lastDisconnect, qr } = update;
 
-    if (qr && this.onQRCode) {
-      this.onQRCode(qr);
+    if (qr) {
+      logger.info("WhatsApp QR code received - scan with your phone");
+      if (this.printQRInTerminal) {
+        qrcodeTerminal.generate(qr, { small: true });
+      }
+      if (this.onQRCode) {
+        this.onQRCode(qr);
+      }
     }
 
     if (connection === "close") {
