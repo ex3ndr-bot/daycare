@@ -32,7 +32,7 @@ describe("Agent", () => {
         config,
         eventBus: new EngineEventBus(),
         connectorRegistry: new ConnectorRegistry({
-          onMessage: async (_source, _message, _context, _descriptor) => undefined
+          onMessage: async () => undefined
         }),
         imageRegistry: new ImageGenerationRegistry(),
         toolResolver: new ToolResolver(),

@@ -18,19 +18,16 @@ export type ConnectorActionResult =
 
 export type ConnectorRegistryOptions = {
   onMessage: (
-    source: string,
     message: ConnectorMessage,
     context: MessageContext,
     descriptor: AgentDescriptor
   ) => void | Promise<void>;
   onCommand?: (
-    source: string,
     command: string,
     context: MessageContext,
     descriptor: AgentDescriptor
   ) => void | Promise<void>;
   onPermission?: (
-    source: string,
     decision: PermissionDecision,
     context: MessageContext,
     descriptor: AgentDescriptor
@@ -144,7 +141,7 @@ export class ConnectorRegistry {
 
   private attach(id: string, connector: Connector): MessageUnsubscribe {
     const handler: MessageHandler = (message, context, descriptor) => {
-      return this.onMessage(id, message, context, descriptor);
+      return this.onMessage(message, context, descriptor);
     };
     return connector.onMessage(handler);
   }
@@ -154,7 +151,7 @@ export class ConnectorRegistry {
       return undefined;
     }
     const handler: CommandHandler = (command, context, descriptor) => {
-      return this.onCommand?.(id, command, context, descriptor);
+      return this.onCommand?.(command, context, descriptor);
     };
     return connector.onCommand(handler);
   }
@@ -164,7 +161,7 @@ export class ConnectorRegistry {
       return undefined;
     }
     const handler: PermissionHandler = (decision, context, descriptor) => {
-      return this.onPermission?.(id, decision, context, descriptor);
+      return this.onPermission?.(decision, context, descriptor);
     };
     return connector.onPermission(handler);
   }

@@ -66,16 +66,18 @@ export class Engine {
     logger.debug(`AuthStore and FileStore initialized`);
 
     this.modules = new ModuleRegistry({
-      onMessage: (source, message, context, descriptor) => {
+      onMessage: (message, context, descriptor) => {
+        const connector = descriptor.type === "user" ? descriptor.connector : "unknown";
         logger.debug(
-          `Connector message received: source=${source} type=${descriptor.type} text=${message.text?.length ?? 0}chars files=${message.files?.length ?? 0}`
+          `Connector message received: connector=${connector} type=${descriptor.type} text=${message.text?.length ?? 0}chars files=${message.files?.length ?? 0}`
         );
         void this.agentSystem.post(
           { descriptor },
           { type: "message", message, context }
         );
       },
-      onCommand: (source, command, _context, descriptor) => {
+      onCommand: (command, _context, descriptor) => {
+        const connector = descriptor.type === "user" ? descriptor.connector : "unknown";
         const parsed = parseCommand(command);
         if (!parsed) {
           return;
@@ -85,7 +87,7 @@ export class Engine {
             return;
           }
           logger.info(
-            { source, channelId: descriptor.channelId, userId: descriptor.userId },
+            { connector, channelId: descriptor.channelId, userId: descriptor.userId },
             "Reset command received"
           );
           void this.agentSystem.post(
@@ -94,9 +96,9 @@ export class Engine {
           );
           return;
         }
-        logger.debug({ source, command: parsed.name }, "Unknown command ignored");
+        logger.debug({ connector, command: parsed.name }, "Unknown command ignored");
       },
-      onPermission: (source, decision, context, descriptor) => {
+      onPermission: (decision, context, descriptor) => {
         void this.agentSystem.post(
           { descriptor },
           { type: "permission", decision, context }
