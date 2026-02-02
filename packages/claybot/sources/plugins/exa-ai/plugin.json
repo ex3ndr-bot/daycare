@@ -1,0 +1,6 @@
+{
+  "id": "exa-ai",
+  "name": "Exa AI",
+  "description": "Web search tool powered by Exa AI.",
+  "entry": "./plugin.js"
+}
