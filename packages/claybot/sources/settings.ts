@@ -4,12 +4,6 @@ import path from "node:path";
 import type { CronTaskDefinition as CronTaskConfig } from "./engine/cron/cronTypes.js";
 import { resolveClaybotPath } from "./paths.js";
 
-export type LegacyPluginSettings = {
-  id: string;
-  enabled?: boolean;
-  config?: Record<string, unknown>;
-};
-
 export type PluginInstanceSettings = {
   instanceId: string;
   pluginId: string;
@@ -56,7 +50,7 @@ export type SettingsConfig = {
   };
   assistant?: AssistantSettings;
   agents?: AgentSettings;
-  plugins?: Array<PluginInstanceSettings | LegacyPluginSettings>;
+  plugins?: PluginInstanceSettings[];
   providers?: ProviderSettings[];
   inference?: {
     providers?: InferenceProviderSettings[];
@@ -128,7 +122,7 @@ export function listEnabledPlugins(settings: SettingsConfig): PluginInstanceSett
 }
 
 export function upsertPlugin(
-  plugins: Array<PluginInstanceSettings | LegacyPluginSettings> | undefined,
+  plugins: PluginInstanceSettings[] | undefined,
   entry: PluginInstanceSettings
 ): PluginInstanceSettings[] {
   const list = normalizePlugins(plugins ?? []);
@@ -142,7 +136,7 @@ export type NextPluginInstanceIdOptions = {
 
 export function nextPluginInstanceId(
   pluginId: string,
-  plugins: Array<PluginInstanceSettings | LegacyPluginSettings> | undefined,
+  plugins: PluginInstanceSettings[] | undefined,
   options?: NextPluginInstanceIdOptions
 ): string {
   // Exclusive plugins can only be installed once - always use bare pluginId
@@ -167,7 +161,7 @@ export function nextPluginInstanceId(
 }
 
 export function removePlugin(
-  plugins: Array<PluginInstanceSettings | LegacyPluginSettings> | undefined,
+  plugins: PluginInstanceSettings[] | undefined,
   instanceId: string
 ): PluginInstanceSettings[] {
   return normalizePlugins(plugins ?? []).filter((item) => item.instanceId !== instanceId);
@@ -206,21 +200,7 @@ export function removeProviderSettings(
 }
 
 function normalizePlugins(
-  plugins: Array<PluginInstanceSettings | LegacyPluginSettings>
+  plugins: PluginInstanceSettings[]
 ): PluginInstanceSettings[] {
-  return plugins.map((plugin) => normalizePlugin(plugin));
-}
-
-function normalizePlugin(
-  plugin: PluginInstanceSettings | LegacyPluginSettings
-): PluginInstanceSettings {
-  if ("instanceId" in plugin && "pluginId" in plugin) {
-    return plugin;
-  }
-  return {
-    instanceId: plugin.id,
-    pluginId: plugin.id,
-    enabled: plugin.enabled,
-    settings: plugin.config
-  };
+  return plugins.map((plugin) => ({ ...plugin }));
 }

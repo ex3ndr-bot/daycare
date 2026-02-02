@@ -71,6 +71,8 @@ When `exclusive` is true, the engine will only allow that plugin to be enabled b
 }
 ```
 
+Legacy plugin entries are not supported; `settings.plugins` must use `instanceId` and `pluginId`.
+
 ### Event format
 Plugin events are emitted immediately with metadata and forwarded to the engine
 event bus (SSE `plugin.event`):

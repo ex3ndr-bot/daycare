@@ -14,12 +14,6 @@ export function configSettingsParse(raw: unknown): SettingsConfig {
     settings: z.record(z.unknown()).optional()
   }).passthrough();
 
-  const legacyPlugin = z.object({
-    id: z.string().min(1),
-    enabled: z.boolean().optional(),
-    config: z.record(z.unknown()).optional()
-  }).passthrough();
-
   const imageSettings = z.object({
     enabled: z.boolean().optional(),
     model: z.string().optional(),
@@ -56,7 +50,7 @@ export function configSettingsParse(raw: unknown): SettingsConfig {
     agents: z.object({
       emergencyContextLimit: z.number().int().positive().optional()
     }).passthrough().optional(),
-    plugins: z.array(z.union([pluginInstance, legacyPlugin])).optional(),
+    plugins: z.array(pluginInstance).optional(),
     providers: z.array(provider).optional(),
     inference: z.object({
       providers: z.array(inferenceProvider).optional()
