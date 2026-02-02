@@ -65,18 +65,16 @@ flowchart LR
 ```
 
 ## Permission request forwarding
-Background agents use `request_permission_via_parent`, which posts a system message to the
-foreground agent. The foreground agent then calls `request_permission` with the background
-agent id so approvals route back to the requester.
+Background agents use `request_permission`. The engine routes those requests through the most
+recent foreground agent and includes the requesting agent id so approvals route back correctly.
 
 ```mermaid
 sequenceDiagram
   participant Background as Background Agent
   participant AgentSystem
   participant Foreground as Foreground Agent
-  Background->>AgentSystem: request_permission_via_parent
-  AgentSystem->>Foreground: system_message (permission request)
-  Foreground->>Foreground: request_permission(permission, reason, agentId)
+  Background->>AgentSystem: request_permission
+  AgentSystem->>Foreground: requestPermission (foreground connector)
 ```
 
 ## Agent persistence

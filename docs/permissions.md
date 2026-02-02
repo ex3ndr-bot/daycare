@@ -33,12 +33,12 @@ flowchart TD
 - `permissionFormatTag`: format the `@web`/`@read`/`@write` tag used in logs.
 - `permissionDescribeDecision`: human-readable label for permission decisions.
 
-## Foreground permission requests
+## Permission requests
 
-Foreground agents request permissions directly from users via `request_permission`. The tool returns
+Foreground agents request permissions directly from users via `request_permission`. Background
+agents call the same tool; the engine routes the request through the most recent foreground agent
+and includes the requesting agent id so the decision returns to the right agent. The tool returns
 immediately, and the permission decision is delivered later to resume the agent.
-When requesting on behalf of a background agent, include its `agentId` so the decision routes back
-to that agent (it must be one of the foreground agent’s subagents); the user-facing reason should mention the agent name.
 
 ```mermaid
 sequenceDiagram
@@ -57,40 +57,15 @@ Tool payload shape:
 ```json
 {
   "permission": "@web",
-  "reason": "Need to verify the latest docs.",
-  "agentId": "optional-background-agent-id"
+  "reason": "Need to verify the latest docs."
 }
-```
-
-## Background agent permission requests
-
-Background agents cannot request permissions directly from users. They use
-`request_permission_via_parent` to proxy requests through the most recent
-foreground agent.
-
-```mermaid
-sequenceDiagram
-  participant Background as Background Agent
-  participant AgentSystem
-  participant Foreground as Foreground Agent
-  participant Connector
-  participant User
-
-  Background->>AgentSystem: request_permission_via_parent
-  AgentSystem->>Foreground: system_message (permission request)
-  Foreground->>Connector: request_permission(permission, reason, agentId)
-  Connector->>User: permission approval UI
-  User->>Connector: approve/deny
-  Connector->>Background: onPermission(decision)
-  Background->>Background: permissionApply
 ```
 
 Tool availability by agent type:
 
 | Tool | Foreground | Background |
 |------|------------|------------|
-| `request_permission` | ✓ | ✗ |
-| `request_permission_via_parent` | ✗ | ✓ |
+| `request_permission` | ✓ | ✓ |
 
 ## Path security utilities
 

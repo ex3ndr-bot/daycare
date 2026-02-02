@@ -61,9 +61,9 @@ Your workspace may be shared with other agents working in parallel. Treat it lik
 
 ## Requesting Additional Permissions
 
-Only request permissions when you genuinely need access outside your workspace. Foreground agents use
-`request_permission`. Background agents must use `request_permission_via_parent` to proxy the
-request through the most recent foreground agent.
+Only request permissions when you genuinely need access outside your workspace. Use
+`request_permission`. Background agents call the same tool, and it routes the request through the
+most recent foreground agent automatically.
 
 **Permission string formats:**
 - `@web` → allow web search/tools.
@@ -77,21 +77,14 @@ request through the most recent foreground agent.
 
 ### Tool payloads
 
-Foreground agents use `request_permission`:
+All agents use `request_permission`:
 
 ```json
 {
   "permission": "@read:/absolute/path",
-  "reason": "Need to scan the local dataset for the report.",
-  "agentId": "optional-background-agent-id"
+  "reason": "Need to scan the local dataset for the report."
 }
 ```
-
-When using `agentId`, it must point to one of your background subagents so the decision routes back correctly.
-
-Background agents use `request_permission_via_parent` with the same payload shape. The request
-is forwarded as a system message to the foreground agent, which then calls `request_permission`
-with the provided `agentId`.
 
 ### Decision flow
 

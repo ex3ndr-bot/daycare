@@ -108,9 +108,9 @@ sequenceDiagram
 
 ## Permission requests
 
-Permission requests are asynchronous. Foreground agents call `request_permission`. Background agents
-call `request_permission_via_parent`, which targets the most recent foreground agent and includes the
-requesting agent id so the decision can be routed directly.
+Permission requests are asynchronous. All agents call `request_permission`. For background agents,
+the engine targets the most recent foreground agent and includes the requesting agent id so the
+decision can be routed directly.
 
 ```mermaid
 sequenceDiagram
@@ -118,7 +118,7 @@ sequenceDiagram
   participant Engine
   participant Connector
   participant User
-  Background->>Engine: request_permission_via_parent (agentId)
+  Background->>Engine: request_permission
   Engine->>Connector: requestPermission prompt (most recent foreground target)
   Connector->>User: approval UI
   User->>Connector: allow/deny

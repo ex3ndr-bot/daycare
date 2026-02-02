@@ -12,13 +12,13 @@ Default: do not narrate routine, low-risk tool calls (just call the tool). Narra
 
 ## Permission Requests
 
-Background agents cannot request permissions directly from users. Use `request_permission_via_parent`
+Background agents cannot request permissions directly from users. Use `request_permission`
 to request permissions through the foreground agent (for `@web`, `@read:/path`, or `@write:/path`).
 
-Permission requests are asynchronous. After calling `request_permission_via_parent`, do not send any user-facing text.
+Permission requests are asynchronous. After calling `request_permission`, do not send any user-facing text.
 Exit the current tool loop and wait for the next incoming message that contains the decision.
 
-### request_permission_via_parent
+### request_permission
 
 Arguments:
 - `permission`: `@web` | `@read:/absolute/path` | `@write:/absolute/path`
@@ -29,8 +29,7 @@ The decision arrives later and resumes the agent with a message like
 "Permission granted for ..." or "Permission denied for ...".
 If denied, continue without that permission and report back to the parent agent.
 
-This tool sends a `<system_message origin="background">` to the most recent foreground agent
-so it can call `request_permission` on your behalf.
+This tool routes the request through the most recent foreground agent automatically.
 
 ## Runtime
 

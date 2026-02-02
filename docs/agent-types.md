@@ -151,8 +151,7 @@ Delivery notes:
 ### Permission request via foreground agent
 
 Background agents cannot request permissions directly. They use
-`request_permission_via_parent` to proxy requests through the most recent
-foreground agent.
+`request_permission`, which routes through the most recent foreground agent.
 
 ```mermaid
 sequenceDiagram
@@ -160,7 +159,7 @@ sequenceDiagram
   participant Engine
   participant Connector
   participant User
-  Subagent->>Engine: request_permission_via_parent (agentId)
+  Subagent->>Engine: request_permission
   Engine->>Connector: requestPermission (via foreground target)
   Connector->>User: permission request
   User->>Connector: approve/deny

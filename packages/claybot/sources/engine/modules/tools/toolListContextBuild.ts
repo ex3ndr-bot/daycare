@@ -13,13 +13,8 @@ type ToolListOptions = {
 };
 
 const BACKGROUND_TOOL_DENYLIST = new Set([
-  "request_permission",
   "set_reaction",
   "send_file"
-]);
-
-const FOREGROUND_TOOL_DENYLIST = new Set([
-  "request_permission_via_parent"
 ]);
 
 /**
@@ -36,9 +31,6 @@ export function toolListContextBuild(options: ToolListOptions): Tool[] {
   }
   if (options.agentKind === "background") {
     tools = tools.filter((tool) => !BACKGROUND_TOOL_DENYLIST.has(tool.name));
-  }
-  if (options.agentKind === "foreground") {
-    tools = tools.filter((tool) => !FOREGROUND_TOOL_DENYLIST.has(tool.name));
   }
   const connectorCapabilities = source
     ? options.connectorRegistry.get(source)?.capabilities ?? null
