@@ -9,6 +9,7 @@ flowchart TD
   Cron --> Ensure[permissionEnsureDefaultFile]
   Engine --> Merge[permissionMergeDefault]
   Engine --> Apply[permissionApply]
+  Engine --> Allows[permissionAccessAllows]
   Engine --> Tag[permissionFormatTag]
   Engine --> Describe[permissionDescribeDecision]
 
@@ -21,6 +22,8 @@ flowchart TD
   Apply --> Sanitize
   Tools[Shell/File Tools] --> Resolve
   Tools --> Open
+  GrantTool[grant_permission] --> Allows
+  GrantTool --> Apply
 ```
 
 ## Helper roles
@@ -30,6 +33,7 @@ flowchart TD
 - `permissionEnsureDefaultFile`: merge default read/write directories into an agent.
 - `permissionMergeDefault`: combine existing agent permissions with defaults.
 - `permissionApply`: apply an approved permission decision to an agent.
+- `permissionAccessAllows`: verify an agent already holds a permission before sharing it.
 - `permissionFormatTag`: format the `@web`/`@read`/`@write` tag used in logs.
 - `permissionDescribeDecision`: human-readable label for permission decisions.
 
@@ -66,7 +70,19 @@ Tool availability by agent type:
 | Tool | Foreground | Background |
 |------|------------|------------|
 | `request_permission` | ✓ | ✓ |
+## Direct grants
 
+Agents can share permissions with other agents using the `grant_permission` tool.
+The grant is only allowed when the source agent already has the permission, and
+every grant must include a justification.
+
+```mermaid
+flowchart TD
+  Source[Source agent] --> GrantTool[grant_permission]
+  GrantTool --> Check[permissionAccessAllows]
+  Check -->|allowed| Apply[permissionApply]
+  Check -->|denied| Block[Reject grant]
+```
 ## Path security utilities
 
 The permissions system includes security hardening against path-based attacks:

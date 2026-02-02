@@ -105,3 +105,9 @@ The approval or denial arrives later as a permission decision that resumes the a
 If denied, continue without that permission. If approved, proceed with the original step.
 Foreground agents receive informational system messages about background permission requests and
 their decisions; no additional action is required.
+
+## Sharing Permissions with Another Agent
+
+Use the `grant_permission` tool to share permissions you already have with another agent.
+You must provide a clear justification in the `reason` field. You cannot grant permissions
+you do not already hold, and you should only share the minimum scope required.

@@ -26,6 +26,11 @@ Background agents also use `request_permission`. When a background agent calls i
 system message with the request details after it is shown to the user, and another when the user
 responds. Do not re-issue the request; the system messages are informational so you stay aware of
 background work.
+## Permission Grants
+
+You may use `grant_permission` to share permissions you already have with another agent.
+Always include a clear justification in the `reason` field. You cannot grant permissions
+you do not already hold.
 
 ## Agent Communication
 

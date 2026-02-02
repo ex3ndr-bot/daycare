@@ -6,7 +6,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { getLogger } from "../../log.js";
 import type { FileStore } from "../../files/store.js";
 import type { AuthStore } from "../../auth/store.js";
-import type { Config, SessionPermissions } from "@/types";
+import type { Config, PermissionAccess, SessionPermissions } from "@/types";
 import { cuid2Is } from "../../utils/cuid2Is.js";
 import type { ConnectorRegistry } from "../modules/connectorRegistry.js";
 import type { ImageGenerationRegistry } from "../modules/imageGenerationRegistry.js";
@@ -33,6 +33,7 @@ import { agentStateRead } from "./ops/agentStateRead.js";
 import { agentStateWrite } from "./ops/agentStateWrite.js";
 import { AsyncLock } from "../../util/lock.js";
 import { permissionClone } from "../permissions/permissionClone.js";
+import { permissionAccessApply } from "../permissions/permissionAccessApply.js";
 
 const logger = getLogger("engine.agent-system");
 
@@ -205,6 +206,34 @@ export class AgentSystem {
       context: {}
     });
     return permissionClone(entry.agent.state.permissions);
+  }
+
+  async grantPermission(
+    target: AgentPostTarget,
+    access: PermissionAccess
+  ): Promise<void> {
+    const entry = await this.resolveEntry(target, {
+      type: "message",
+      message: { text: null },
+      context: {}
+    });
+    const applied = permissionAccessApply(entry.agent.state.permissions, access);
+    if (!applied) {
+      throw new Error("Permission could not be applied.");
+    }
+    await agentStateWrite(this.config, entry.agentId, entry.agent.state);
+    this.eventBus.emit("permission.granted", {
+      agentId: entry.agentId,
+      source: "agent",
+      decision: {
+        token: "direct",
+        approved: true,
+        permission: access.kind === "web"
+          ? "@web"
+          : `@${access.kind}:${access.path}`,
+        access
+      }
+    });
   }
 
   reload(config: Config): void {

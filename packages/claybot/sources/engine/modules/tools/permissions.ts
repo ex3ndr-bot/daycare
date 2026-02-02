@@ -9,6 +9,7 @@ import type { PermissionAccess, PermissionRequest } from "@/types";
 import { agentDescriptorTargetResolve } from "../../agents/ops/agentDescriptorTargetResolve.js";
 import { agentDescriptorLabel } from "../../agents/ops/agentDescriptorLabel.js";
 import { permissionAccessParse } from "../../permissions/permissionAccessParse.js";
+import { permissionAccessAllows } from "../../permissions/permissionAccessAllows.js";
 
 const schema = Type.Object(
   {
@@ -20,6 +21,17 @@ const schema = Type.Object(
 );
 
 type PermissionArgs = Static<typeof schema>;
+
+const grantSchema = Type.Object(
+  {
+    agentId: Type.String({ minLength: 1 }),
+    permission: Type.String({ minLength: 1 }),
+    reason: Type.String({ minLength: 1 })
+  },
+  { additionalProperties: false }
+);
+
+type PermissionGrantArgs = Static<typeof grantSchema>;
 
 export function buildPermissionRequestTool(): ToolDefinition {
   return {
@@ -149,6 +161,57 @@ export function buildPermissionRequestTool(): ToolDefinition {
           permission,
           token: request.token,
           agentId: requestedAgentId
+        },
+        isError: false,
+        timestamp: Date.now()
+      };
+
+      return { toolMessage, files: [] };
+    }
+  };
+}
+
+export function buildPermissionGrantTool(): ToolDefinition {
+  return {
+    tool: {
+      name: "grant_permission",
+      description:
+        "Grant a permission you already have to another agent (requires a justification).",
+      parameters: grantSchema
+    },
+    execute: async (args, toolContext, toolCall) => {
+      const payload = args as PermissionGrantArgs;
+      const permission = payload.permission.trim();
+      const reason = payload.reason.trim();
+      if (!reason) {
+        throw new Error("Reason is required.");
+      }
+
+      const access = permissionAccessParse(permission);
+      const allowed = await permissionAccessAllows(toolContext.permissions, access);
+      if (!allowed) {
+        throw new Error("You can only grant permissions you already have.");
+      }
+
+      await toolContext.agentSystem.grantPermission(
+        { agentId: payload.agentId },
+        access
+      );
+
+      const toolMessage: ToolResultMessage = {
+        role: "toolResult",
+        toolCallId: toolCall.id,
+        toolName: toolCall.name,
+        content: [
+          {
+            type: "text",
+            text: `Permission granted to agent ${payload.agentId}.`
+          }
+        ],
+        details: {
+          agentId: payload.agentId,
+          permission,
+          reason
         },
         isError: false,
         timestamp: Date.now()
