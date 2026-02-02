@@ -48,6 +48,7 @@ import { agentHistoryAppend } from "./ops/agentHistoryAppend.js";
 import { agentHistoryLoad } from "./ops/agentHistoryLoad.js";
 import { agentStateWrite } from "./ops/agentStateWrite.js";
 import { agentDescriptorWrite } from "./ops/agentDescriptorWrite.js";
+import { contextNeedsEmergencyReset } from "./ops/contextNeedsEmergencyReset.js";
 import type { AgentSystem } from "./agentSystem.js";
 
 const logger = getLogger("engine.agent");
@@ -257,6 +258,13 @@ export class Agent {
       });
     }
 
+    const history = await agentHistoryLoad(this.agentSystem.config, this.id);
+    if (contextNeedsEmergencyReset(this.agentSystem.config, history)) {
+      logger.warn({ agentId: this.id }, "Emergency context limit reached; resetting session");
+      await this.handleEmergencyReset(entry, source);
+      return null;
+    }
+
     const agentContext = this.state.context;
     const providers = listActiveInferenceProviders(this.agentSystem.config.settings);
     const providerId = this.resolveAgentProvider(providers);
@@ -399,6 +407,42 @@ export class Agent {
       context: {}
     });
     return true;
+  }
+
+  /**
+   * Resets the session when the emergency context limit is exceeded.
+   * Expects: reset record written and state persisted before notifying users.
+   */
+  private async handleEmergencyReset(
+    entry: AgentMessage,
+    source: string
+  ): Promise<void> {
+    const reset: AgentInboxReset = { type: "reset" };
+    await this.handleReset(reset);
+
+    if (this.resolveAgentKind() !== "foreground") {
+      return;
+    }
+
+    const target = agentDescriptorTargetResolve(this.descriptor);
+    const targetId = target?.targetId ?? null;
+    if (!targetId) {
+      return;
+    }
+
+    const connector = this.agentSystem.connectorRegistry.get(source);
+    if (!connector?.capabilities.sendText) {
+      return;
+    }
+
+    try {
+      await connector.sendMessage(targetId, {
+        text: "Context limit reached. Session reset. Please resend your last request.",
+        replyToMessageId: entry.context.messageId
+      });
+    } catch (error) {
+      logger.warn({ agentId: this.id, error }, "Failed to notify user about emergency reset");
+    }
   }
 
   private async handleRestore(_item: AgentInboxRestore): Promise<boolean> {

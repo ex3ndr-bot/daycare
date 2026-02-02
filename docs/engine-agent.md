@@ -56,6 +56,19 @@ flowchart LR
   Model --> Summary[assistant summary message]
 ```
 
+## Emergency Context Reset
+
+When the estimated history size crosses the emergency limit, the session is
+hard reset and foreground users are notified.
+
+```mermaid
+flowchart LR
+  History[history.jsonl] --> Check[contextNeedsEmergencyReset]
+  Check -->|exceeded| Reset[Agent.handleEmergencyReset]
+  Reset --> State[state.json + reset marker]
+  Reset --> Notify[connector.sendMessage (foreground only)]
+```
+
 ## State vs History
 
 `state.json` only stores durable metadata (permissions, timestamps).
