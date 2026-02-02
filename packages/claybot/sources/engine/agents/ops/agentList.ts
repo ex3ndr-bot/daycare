@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 
 import type { Config } from "@/types";
 import type { AgentDescriptor } from "./agentDescriptorTypes.js";
+import type { AgentLifecycleState } from "./agentTypes.js";
 import { agentDescriptorRead } from "./agentDescriptorRead.js";
 import { agentStateRead } from "./agentStateRead.js";
 
@@ -11,7 +12,7 @@ import { agentStateRead } from "./agentStateRead.js";
  */
 export async function agentList(
   config: Config
-): Promise<Array<{ agentId: string; descriptor: AgentDescriptor; updatedAt: number }>> {
+): Promise<Array<{ agentId: string; descriptor: AgentDescriptor; lifecycle: AgentLifecycleState; updatedAt: number }>> {
   let entries: Array<{ name: string; isDirectory: () => boolean }> = [];
   try {
     entries = await fs.readdir(config.agentsDir, { withFileTypes: true });
@@ -22,7 +23,7 @@ export async function agentList(
     throw error;
   }
 
-  const results: Array<{ agentId: string; descriptor: AgentDescriptor; updatedAt: number }> = [];
+  const results: Array<{ agentId: string; descriptor: AgentDescriptor; lifecycle: AgentLifecycleState; updatedAt: number }> = [];
   for (const entry of entries) {
     if (!entry.isDirectory()) {
       continue;
@@ -39,7 +40,7 @@ export async function agentList(
     if (!descriptor || !state) {
       continue;
     }
-    results.push({ agentId, descriptor, updatedAt: state.updatedAt });
+    results.push({ agentId, descriptor, lifecycle: state.state, updatedAt: state.updatedAt });
   }
   return results;
 }

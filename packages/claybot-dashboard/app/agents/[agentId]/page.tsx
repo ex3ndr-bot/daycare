@@ -157,6 +157,11 @@ export default function AgentDetailPage({ params }: AgentDetailPageProps) {
           <Badge variant={connected ? "default" : "outline"} className={connected ? "bg-emerald-500 text-white" : ""}>
             {connected ? "Live" : "Offline"}
           </Badge>
+          {summary?.lifecycle ? (
+            <Badge variant={summary.lifecycle === "sleeping" ? "outline" : "secondary"} className="capitalize">
+              {summary.lifecycle}
+            </Badge>
+          ) : null}
           <Button onClick={() => void refresh()} disabled={loading} className="gap-2">
             <RefreshCw className={loading ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
             Refresh
@@ -207,7 +212,7 @@ export default function AgentDetailPage({ params }: AgentDetailPageProps) {
               <CardTitle className="text-xl">{summary ? formatDateTime(summary.updatedAt) : "Unknown"}</CardTitle>
             </CardHeader>
             <CardContent className="text-xs text-muted-foreground">
-              {summary ? "Agent state updated" : "Waiting for agent data"}
+              {summary ? `Lifecycle: ${summary.lifecycle}` : "Waiting for agent data"}
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-secondary/30 via-card to-card/80">

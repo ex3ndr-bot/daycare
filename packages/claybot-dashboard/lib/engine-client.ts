@@ -58,6 +58,7 @@ export type AgentDescriptor =
 export type AgentSummary = {
   agentId: string;
   descriptor: AgentDescriptor;
+  lifecycle: "active" | "sleeping";
   updatedAt: number;
 };
 

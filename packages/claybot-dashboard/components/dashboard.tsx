@@ -11,6 +11,7 @@ import {
   Cable,
   Cpu,
   MessageSquare,
+  Moon,
   Plug,
   RefreshCw,
   Sparkles,
@@ -891,9 +892,16 @@ function AgentsTable({ agents }: { agents: AgentSummary[] }) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="gap-1">
-                        <Sparkles className="h-3 w-3" />
-                        Active
+                      <Badge
+                        variant={agent.lifecycle === "sleeping" ? "outline" : "secondary"}
+                        className="gap-1 capitalize"
+                      >
+                        {agent.lifecycle === "sleeping" ? (
+                          <Moon className="h-3 w-3" />
+                        ) : (
+                          <Sparkles className="h-3 w-3" />
+                        )}
+                        {agent.lifecycle}
                       </Badge>
                     </TableCell>
                   </TableRow>

@@ -271,8 +271,11 @@ export default function AgentsPage() {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <Badge variant="secondary" className="gap-1">
-                            Active
+                          <Badge
+                            variant={agent.lifecycle === "sleeping" ? "outline" : "secondary"}
+                            className="capitalize"
+                          >
+                            {agent.lifecycle}
                           </Badge>
                         </TableCell>
                       </TableRow>
@@ -312,7 +315,7 @@ function formatAgentDescriptor(descriptor: AgentDescriptor) {
 }
 
 function buildAgentSearchText(agent: AgentSummary, agentType = buildAgentType(agent)) {
-  return `${agent.agentId} ${formatAgentDescriptor(agent.descriptor)} ${formatAgentTypeLabel(agentType)}`.toLowerCase();
+  return `${agent.agentId} ${formatAgentDescriptor(agent.descriptor)} ${formatAgentTypeLabel(agentType)} ${agent.lifecycle}`.toLowerCase();
 }
 
 function formatAgentTypeKey(type: string) {

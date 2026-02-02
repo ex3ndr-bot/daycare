@@ -46,6 +46,18 @@ flowchart TD
   Connection -->|no| System
 ```
 
+## Agent lifecycle badges
+
+Agent lifecycle state (active vs sleeping) is fetched from the agent list and displayed as
+badges in the agents tables and detail view.
+
+```mermaid
+flowchart LR
+  State[state.json state] --> List[GET /api/v1/engine/agents]
+  List --> UI[Agents tables + detail view]
+  UI --> Badge[Lifecycle badge]
+```
+
 ## Agent detail navigation
 
 Agent rows link to a dedicated detail page that loads the history for that agent.
