@@ -87,6 +87,23 @@ describe("CronStore", () => {
     expect(updated!.taskUid).toMatch(cuidPattern);
   });
 
+  it("persists permissions", async () => {
+    await store.createTask("perm-task", {
+      name: "Perm Task",
+      schedule: "* * * * *",
+      prompt: "Prompt",
+      permissions: ["@web"]
+    });
+
+    const loaded = await store.loadTask("perm-task");
+    expect(loaded?.permissions).toEqual(["@web"]);
+
+    const updated = await store.updateTask("perm-task", {
+      permissions: ["@read:/tmp"]
+    });
+    expect(updated?.permissions).toEqual(["@web", "@read:/tmp"]);
+  });
+
   it("deletes a task", async () => {
     await store.createTask("to-delete", {
       name: "Delete Me",

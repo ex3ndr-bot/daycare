@@ -6,6 +6,8 @@ import type {
 } from "../heartbeatTypes.js";
 import { execGateCheck } from "../../scheduling/execGateCheck.js";
 import { execGateOutputAppend } from "../../scheduling/execGateOutputAppend.js";
+import { permissionClone } from "../../permissions/permissionClone.js";
+import { permissionTagsApply } from "../../permissions/permissionTagsApply.js";
 
 const logger = getLogger("heartbeat.scheduler");
 
@@ -21,6 +23,7 @@ export class HeartbeatScheduler {
   private onError?: HeartbeatSchedulerOptions["onError"];
   private onTaskComplete?: HeartbeatSchedulerOptions["onTaskComplete"];
   private defaultPermissions: HeartbeatSchedulerOptions["defaultPermissions"];
+  private resolvePermissions?: HeartbeatSchedulerOptions["resolvePermissions"];
   private gateCheck: HeartbeatSchedulerOptions["gateCheck"];
   private timer: NodeJS.Timeout | null = null;
   private started = false;
@@ -35,6 +38,7 @@ export class HeartbeatScheduler {
     this.onError = options.onError;
     this.onTaskComplete = options.onTaskComplete;
     this.defaultPermissions = options.defaultPermissions;
+    this.resolvePermissions = options.resolvePermissions;
     this.gateCheck = options.gateCheck ?? execGateCheck;
     logger.debug("HeartbeatScheduler initialized");
   }
@@ -116,7 +120,8 @@ export class HeartbeatScheduler {
       if (filtered.length === 0) {
         return { ran: 0, taskIds: [] };
       }
-      const gated = await this.filterByGate(filtered);
+      const basePermissions = await this.resolvePermissions?.() ?? this.defaultPermissions;
+      const gated = await this.filterByGate(filtered, basePermissions);
       if (gated.length === 0) {
         return { ran: 0, taskIds: [] };
       }
@@ -158,17 +163,30 @@ export class HeartbeatScheduler {
     }
   }
 
-  private async filterByGate(tasks: HeartbeatDefinition[]): Promise<HeartbeatDefinition[]> {
+  private async filterByGate(
+    tasks: HeartbeatDefinition[],
+    basePermissions: HeartbeatSchedulerOptions["defaultPermissions"]
+  ): Promise<HeartbeatDefinition[]> {
     const eligible: HeartbeatDefinition[] = [];
     for (const task of tasks) {
       if (!task.gate) {
         eligible.push(task);
         continue;
       }
+      const permissions = permissionClone(basePermissions);
+      if (task.permissions && task.permissions.length > 0) {
+        try {
+          permissionTagsApply(permissions, task.permissions);
+        } catch (error) {
+          logger.warn({ taskId: task.id, error }, "Heartbeat task permissions invalid");
+          await this.onError?.(error, [task.id]);
+          continue;
+        }
+      }
       const result = await this.gateCheck?.({
         gate: task.gate,
-        permissions: this.defaultPermissions,
-        workingDir: this.defaultPermissions.workingDir
+        permissions,
+        workingDir: permissions.workingDir
       });
       if (!result) {
         eligible.push(task);

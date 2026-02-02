@@ -2,11 +2,12 @@ import path from "node:path";
 
 import { getLogger } from "../../log.js";
 import type { EngineEventBus } from "../ipc/events.js";
-import type { Config } from "@/types";
+import type { Config, SessionPermissions } from "@/types";
 import { CronScheduler } from "./ops/cronScheduler.js";
 import { CronStore } from "./ops/cronStore.js";
 import type { CronTaskDefinition, CronTaskWithPaths } from "./cronTypes.js";
 import type { AgentSystem } from "../agents/agentSystem.js";
+import { permissionBuildCron } from "../permissions/permissionBuildCron.js";
 
 const logger = getLogger("cron.facade");
 
@@ -34,7 +35,17 @@ export class Crons {
     this.scheduler = new CronScheduler({
       store: this.store,
       defaultPermissions: options.config.defaultPermissions,
-      onTask: async (task) => {
+      resolvePermissions: async (task) => {
+        if (task.agentId) {
+          return this.agentSystem.permissionsForTarget({ agentId: task.agentId });
+        }
+        const base = permissionBuildCron(options.config.defaultPermissions, task.filesPath);
+        const current = await this.agentSystem.permissionsForTarget({
+          descriptor: { type: "cron", id: task.taskUid }
+        });
+        return mergeCronPermissions(base, current);
+      },
+      onTask: async (task, messageContext) => {
         const target = task.agentId
           ? { agentId: task.agentId }
           : { descriptor: { type: "cron" as const, id: task.taskUid } };
@@ -46,7 +57,7 @@ export class Crons {
           {
             type: "message",
             message: { text: task.prompt },
-            context: {}
+            context: messageContext
           }
         );
       },
@@ -103,4 +114,18 @@ export class Crons {
   async writeMemory(taskId: string, content: string): Promise<void> {
     await this.store.writeMemory(taskId, content);
   }
+}
+
+function mergeCronPermissions(
+  base: SessionPermissions,
+  current: SessionPermissions
+): SessionPermissions {
+  const writeDirs = new Set([...base.writeDirs, ...current.writeDirs]);
+  const readDirs = new Set([...base.readDirs, ...current.readDirs]);
+  return {
+    workingDir: base.workingDir,
+    writeDirs: Array.from(writeDirs.values()),
+    readDirs: Array.from(readDirs.values()),
+    web: base.web || current.web
+  };
 }

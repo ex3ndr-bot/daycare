@@ -16,6 +16,7 @@ import { cronTaskUidResolve } from "./cronTaskUidResolve.js";
 import { cronFrontmatterParse } from "./cronFrontmatterParse.js";
 import { cronFrontmatterSerialize } from "./cronFrontmatterSerialize.js";
 import { execGateNormalize } from "../../scheduling/execGateNormalize.js";
+import { permissionTagsNormalize } from "../../permissions/permissionTagsNormalize.js";
 
 const logger = getLogger("cron.store");
 
@@ -94,6 +95,10 @@ export class CronStore {
         return null;
       }
 
+      const permissions = permissionTagsNormalize(
+        parsed.frontmatter.permissions ?? parsed.frontmatter.permission
+      );
+
       return {
         id: taskId,
         taskUid,
@@ -104,6 +109,7 @@ export class CronStore {
         schedule: String(schedule),
         prompt: parsed.body.trim(),
         agentId: resolveAgentId(parsed.frontmatter),
+        permissions: permissions.length > 0 ? permissions : undefined,
         gate: execGateNormalize(parsed.frontmatter.gate),
         enabled: parsed.frontmatter.enabled !== false,
         deleteAfterRun: deleteAfterRun === true,
@@ -136,6 +142,7 @@ export class CronStore {
     // Write TASK.md
     const taskUid = cuid2Is(definition.taskUid) ? definition.taskUid : createId();
     const gate = execGateNormalize(definition.gate);
+    const permissions = permissionTagsNormalize(definition.permissions);
     const frontmatter: Frontmatter = {
       name: definition.name,
       schedule: definition.schedule,
@@ -144,6 +151,9 @@ export class CronStore {
     };
     if (definition.agentId) {
       frontmatter.agentId = definition.agentId;
+    }
+    if (permissions.length > 0) {
+      frontmatter.permissions = permissions;
     }
     if (gate) {
       frontmatter.gate = gate;
@@ -170,6 +180,7 @@ export class CronStore {
       schedule: definition.schedule,
       prompt: definition.prompt,
       agentId: definition.agentId,
+      permissions: permissions.length > 0 ? permissions : undefined,
       gate,
       enabled: definition.enabled ?? true,
       deleteAfterRun: definition.deleteAfterRun ?? false,
@@ -192,6 +203,7 @@ export class CronStore {
     const gate = updates.gate !== undefined
       ? execGateNormalize(updates.gate)
       : existing.gate;
+    const permissions = mergePermissions(existing.permissions, updates.permissions);
     const updated: CronTaskDefinition = {
       id: taskId,
       taskUid: existing.taskUid,
@@ -200,6 +212,7 @@ export class CronStore {
       schedule: updates.schedule ?? existing.schedule,
       prompt: updates.prompt ?? existing.prompt,
       agentId: updates.agentId ?? existing.agentId,
+      permissions,
       gate,
       enabled: updates.enabled ?? existing.enabled,
       deleteAfterRun: updates.deleteAfterRun ?? existing.deleteAfterRun
@@ -213,6 +226,9 @@ export class CronStore {
     };
     if (updated.agentId) {
       frontmatter.agentId = updated.agentId;
+    }
+    if (updated.permissions && updated.permissions.length > 0) {
+      frontmatter.permissions = updated.permissions;
     }
     if (updated.gate) {
       frontmatter.gate = updated.gate;
@@ -356,4 +372,15 @@ function resolveAgentId(frontmatter: Frontmatter): string | undefined {
   }
   const trimmed = raw.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function mergePermissions(
+  existing?: string[],
+  updates?: string[]
+): string[] | undefined {
+  if (!updates || updates.length === 0) {
+    return existing;
+  }
+  const merged = permissionTagsNormalize([...(existing ?? []), ...updates]);
+  return merged.length > 0 ? merged : undefined;
 }

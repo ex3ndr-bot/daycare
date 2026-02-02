@@ -10,6 +10,8 @@ import { cronTimeGetNext } from "./cronTimeGetNext.js";
 import type { MessageContext } from "@/types";
 import type { SessionPermissions } from "@/types";
 import { permissionBuildCron } from "../../permissions/permissionBuildCron.js";
+import { permissionClone } from "../../permissions/permissionClone.js";
+import { permissionTagsApply } from "../../permissions/permissionTagsApply.js";
 import {
   execGateCheck,
   type ExecGateCheckInput,
@@ -22,6 +24,7 @@ const logger = getLogger("cron.scheduler");
 export type CronSchedulerOptions = {
   store: CronStore;
   defaultPermissions: SessionPermissions;
+  resolvePermissions?: (task: CronTaskWithPaths) => Promise<SessionPermissions> | SessionPermissions;
   onTask: (context: CronTaskContext, messageContext: MessageContext) => void | Promise<void>;
   onError?: (error: unknown, taskId: string) => void | Promise<void>;
   onTaskComplete?: (task: CronTaskWithPaths, runAt: Date) => void | Promise<void>;
@@ -40,6 +43,7 @@ export class CronScheduler {
   private onError?: CronSchedulerOptions["onError"];
   private onTaskComplete?: CronSchedulerOptions["onTaskComplete"];
   private defaultPermissions: SessionPermissions;
+  private resolvePermissions?: CronSchedulerOptions["resolvePermissions"];
   private gateCheck: CronSchedulerOptions["gateCheck"];
   private tickTimer: NodeJS.Timeout | null = null;
   private runningTasks = new Set<string>();
@@ -50,6 +54,7 @@ export class CronScheduler {
     this.onError = options.onError;
     this.onTaskComplete = options.onTaskComplete;
     this.defaultPermissions = options.defaultPermissions;
+    this.resolvePermissions = options.resolvePermissions;
     this.gateCheck = options.gateCheck ?? execGateCheck;
     logger.debug("CronScheduler initialized");
   }
@@ -135,6 +140,9 @@ export class CronScheduler {
       description: definition.description,
       schedule: definition.schedule,
       prompt: definition.prompt,
+      agentId: definition.agentId,
+      permissions: definition.permissions,
+      gate: definition.gate,
       enabled: definition.enabled,
       deleteAfterRun: definition.deleteAfterRun
     });
@@ -220,7 +228,9 @@ export class CronScheduler {
       agentId: task.agentId
     };
 
-    const messageContext: MessageContext = {};
+    const messageContext: MessageContext = task.permissions && task.permissions.length > 0
+      ? { permissionTags: task.permissions }
+      : {};
 
     try {
       logger.info({ taskId: task.id, name: task.name }, "Executing cron task");
@@ -249,7 +259,18 @@ export class CronScheduler {
     if (!task.gate) {
       return { allowed: true };
     }
-    const permissions = permissionBuildCron(this.defaultPermissions, task.filesPath);
+    const basePermissions = await this.resolvePermissions?.(task)
+      ?? permissionBuildCron(this.defaultPermissions, task.filesPath);
+    const permissions = permissionClone(basePermissions);
+    if (task.permissions && task.permissions.length > 0) {
+      try {
+        permissionTagsApply(permissions, task.permissions);
+      } catch (error) {
+        logger.warn({ taskId: task.id, error }, "Cron task permissions invalid");
+        await this.reportError(error, task.id);
+        return { allowed: false };
+      }
+    }
     const result = await this.gateCheck?.({
       gate: task.gate,
       permissions,

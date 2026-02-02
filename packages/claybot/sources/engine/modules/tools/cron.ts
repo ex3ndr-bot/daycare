@@ -14,6 +14,7 @@ const addCronSchema = Type.Object(
     schedule: Type.String({ minLength: 1 }),
     prompt: Type.String({ minLength: 1 }),
     agentId: Type.Optional(Type.String({ minLength: 1 })),
+    permissions: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { minItems: 1 })),
     gate: Type.Optional(Type.Object(
       {
         command: Type.String({ minLength: 1 }),
@@ -74,7 +75,7 @@ export function buildCronTool(crons: Crons): ToolDefinition {
     tool: {
       name: "add_cron",
       description:
-        "Create a scheduled cron task from a prompt stored in config/cron (optional agentId + gate).",
+        "Create a scheduled cron task from a prompt stored in config/cron (optional agentId + permissions + gate).",
       parameters: addCronSchema
     },
     execute: async (args, _toolContext, toolCall) => {
@@ -95,6 +96,7 @@ export function buildCronTool(crons: Crons): ToolDefinition {
         schedule: payload.schedule,
         prompt: payload.prompt,
         agentId: payload.agentId,
+        permissions: payload.permissions,
         gate: payload.gate,
         enabled: payload.enabled,
         deleteAfterRun: payload.deleteAfterRun
@@ -115,6 +117,7 @@ export function buildCronTool(crons: Crons): ToolDefinition {
           name: task.name,
           schedule: task.schedule,
           agentId: task.agentId ?? null,
+          permissions: task.permissions ?? null,
           gate: task.gate ?? null
         },
         isError: false,
@@ -161,6 +164,7 @@ export function buildCronReadTaskTool(crons: Crons): ToolDefinition {
           description: task.description ?? null,
           schedule: task.schedule,
           agentId: task.agentId ?? null,
+          permissions: task.permissions ?? null,
           gate: task.gate ?? null,
           enabled: task.enabled !== false,
           deleteAfterRun: task.deleteAfterRun === true,

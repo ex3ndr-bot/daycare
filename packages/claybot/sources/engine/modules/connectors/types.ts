@@ -27,6 +27,7 @@ export type ConnectorMessage = {
 
 export type MessageContext = {
   messageId?: string;
+  permissionTags?: string[];
 };
 
 export type MessageHandler = (

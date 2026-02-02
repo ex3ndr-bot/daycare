@@ -18,6 +18,8 @@ name: Daily Report
 schedule: "0 9 * * *"
 enabled: true
 agentId: cu3ql2p5q0000x5p3g7q1l8a9
+permissions:
+  - "@web"
 gate:
   command: "curl -fsS https://api.example.com/healthz >/dev/null"
   permissions:
@@ -38,6 +40,7 @@ Frontmatter fields:
 - `deleteAfterRun` (optional) - when `true`, delete the task after it runs once
 - `agentId` (optional) - route the cron prompt to an existing agent id (defaults to the cron agent)
 - `gate` (optional) - exec gate config (command + permissions) that must succeed to run
+- `permissions` (optional) - permission tags to expand the target agent (`@web`, `@read:/path`, `@write:/path`); updates only expand (no reductions)
 
 Task directory ids should be human-friendly slugs (e.g. `create-image-in-morning`).
 
@@ -64,7 +67,8 @@ flowchart TD
 
 `gate` runs a shell command before the LLM to decide if the cron should run.
 Exit code `0` means "run"; non-zero means "skip." Trimmed gate output is appended
-to the prompt under `[Gate output]`. Use `gate.permissions` for
+to the prompt under `[Gate output]`. Gates run with the target agent permissions
+plus any task `permissions`. Use `gate.permissions` for
 extra permissions (`@web`, `@read:/path`, `@write:/path`). Network access requires
 `@web` plus `gate.allowedDomains` to allowlist hosts.
 

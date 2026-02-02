@@ -10,6 +10,7 @@ export type HeartbeatDefinition = {
   title: string;
   prompt: string;
   filePath: string;
+  permissions?: string[];
   gate?: ExecGateDefinition;
   lastRunAt?: string;
 };
@@ -22,6 +23,7 @@ export type HeartbeatSchedulerOptions = {
   store: HeartbeatStoreInterface;
   intervalMs?: number;
   defaultPermissions: SessionPermissions;
+  resolvePermissions?: () => Promise<SessionPermissions> | SessionPermissions;
   onRun: (tasks: HeartbeatDefinition[], runAt: Date) => void | Promise<void>;
   onError?: (error: unknown, taskIds?: string[]) => void | Promise<void>;
   onTaskComplete?: (task: HeartbeatDefinition, runAt: Date) => void | Promise<void>;
@@ -32,6 +34,7 @@ export type HeartbeatCreateTaskArgs = {
   id?: string;
   title: string;
   prompt: string;
+  permissions?: string[];
   gate?: ExecGateDefinition;
   overwrite?: boolean;
 };

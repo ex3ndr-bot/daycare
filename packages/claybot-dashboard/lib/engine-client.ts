@@ -23,6 +23,7 @@ export type CronTask = {
   schedule?: string;
   prompt?: string;
   agentId?: string;
+  permissions?: string[];
   gate?: ExecGate;
   enabled?: boolean;
   deleteAfterRun?: boolean;
@@ -35,6 +36,7 @@ export type CronTask = {
 export type HeartbeatTask = {
   id: string;
   title: string;
+  permissions?: string[];
   gate?: ExecGate;
   lastRunAt?: string;
 };
@@ -59,6 +61,7 @@ export type FileReference = {
 
 export type MessageContext = {
   messageId?: string;
+  permissionTags?: string[];
 };
 
 export type AgentDescriptor =

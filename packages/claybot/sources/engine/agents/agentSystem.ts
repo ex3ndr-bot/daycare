@@ -32,6 +32,7 @@ import { agentDescriptorRead } from "./ops/agentDescriptorRead.js";
 import { agentStateRead } from "./ops/agentStateRead.js";
 import { agentStateWrite } from "./ops/agentStateWrite.js";
 import { AsyncLock } from "../../util/lock.js";
+import { permissionClone } from "../permissions/permissionClone.js";
 
 const logger = getLogger("engine.agent-system");
 
@@ -195,6 +196,15 @@ export class AgentSystem {
     await this.enqueueEntry(entry, item, completion.completion);
     this.startEntryIfRunning(entry);
     return completion.promise;
+  }
+
+  async permissionsForTarget(target: AgentPostTarget): Promise<SessionPermissions> {
+    const entry = await this.resolveEntry(target, {
+      type: "message",
+      message: { text: null },
+      context: {}
+    });
+    return permissionClone(entry.agent.state.permissions);
   }
 
   reload(config: Config): void {

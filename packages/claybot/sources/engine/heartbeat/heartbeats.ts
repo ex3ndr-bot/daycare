@@ -8,6 +8,7 @@ import { HeartbeatStore } from "./ops/heartbeatStore.js";
 import type { HeartbeatCreateTaskArgs, HeartbeatDefinition } from "./heartbeatTypes.js";
 import type { Config } from "@/types";
 import type { AgentSystem } from "../agents/agentSystem.js";
+import { permissionTagsNormalize } from "../permissions/permissionTagsNormalize.js";
 
 const logger = getLogger("heartbeat.facade");
 
@@ -37,14 +38,19 @@ export class Heartbeats {
       store: this.store,
       intervalMs: options.intervalMs,
       defaultPermissions: options.config.defaultPermissions,
+      resolvePermissions: async () =>
+        this.agentSystem.permissionsForTarget({ descriptor: { type: "heartbeat" } }),
       onRun: async (tasks) => {
         const batch = heartbeatPromptBuildBatch(tasks);
+        const permissionTags = permissionTagsNormalize(
+          tasks.flatMap((task) => task.permissions ?? [])
+        );
         await this.agentSystem.postAndAwait(
           { descriptor: { type: "heartbeat" } },
           {
             type: "message",
             message: { text: batch.prompt },
-            context: {}
+            context: permissionTags.length > 0 ? { permissionTags } : {}
           }
         );
       },

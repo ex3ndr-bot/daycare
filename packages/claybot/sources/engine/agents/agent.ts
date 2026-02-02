@@ -26,6 +26,7 @@ import { permissionMergeDefault } from "../permissions/permissionMergeDefault.js
 import { permissionApply } from "../permissions/permissionApply.js";
 import { permissionDescribeDecision } from "../permissions/permissionDescribeDecision.js";
 import { permissionFormatTag } from "../permissions/permissionFormatTag.js";
+import { permissionTagsApply } from "../permissions/permissionTagsApply.js";
 import { skillListCore } from "../skills/skillListCore.js";
 import { skillListRegistered } from "../skills/skillListRegistered.js";
 import { skillPromptFormat } from "../skills/skillPromptFormat.js";
@@ -335,6 +336,17 @@ export class Agent {
     } else if (agentDescriptorIsHeartbeat(this.descriptor)) {
       this.state.permissions = permissionMergeDefault(this.state.permissions, defaultPermissions);
       permissionEnsureDefaultFile(this.state.permissions, defaultPermissions);
+    }
+    const permissionTags = [
+      ...(cronTask?.permissions ?? []),
+      ...(entry.context.permissionTags ?? [])
+    ];
+    if (permissionTags.length > 0) {
+      try {
+        permissionTagsApply(this.state.permissions, permissionTags);
+      } catch (error) {
+        logger.warn({ agentId: this.id, error }, "Failed to apply task permissions");
+      }
     }
 
     logger.debug(`handleMessage ensuring prompt files agentId=${this.id}`);
