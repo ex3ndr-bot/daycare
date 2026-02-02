@@ -122,6 +122,32 @@ Delivery notes:
 - Subagents default to their `parentAgentId`; other agents fall back to
   `most-recent-foreground` when no agent id is provided.
 
+### Permission request via foreground agent
+
+Background agents cannot request permissions directly. They use
+`request_permission_via_parent` to proxy requests through a foreground agent.
+
+```mermaid
+sequenceDiagram
+  participant Subagent
+  participant Proxy as PendingPermissionProxy
+  participant Connector
+  participant User
+  Subagent->>Proxy: register(token, subagentId)
+  Subagent->>Connector: requestPermission (via foreground target)
+  Connector->>User: permission request
+  User->>Connector: approve/deny
+  Connector->>Proxy: resolve(token)
+  Proxy-->>Connector: subagentId
+  Connector->>Subagent: permission decision
+  Subagent->>Subagent: permissionApply
+```
+
+Delivery notes:
+- The proxy registry (`PendingPermissionProxy`) maps tokens to background agent IDs.
+- When a decision arrives, the engine checks the proxy registry first.
+- If the token maps to a background agent, the decision is routed there instead of the foreground agent.
+
 ## Restore behavior
 
 On startup the engine loads agents from disk and enqueues a restore message.

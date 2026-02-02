@@ -207,6 +207,15 @@ export class AgentSystem {
     return candidates[0]?.agentId ?? null;
   }
 
+  /**
+   * Returns the descriptor for an agent by id.
+   * Returns null if the agent is not found.
+   */
+  getAgentDescriptor(agentId: string): AgentDescriptor | null {
+    const entry = this.entries.get(agentId);
+    return entry?.descriptor ?? null;
+  }
+
   private async resolveEntry(
     target: AgentPostTarget,
     item: AgentInboxItem

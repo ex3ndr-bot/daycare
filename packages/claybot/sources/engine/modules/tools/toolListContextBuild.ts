@@ -18,6 +18,10 @@ const BACKGROUND_TOOL_DENYLIST = new Set([
   "send_file"
 ]);
 
+const FOREGROUND_TOOL_DENYLIST = new Set([
+  "request_permission_via_parent"
+]);
+
 /**
  * Builds the tool list for an agent context based on connector capabilities.
  * Expects: tool names are unique; connector registry is available for capability checks.
@@ -32,6 +36,9 @@ export function toolListContextBuild(options: ToolListOptions): Tool[] {
   }
   if (options.agentKind === "background") {
     tools = tools.filter((tool) => !BACKGROUND_TOOL_DENYLIST.has(tool.name));
+  }
+  if (options.agentKind === "foreground") {
+    tools = tools.filter((tool) => !FOREGROUND_TOOL_DENYLIST.has(tool.name));
   }
   const connectorCapabilities = source
     ? options.connectorRegistry.get(source)?.capabilities ?? null

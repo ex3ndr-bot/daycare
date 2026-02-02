@@ -22,6 +22,7 @@ import {
 import { buildImageGenerationTool } from "./modules/tools/image-generation.js";
 import { buildReactionTool } from "./modules/tools/reaction.js";
 import { buildPermissionRequestTool } from "./modules/tools/permissions.js";
+import { buildPermissionRequestProxyTool } from "./modules/tools/permissionRequestProxy.js";
 import { buildSendFileTool } from "./modules/tools/send-file.js";
 import {
   buildHeartbeatAddTool,
@@ -35,6 +36,7 @@ import { Heartbeats } from "./heartbeat/heartbeats.js";
 import { toolListContextBuild } from "./modules/tools/toolListContextBuild.js";
 import { EngineEventBus } from "./ipc/events.js";
 import { ProviderManager } from "../providers/manager.js";
+import { PendingPermissionProxy } from "./permissions/pendingPermissionProxy.js";
 
 const logger = getLogger("engine.runtime");
 
@@ -56,6 +58,7 @@ export class Engine {
   readonly heartbeats: Heartbeats;
   readonly inferenceRouter: InferenceRouter;
   readonly eventBus: EngineEventBus;
+  readonly permissionProxy: PendingPermissionProxy;
 
   constructor(options: EngineOptions) {
     logger.debug(`Engine constructor starting, dataDir=${options.config.dataDir}`);
@@ -63,6 +66,7 @@ export class Engine {
     this.eventBus = options.eventBus;
     this.authStore = new AuthStore(this.config);
     this.fileStore = new FileStore(this.config);
+    this.permissionProxy = new PendingPermissionProxy();
     logger.debug(`AuthStore and FileStore initialized`);
 
     this.modules = new ModuleRegistry({
@@ -99,6 +103,16 @@ export class Engine {
         logger.debug({ connector, command: parsed.name }, "Unknown command ignored");
       },
       onPermission: (decision, context, descriptor) => {
+        // Check if this is a proxied permission request from a background agent
+        const backgroundAgentId = this.permissionProxy.resolve(decision.token);
+        if (backgroundAgentId) {
+          this.permissionProxy.remove(decision.token);
+          void this.agentSystem.post(
+            { agentId: backgroundAgentId },
+            { type: "permission", decision, context }
+          );
+          return;
+        }
         void this.agentSystem.post(
           { descriptor },
           { type: "permission", decision, context }
@@ -202,8 +216,9 @@ export class Engine {
     this.modules.tools.register("core", buildReactionTool());
     this.modules.tools.register("core", buildSendFileTool());
     this.modules.tools.register("core", buildPermissionRequestTool());
+    this.modules.tools.register("core", buildPermissionRequestProxyTool(this.permissionProxy));
     logger.debug(
-      "Core tools registered: cron, cron_memory, heartbeat, background, image_generation, reaction, send_file, request_permission"
+      "Core tools registered: cron, cron_memory, heartbeat, background, image_generation, reaction, send_file, request_permission, request_permission_via_parent"
     );
 
     logger.debug("Starting agent system");
