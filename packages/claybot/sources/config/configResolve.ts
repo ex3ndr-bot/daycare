@@ -4,7 +4,7 @@ import { resolveEngineSocketPath } from "../engine/ipc/socket.js";
 import { resolveWorkspaceDir } from "../engine/permissions.js";
 import { permissionBuildDefault } from "../engine/permissions/permissionBuildDefault.js";
 import { DEFAULT_CLAYBOT_DIR } from "../paths.js";
-import type { SettingsConfig } from "../settings.js";
+import type { ResolvedSettingsConfig, SettingsConfig } from "../settings.js";
 import { freezeDeep } from "../util/freezeDeep.js";
 import type { Config, ConfigOverrides } from "./configTypes.js";
 
@@ -17,16 +17,17 @@ export function configResolve(
   settingsPath: string,
   overrides: ConfigOverrides = {}
 ): Config {
+  const resolvedSettings = resolveSettingsDefaults(settings);
   const resolvedSettingsPath = path.resolve(settingsPath);
   const configDir = path.dirname(resolvedSettingsPath);
-  const dataDir = path.resolve(settings.engine?.dataDir ?? DEFAULT_CLAYBOT_DIR);
+  const dataDir = path.resolve(resolvedSettings.engine?.dataDir ?? DEFAULT_CLAYBOT_DIR);
   const agentsDir = path.join(dataDir, "agents");
   const filesDir = path.join(dataDir, "files");
   const authPath = path.join(dataDir, "auth.json");
-  const socketPath = resolveEngineSocketPath(settings.engine?.socketPath);
-  const workspaceDir = resolveWorkspaceDir(configDir, settings.assistant ?? null);
+  const socketPath = resolveEngineSocketPath(resolvedSettings.engine?.socketPath);
+  const workspaceDir = resolveWorkspaceDir(configDir, resolvedSettings.assistant ?? null);
   const defaultPermissions = permissionBuildDefault(workspaceDir, configDir);
-  const frozenSettings = freezeDeep(structuredClone(settings));
+  const frozenSettings = freezeDeep(structuredClone(resolvedSettings));
   const frozenPermissions = freezeDeep(defaultPermissions);
   const verbose = overrides.verbose ?? false;
 
@@ -43,4 +44,16 @@ export function configResolve(
     defaultPermissions: frozenPermissions,
     verbose
   });
+}
+
+function resolveSettingsDefaults(settings: SettingsConfig): ResolvedSettingsConfig {
+  const emergencyContextLimit =
+    settings.agents?.emergencyContextLimit ?? 200_000;
+  return {
+    ...settings,
+    agents: {
+      ...settings.agents,
+      emergencyContextLimit
+    }
+  };
 }

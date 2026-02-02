@@ -53,6 +53,9 @@ export function configSettingsParse(raw: unknown): SettingsConfig {
       workspaceDir: z.string().min(1).optional(),
       systemPrompt: z.string().min(1).optional()
     }).passthrough().optional(),
+    agents: z.object({
+      emergencyContextLimit: z.number().int().positive().optional()
+    }).passthrough().optional(),
     plugins: z.array(z.union([pluginInstance, legacyPlugin])).optional(),
     providers: z.array(provider).optional(),
     inference: z.object({

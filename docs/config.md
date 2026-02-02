@@ -29,3 +29,13 @@ flowchart TD
 - CLI or UI updates `settings.json`
 - `/v1/engine/reload` validates with schema and rebuilds Config
 - Engine applies the new Config snapshot (paths must be unchanged)
+
+## Settings defaults
+Resolved settings apply defaults so runtime code can rely on non-null values.
+
+```mermaid
+flowchart LR
+  Raw[settings.json] --> Parse[configSettingsParse]
+  Parse --> Defaults[configResolve defaults]
+  Defaults --> Resolved[Config.settings]
+```

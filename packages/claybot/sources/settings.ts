@@ -45,6 +45,10 @@ export type AgentSettings = {
   emergencyContextLimit?: number;
 };
 
+export type ResolvedSettingsConfig = Omit<SettingsConfig, "agents"> & {
+  agents: Required<AgentSettings>;
+};
+
 export type SettingsConfig = {
   engine?: {
     socketPath?: string;
