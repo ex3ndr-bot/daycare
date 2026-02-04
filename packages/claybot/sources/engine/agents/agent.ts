@@ -55,6 +55,7 @@ import { agentHistoryAppend } from "./ops/agentHistoryAppend.js";
 import { agentHistoryLoad } from "./ops/agentHistoryLoad.js";
 import { agentStateWrite } from "./ops/agentStateWrite.js";
 import { agentDescriptorWrite } from "./ops/agentDescriptorWrite.js";
+import { agentSystemPromptWrite } from "./ops/agentSystemPromptWrite.js";
 import type { AgentSystem } from "./agentSystem.js";
 
 const logger = getLogger("engine.agent");
@@ -383,6 +384,15 @@ export class Agent {
         : "",
       configDir: this.agentSystem.config.configDir
     });
+
+    try {
+      const wrote = await agentSystemPromptWrite(this.agentSystem.config, this.id, systemPrompt);
+      if (wrote) {
+        logger.debug(`System prompt snapshot written agentId=${this.id}`);
+      }
+    } catch (error) {
+      logger.warn({ agentId: this.id, error }, "Failed to write system prompt snapshot");
+    }
 
     const history = await agentHistoryLoad(this.agentSystem.config, this.id);
     const extraTokens = Math.ceil((systemPrompt.length + rawText.length) / 4);
