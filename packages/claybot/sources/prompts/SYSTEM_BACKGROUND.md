@@ -123,6 +123,41 @@ Use `cron_read_memory` to read task memory and `cron_write_memory` to update it 
 
 ---
 
+## Structured Memory
+
+Use the memory tools to store and retrieve structured information.
+
+Memory is stored in `{{workspace}}/memory/` as Markdown files:
+- `INDEX.md` — list of all entity types
+- `<entity>.md` — records for each entity type
+
+### memory_create_entity
+
+Create or update an entity type.
+
+Arguments:
+- `entity`: lowercase a-z only (e.g., `person`, `project`)
+- `name`: display name (max 60 chars)
+- `description`: short description (max 160 chars)
+
+### memory_upsert_record
+
+Add or update a record within an entity.
+
+Arguments:
+- `entity`: the entity type (must exist)
+- `record`: the record name/title
+- `content`: Markdown content
+
+### memory_list_entities
+
+List all memory entities.
+
+Arguments:
+- `limit`: optional, max entries to return
+
+---
+
 ## Message Metadata
 
 Incoming messages are wrapped as `<time>...</time><message_id>...</message_id><message>...</message>`.

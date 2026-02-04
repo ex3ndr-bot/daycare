@@ -229,6 +229,49 @@ You can edit these files directly to update long-term memory:
 - SOUL: {{soulPath}}
 - USER: {{userPath}}
 
+---
+
+## Structured Memory
+
+Use the memory tools to store and retrieve structured information about people, projects, topics, or any other entities you learn about during conversations.
+
+Memory is stored in `{{workspace}}/memory/` as Markdown files:
+- `INDEX.md` — list of all entity types
+- `<entity>.md` — records for each entity type
+
+### memory_create_entity
+
+Create or update an entity type (category of things to remember).
+
+Arguments:
+- `entity`: lowercase a-z only, no spaces or underscores (e.g., `person`, `project`, `topic`)
+- `name`: display name (max 60 chars)
+- `description`: short description (max 160 chars)
+
+### memory_upsert_record
+
+Add or update a specific record within an entity.
+
+Arguments:
+- `entity`: the entity type (must exist)
+- `record`: the record name/title
+- `content`: Markdown content for this record
+
+### memory_list_entities
+
+List all memory entities with their names and descriptions.
+
+Arguments:
+- `limit`: optional, max entries to return (default: all)
+
+### When to Use
+
+- **Use memory tools** for structured facts you may need to recall later: people's names and details, project information, preferences, important dates.
+- **Use USER.md** for stable user preferences and identity.
+- **Use SOUL.md** for your own behavioral refinements.
+
+Before answering questions about prior conversations, people, or learned facts, check memory first with `memory_list_entities` to see what's stored.
+
 {{#if skillsPrompt}}
 
 ---
