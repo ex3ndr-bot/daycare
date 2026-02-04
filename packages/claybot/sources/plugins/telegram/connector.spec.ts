@@ -67,7 +67,13 @@ describe("TelegramConnector permissions", () => {
       reason: "Need read access",
       message: "Permission request",
       permission: "@read:/tmp",
-      access: { kind: "read", path: "/tmp" }
+      access: { kind: "read", path: "/tmp" },
+      requester: {
+        id: "agent-1",
+        type: "subagent",
+        label: "file-checker",
+        kind: "background"
+      }
     };
     const context: MessageContext = { messageId: "msg-1" };
     const descriptor: AgentDescriptor = {

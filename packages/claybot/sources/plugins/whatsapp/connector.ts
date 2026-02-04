@@ -613,11 +613,16 @@ function formatPermissionMessage(
         ? "❌ *Permission denied*"
         : "🔐 *Permission request*";
 
+  const requesterLine =
+    request.requester.kind === "background"
+      ? `*Requester*: ${request.requester.label} (background agent)`
+      : null;
   const lines = [
     heading,
     "",
     `*Access*: ${access}`,
     pathStr ? `*Path*: \`${pathStr}\`` : null,
+    requesterLine,
     `*Reason*: ${request.reason}`,
     "",
     status === "pending"

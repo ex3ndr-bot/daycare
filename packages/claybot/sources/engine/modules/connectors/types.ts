@@ -58,6 +58,12 @@ export type PermissionRequest = {
   message: string;
   permission: string;
   access: PermissionAccess;
+  requester: {
+    id: string;
+    type: AgentDescriptor["type"];
+    label: string;
+    kind: "foreground" | "background";
+  };
 };
 
 export type PermissionDecision = {

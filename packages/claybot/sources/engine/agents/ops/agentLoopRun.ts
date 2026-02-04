@@ -78,6 +78,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
 
   let response: Awaited<ReturnType<InferenceRouter["complete"]>> | null = null;
   let toolLoopExceeded = false;
+  let lastResponseHadToolCalls = false;
   const generatedFiles: FileReference[] = [];
   let lastResponseTextSent = false;
   let finalResponseText: string | null = null;
@@ -148,6 +149,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
 
       const responseText = messageExtractText(response.message);
       const toolCalls = messageExtractToolCalls(response.message);
+      lastResponseHadToolCalls = toolCalls.length > 0;
       const suppressUserOutput = messageNoMessageIs(responseText);
       if (suppressUserOutput) {
         stripNoMessageTextBlocks(response.message);
@@ -321,7 +323,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
   );
 
   if (!hasResponseText && generatedFiles.length === 0) {
-    if (toolLoopExceeded) {
+    if (toolLoopExceeded && lastResponseHadToolCalls) {
       const message = "Tool execution limit reached.";
       logger.debug("Tool loop exceeded, sending error message");
       await notifySubagentFailure(message);

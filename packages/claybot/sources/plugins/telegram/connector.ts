@@ -860,11 +860,16 @@ function formatPermissionMessage(
     status === "pending"
       ? "Approve to continue or deny to refuse."
       : "Decision recorded.";
+  const requesterLine =
+    request.requester.kind === "background"
+      ? `<b>Requester</b>: ${escapeHtml(request.requester.label)} (background agent)`
+      : null;
   const lines = [
     heading,
     "",
     `<b>Access</b>: ${escapedAccess}`,
     escapedPath ? `<b>Path</b>: <code>${escapedPath}</code>` : null,
+    requesterLine,
     `<b>Reason</b>: ${escapedReason}`,
     "",
     footer

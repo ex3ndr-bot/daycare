@@ -84,10 +84,13 @@ export function buildPermissionRequestTool(): ToolDefinition {
       }
 
       const friendly = describePermission(access);
+      const requesterLabel = agentDescriptorLabel(requestedDescriptor);
+      const requesterKind =
+        requestedDescriptor.type === "user" ? "foreground" : "background";
       const heading =
         requestedDescriptor.type === "user"
           ? "Permission request:"
-          : `Permission request from background agent "${agentDescriptorLabel(requestedDescriptor)}" (${requestedAgentId}):`;
+          : `Permission request from background agent "${requesterLabel}" (${requestedAgentId}):`;
       const text = `${heading}\n${friendly}\nReason: ${reason}`;
       const request: PermissionRequest = {
         token: createId(),
@@ -95,7 +98,13 @@ export function buildPermissionRequestTool(): ToolDefinition {
         reason,
         message: text,
         permission,
-        access
+        access,
+        requester: {
+          id: requestedAgentId,
+          type: requestedDescriptor.type,
+          label: requesterLabel,
+          kind: requesterKind
+        }
       };
 
       if (connector.requestPermission) {
