@@ -13,7 +13,6 @@ It normalizes incoming messages into `ConnectorMessage` objects and sends respon
 - `polling` (optional): enable/disable polling (default true).
 - `clearWebhook` (optional): clear Telegram webhook before polling (default true).
 - `statePath` (optional): override `lastUpdateId` storage path (default `${dataDir}/telegram-offset.json`).
-- `retry` (optional): polling retry configuration (`minDelayMs`, `maxDelayMs`, `factor`, `jitter`).
 
 ## Auth
 - Onboarding prompts for the bot token and stores it in the auth store under the plugin instance id.

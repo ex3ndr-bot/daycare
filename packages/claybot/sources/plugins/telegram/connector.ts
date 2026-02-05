@@ -30,12 +30,6 @@ export type TelegramConnectorOptions = {
   statePath?: string | null;
   fileStore: FileStore;
   dataDir: string;
-  retry?: {
-    minDelayMs?: number;
-    maxDelayMs?: number;
-    factor?: number;
-    jitter?: number;
-  };
   enableGracefulShutdown?: boolean;
   onFatal?: (reason: string, error?: unknown) => void;
 };

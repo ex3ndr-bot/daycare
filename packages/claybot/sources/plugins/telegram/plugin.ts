@@ -16,15 +16,7 @@ const settingsSchema = z
       .transform((values) => Array.from(new Set(values.map((value) => String(value))))),
     polling: z.boolean().optional(),
     clearWebhook: z.boolean().optional(),
-    statePath: z.string().nullable().optional(),
-    retry: z
-      .object({
-        minDelayMs: z.number().optional(),
-        maxDelayMs: z.number().optional(),
-        factor: z.number().optional(),
-        jitter: z.number().optional()
-      })
-      .optional()
+    statePath: z.string().nullable().optional()
   })
   .passthrough();
 
