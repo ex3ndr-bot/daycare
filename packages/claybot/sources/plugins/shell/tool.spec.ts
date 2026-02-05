@@ -63,7 +63,8 @@ function createContext(workingDir: string, web: boolean): ToolExecutionContext {
       readDirs: [],
       web
     },
-    tokens: { input: 0, output: 0, total: 0 },
+    tokens: null,
+    stats: {},
     createdAt: now,
     updatedAt: now,
     state: "active"

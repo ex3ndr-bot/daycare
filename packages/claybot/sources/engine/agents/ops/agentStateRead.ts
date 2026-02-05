@@ -16,18 +16,31 @@ const permissionsSchema = z
   })
   .strict();
 
-const tokensSchema = z
+const tokenSizeSchema = z
   .object({
     input: z.number().int().nonnegative(),
     output: z.number().int().nonnegative(),
-    total: z.number().int().nonnegative()
+    cacheRead: z.number().int().nonnegative(),
+    cacheWrite: z.number().int().nonnegative()
   })
   .strict();
+
+const tokensSchema = z
+  .object({
+    provider: z.string().min(1),
+    model: z.string().min(1),
+    size: tokenSizeSchema
+  })
+  .strict()
+  .nullable();
+
+const statsSchema = z.record(z.record(tokenSizeSchema));
 
 const agentStateSchema = z
   .object({
     permissions: permissionsSchema,
     tokens: tokensSchema,
+    stats: statsSchema,
     createdAt: z.number().int(),
     updatedAt: z.number().int(),
     state: z.enum(["active", "sleeping"]).optional(),
@@ -58,6 +71,7 @@ export async function agentStateRead(config: Config, agentId: string): Promise<A
     context: { messages: [] },
     permissions: persisted.permissions,
     tokens: persisted.tokens,
+    stats: persisted.stats,
     createdAt: persisted.createdAt,
     updatedAt: persisted.updatedAt,
     state: lifecycle

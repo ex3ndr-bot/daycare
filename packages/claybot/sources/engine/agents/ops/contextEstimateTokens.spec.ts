@@ -35,12 +35,15 @@ describe("contextEstimateTokens", () => {
         text: assistantText,
         files: [],
         toolCalls: [toolCall],
-        providerId: "test",
-        modelId: "test-model",
-        contextTokens: {
-          input: 1,
-          output: 1,
-          total: 2
+        tokens: {
+          provider: "test",
+          model: "test-model",
+          size: {
+            input: 1,
+            output: 1,
+            cacheRead: 0,
+            cacheWrite: 0
+          }
         }
       },
       { type: "tool_result", at: 3, toolCallId: "tool-1", output: toolResult }

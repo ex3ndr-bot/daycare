@@ -5,9 +5,12 @@ const IMAGE_SYMBOLS_ESTIMATE = 512;
 const IMAGE_DATA_PLACEHOLDER = "<image>";
 
 type TokenDelta = {
-  input: number;
-  output: number;
-  total: number;
+  size: {
+    input: number;
+    output: number;
+    cacheRead: number;
+    cacheWrite: number;
+  };
   source: "usage" | "estimate";
 };
 
@@ -27,9 +30,12 @@ export function tokensResolve(
   const input = symbolsToTokens(estimateContextSymbols(context));
   const output = symbolsToTokens(estimateMessageSymbols(message));
   return {
-    input,
-    output,
-    total: input + output,
+    size: {
+      input,
+      output,
+      cacheRead: 0,
+      cacheWrite: 0
+    },
     source: "estimate"
   };
 }
@@ -41,14 +47,18 @@ function resolveUsageDelta(message: AssistantMessage): TokenDelta | null {
   }
   const input = normalizeTokenValue(usage.input);
   const output = normalizeTokenValue(usage.output);
-  const total = normalizeTokenValue(usage.totalTokens);
-  if (input <= 0 && output <= 0 && total <= 0) {
+  const cacheRead = normalizeTokenValue(usage.cacheRead);
+  const cacheWrite = normalizeTokenValue(usage.cacheWrite);
+  if (input <= 0 && output <= 0 && cacheRead <= 0 && cacheWrite <= 0) {
     return null;
   }
   return {
-    input,
-    output,
-    total: total > 0 ? total : input + output,
+    size: {
+      input,
+      output,
+      cacheRead,
+      cacheWrite
+    },
     source: "usage"
   };
 }

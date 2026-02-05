@@ -25,6 +25,24 @@ const toolExecutionResultSchema = z
   })
   .strict();
 
+const tokenSizeSchema = z
+  .object({
+    input: z.number().int().nonnegative(),
+    output: z.number().int().nonnegative(),
+    cacheRead: z.number().int().nonnegative(),
+    cacheWrite: z.number().int().nonnegative()
+  })
+  .strict();
+
+const tokenEntrySchema = z
+  .object({
+    provider: z.string().min(1),
+    model: z.string().min(1),
+    size: tokenSizeSchema
+  })
+  .strict()
+  .nullable();
+
 const historyRecordSchema = z.discriminatedUnion("type", [
   z
     .object({
@@ -54,15 +72,7 @@ const historyRecordSchema = z.discriminatedUnion("type", [
       text: z.string(),
       files: z.array(fileReferenceSchema),
       toolCalls: z.array(z.unknown()),
-      providerId: z.string().min(1),
-      modelId: z.string().min(1),
-      contextTokens: z
-        .object({
-          input: z.number().int().nonnegative(),
-          output: z.number().int().nonnegative(),
-          total: z.number().int().nonnegative()
-        })
-        .strict()
+      tokens: tokenEntrySchema
     })
     .strict(),
   z

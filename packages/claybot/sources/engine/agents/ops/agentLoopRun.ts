@@ -49,6 +49,16 @@ type AgentLoopResult = {
   responseText?: string | null;
   historyRecords: AgentHistoryRecord[];
   contextOverflow?: boolean;
+  tokenStatsUpdates: Array<{
+    provider: string;
+    model: string;
+    size: {
+      input: number;
+      output: number;
+      cacheRead: number;
+      cacheWrite: number;
+    };
+  }>;
 };
 
 /**
@@ -85,6 +95,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
   let finalResponseText: string | null = null;
   let lastResponseNoMessage = false;
   const historyRecords: AgentHistoryRecord[] = [];
+  const tokenStatsUpdates: AgentLoopResult["tokenStatsUpdates"] = [];
   const target = agentDescriptorTargetResolve(agent.descriptor);
   const targetId = target?.targetId ?? null;
   logger.debug(`Starting typing indicator targetId=${targetId ?? "none"}`);
@@ -144,6 +155,21 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
       });
 
       const tokenUsage = tokensResolve(context, response.message);
+      const tokensEntry =
+        tokenUsage.size.input === 0 &&
+        tokenUsage.size.output === 0 &&
+        tokenUsage.size.cacheRead === 0 &&
+        tokenUsage.size.cacheWrite === 0 &&
+        tokenUsage.source === "estimate"
+          ? null
+          : {
+              provider: response.providerId,
+              model: response.modelId,
+              size: tokenUsage.size
+            };
+      if (tokenUsage.source === "usage" && tokensEntry) {
+        tokenStatsUpdates.push(tokensEntry);
+      }
 
       logger.debug(
         `Inference response received providerId=${response.providerId} modelId=${response.modelId} stopReason=${response.message.stopReason}`
@@ -189,13 +215,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
         text: effectiveResponseText ?? "",
         files: [],
         toolCalls,
-        providerId: response.providerId,
-        modelId: response.modelId,
-        contextTokens: {
-          input: tokenUsage.input,
-          output: tokenUsage.output,
-          total: tokenUsage.total
-        }
+        tokens: tokensEntry
       });
       if (toolCalls.length === 0) {
         logger.debug(`No tool calls, breaking inference loop iteration=${iteration}`);
@@ -262,7 +282,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
     logger.debug(`Inference loop caught error error=${String(error)}`);
     if (isContextOverflowError(error)) {
       logger.warn({ agentId: agent.id, error }, "Inference context overflow detected");
-      return { responseText: finalResponseText, historyRecords, contextOverflow: true };
+      return { responseText: finalResponseText, historyRecords, contextOverflow: true, tokenStatsUpdates };
     }
     logger.warn({ connector: source, error }, "Inference failed");
     const message =
@@ -278,7 +298,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
       });
     }
     logger.debug("handleMessage completed with error");
-    return { responseText: finalResponseText, historyRecords };
+    return { responseText: finalResponseText, historyRecords, tokenStatsUpdates };
   } finally {
     logger.debug("Stopping typing indicator");
     stopTyping?.();
@@ -286,7 +306,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
 
   if (!response) {
     logger.debug("No response received, returning without completion");
-    return { responseText: finalResponseText, historyRecords };
+    return { responseText: finalResponseText, historyRecords, tokenStatsUpdates };
   }
 
   if (response.message.stopReason === "error" || response.message.stopReason === "aborted") {
@@ -295,7 +315,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
         { agentId: agent.id, error: response.message.errorMessage },
         "Inference context overflow detected"
       );
-      return { responseText: finalResponseText, historyRecords, contextOverflow: true };
+      return { responseText: finalResponseText, historyRecords, contextOverflow: true, tokenStatsUpdates };
     }
     const message = "Inference failed.";
     const errorDetail =
@@ -323,7 +343,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
       logger.warn({ connector: source, error }, "Failed to send error response");
     }
     logger.debug("handleMessage completed with error stop reason");
-    return { responseText: finalResponseText, historyRecords };
+    return { responseText: finalResponseText, historyRecords, tokenStatsUpdates };
   }
 
   const responseText = messageExtractText(response.message);
@@ -349,12 +369,12 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
       }
     }
     logger.debug("handleMessage completed with no response text");
-    return { responseText: finalResponseText, historyRecords };
+    return { responseText: finalResponseText, historyRecords, tokenStatsUpdates };
   }
 
   if (lastResponseNoMessage) {
     logger.debug("NO_MESSAGE suppressed final response delivery");
-    return { responseText: finalResponseText, historyRecords };
+    return { responseText: finalResponseText, historyRecords, tokenStatsUpdates };
   }
 
   const shouldSendText = hasResponseText && !lastResponseTextSent && !lastResponseNoMessage;
@@ -392,7 +412,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
     logger.warn({ connector: source, error }, "Failed to send response");
   }
   logger.debug("handleMessage completed successfully");
-  return { responseText: finalResponseText, historyRecords };
+  return { responseText: finalResponseText, historyRecords, tokenStatsUpdates };
 }
 
 // Remove NO_MESSAGE text blocks so the sentinel never re-enters future model context.

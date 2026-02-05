@@ -34,9 +34,12 @@ describe("tokensResolve", () => {
     };
 
     expect(tokensResolve(context, message)).toEqual({
-      input: 12,
-      output: 3,
-      total: 15,
+      size: {
+        input: 12,
+        output: 3,
+        cacheRead: 0,
+        cacheWrite: 0
+      },
       source: "usage"
     });
   });
@@ -71,9 +74,12 @@ describe("tokensResolve", () => {
     };
 
     expect(tokensResolve(context, message)).toEqual({
-      input: 3,
-      output: 1,
-      total: 4,
+      size: {
+        input: 3,
+        output: 1,
+        cacheRead: 0,
+        cacheWrite: 0
+      },
       source: "estimate"
     });
   });

@@ -17,16 +17,26 @@ export type AgentMessage = {
   receivedAt: number;
 };
 
-export type AgentTokens = {
+export type AgentTokenSize = {
   input: number;
   output: number;
-  total: number;
+  cacheRead: number;
+  cacheWrite: number;
 };
+
+export type AgentTokenEntry = {
+  provider: string;
+  model: string;
+  size: AgentTokenSize;
+};
+
+export type AgentTokenStats = Record<string, Record<string, AgentTokenSize>>;
 
 export type AgentState = {
   context: Context;
   permissions: SessionPermissions;
-  tokens: AgentTokens;
+  tokens: AgentTokenEntry | null;
+  stats: AgentTokenStats;
   createdAt: number;
   updatedAt: number;
   state: AgentLifecycleState;
@@ -49,13 +59,7 @@ export type AgentHistoryRecord =
       text: string;
       files: FileReference[];
       toolCalls: ToolCall[];
-      providerId: string;
-      modelId: string;
-      contextTokens: {
-        input: number;
-        output: number;
-        total: number;
-      };
+      tokens: AgentTokenEntry | null;
     }
   | {
       type: "tool_result";

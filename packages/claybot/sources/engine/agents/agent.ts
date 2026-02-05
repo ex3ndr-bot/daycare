@@ -101,7 +101,8 @@ export class Agent {
     const state: AgentState = {
       context: { messages: [] },
       permissions: permissionClone(agentSystem.config.defaultPermissions),
-      tokens: { input: 0, output: 0, total: 0 },
+      tokens: null,
+      stats: {},
       createdAt: now,
       updatedAt: now,
       state: "active"
@@ -423,22 +424,23 @@ export class Agent {
         const summaryText = summaryMessage
           ? messageExtractText(summaryMessage)?.trim() ?? ""
           : "";
-        if (summaryText) {
-          const summaryWithContinue = `${summaryText}\n\nPlease continue with the user's latest request.`;
-          compactionAt = Date.now();
-          this.state.context = {
-            messages: [
-              {
-                role: "user",
-                content: summaryWithContinue,
-                timestamp: compactionAt
-              }
-            ]
-          };
-          await agentHistoryAppend(this.agentSystem.config, this.id, {
-            type: "reset",
-            at: compactionAt
-          });
+          if (summaryText) {
+            const summaryWithContinue = `${summaryText}\n\nPlease continue with the user's latest request.`;
+            compactionAt = Date.now();
+            this.state.context = {
+              messages: [
+                {
+                  role: "user",
+                  content: summaryWithContinue,
+                  timestamp: compactionAt
+                }
+              ]
+            };
+            this.state.tokens = null;
+            await agentHistoryAppend(this.agentSystem.config, this.id, {
+              type: "reset",
+              at: compactionAt
+            });
           await agentHistoryAppend(this.agentSystem.config, this.id, {
             type: "user_message",
             at: compactionAt,
@@ -512,13 +514,29 @@ export class Agent {
       await agentHistoryAppend(this.agentSystem.config, this.id, record);
     }
 
-    for (const record of result.historyRecords) {
-      if (record.type !== "assistant_message") {
-        continue;
+    if (result.tokenStatsUpdates.length > 0) {
+      for (const update of result.tokenStatsUpdates) {
+        const providerStats = this.state.stats[update.provider] ?? {};
+        const modelStats = providerStats[update.model] ?? {
+          input: 0,
+          output: 0,
+          cacheRead: 0,
+          cacheWrite: 0
+        };
+        modelStats.input += update.size.input;
+        modelStats.output += update.size.output;
+        modelStats.cacheRead += update.size.cacheRead;
+        modelStats.cacheWrite += update.size.cacheWrite;
+        providerStats[update.model] = modelStats;
+        this.state.stats[update.provider] = providerStats;
       }
-      this.state.tokens.input += record.contextTokens.input;
-      this.state.tokens.output += record.contextTokens.output;
-      this.state.tokens.total += record.contextTokens.total;
+    }
+
+    const lastAssistantRecord = [...result.historyRecords]
+      .reverse()
+      .find((record) => record.type === "assistant_message");
+    if (lastAssistantRecord && lastAssistantRecord.type === "assistant_message") {
+      this.state.tokens = lastAssistantRecord.tokens;
     }
 
     this.state.context = { messages: contextForRun.messages };
@@ -577,7 +595,7 @@ export class Agent {
     } else {
       this.state.context = { messages: [] };
     }
-    this.state.tokens = { input: 0, output: 0, total: 0 };
+    this.state.tokens = null;
     this.state.updatedAt = now;
     await agentHistoryAppend(this.agentSystem.config, this.id, {
       type: "reset",
