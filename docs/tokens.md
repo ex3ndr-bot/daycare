@@ -22,3 +22,23 @@ sequenceDiagram
   Agent->>History: append assistant_message (tokens)
   Agent->>State: update tokens + stats
 ```
+
+## /context Command
+
+- `/context` replies with the latest token snapshot (`tokens`) for the active session.
+- If the session has no usage yet, the response notes that context size is unavailable.
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant Connector
+  participant Engine
+  participant AgentSystem
+  participant State
+
+  User->>Connector: /context
+  Connector->>Engine: onCommand("/context")
+  Engine->>AgentSystem: tokensForTarget(descriptor)
+  AgentSystem->>State: read tokens
+  Engine-->>Connector: sendMessage(context size)
+```

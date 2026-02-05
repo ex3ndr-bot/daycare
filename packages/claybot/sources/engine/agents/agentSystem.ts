@@ -6,7 +6,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { getLogger } from "../../log.js";
 import type { FileStore } from "../../files/store.js";
 import type { AuthStore } from "../../auth/store.js";
-import type { Config, PermissionAccess, SessionPermissions } from "@/types";
+import type { AgentTokenEntry, Config, PermissionAccess, SessionPermissions } from "@/types";
 import { cuid2Is } from "../../utils/cuid2Is.js";
 import type { ConnectorRegistry } from "../modules/connectorRegistry.js";
 import type { ImageGenerationRegistry } from "../modules/imageGenerationRegistry.js";
@@ -206,6 +206,23 @@ export class AgentSystem {
       context: {}
     });
     return permissionClone(entry.agent.state.permissions);
+  }
+
+  async tokensForTarget(target: AgentPostTarget): Promise<AgentTokenEntry | null> {
+    const entry = await this.resolveEntry(target, {
+      type: "message",
+      message: { text: null },
+      context: {}
+    });
+    const tokens = entry.agent.state.tokens;
+    if (!tokens) {
+      return null;
+    }
+    return {
+      provider: tokens.provider,
+      model: tokens.model,
+      size: { ...tokens.size }
+    };
   }
 
   async grantPermission(

@@ -1,7 +1,7 @@
 import { getLogger } from "../log.js";
 import { AgentSystem } from "./agents/agentSystem.js";
 import { ModuleRegistry } from "./modules/moduleRegistry.js";
-import type { Config } from "@/types";
+import type { AgentDescriptor, AgentTokenEntry, Config, MessageContext } from "@/types";
 import { FileStore } from "../files/store.js";
 import { InferenceRouter } from "./modules/inference/router.js";
 import { PluginRegistry } from "./plugins/registry.js";
@@ -35,6 +35,7 @@ import { toolListContextBuild } from "./modules/tools/toolListContextBuild.js";
 import { EngineEventBus } from "./ipc/events.js";
 import { ProviderManager } from "../providers/manager.js";
 import { agentDescriptorLabel } from "./agents/ops/agentDescriptorLabel.js";
+import { agentDescriptorTargetResolve } from "./agents/ops/agentDescriptorTargetResolve.js";
 import { permissionDescribeDecision } from "./permissions/permissionDescribeDecision.js";
 
 const logger = getLogger("engine.runtime");
@@ -77,7 +78,7 @@ export class Engine {
           { type: "message", message, context }
         );
       },
-      onCommand: (command, _context, descriptor) => {
+      onCommand: async (command, context, descriptor) => {
         const connector = descriptor.type === "user" ? descriptor.connector : "unknown";
         const parsed = parseCommand(command);
         if (!parsed) {
@@ -95,6 +96,17 @@ export class Engine {
             { descriptor },
             { type: "reset", message: "Manual reset requested by the user." }
           );
+          return;
+        }
+        if (parsed.name === "context") {
+          if (descriptor.type !== "user") {
+            return;
+          }
+          logger.info(
+            { connector, channelId: descriptor.channelId, userId: descriptor.userId },
+            "Context command received"
+          );
+          await this.handleContextCommand(descriptor, context);
           return;
         }
         logger.debug({ connector, command: parsed.name }, "Unknown command ignored");
@@ -304,6 +316,35 @@ export class Engine {
     });
   }
 
+  private async handleContextCommand(
+    descriptor: AgentDescriptor,
+    context: MessageContext
+  ): Promise<void> {
+    const target = agentDescriptorTargetResolve(descriptor);
+    if (!target) {
+      return;
+    }
+    const connector = this.modules.connectors.get(target.connector);
+    if (!connector?.capabilities.sendText) {
+      return;
+    }
+    let tokens: AgentTokenEntry | null = null;
+    try {
+      tokens = await this.agentSystem.tokensForTarget({ descriptor });
+    } catch (error) {
+      logger.warn({ connector: target.connector, error }, "Context command failed to load tokens");
+    }
+    const text = contextCommandTextBuild(tokens);
+    try {
+      await connector.sendMessage(target.targetId, {
+        text,
+        replyToMessageId: context.messageId
+      });
+    } catch (error) {
+      logger.warn({ connector: target.connector, error }, "Context command failed to send response");
+    }
+  }
+
   async reload(config: Config): Promise<void> {
     if (!this.isReloadable(config)) {
       throw new Error("Config reload requires restart (paths changed).");
@@ -346,4 +387,19 @@ function parseCommand(command: string): { name: string; args: string[] } | null 
     return null;
   }
   return { name, args: parts };
+}
+
+function contextCommandTextBuild(tokens: AgentTokenEntry | null): string {
+  if (!tokens) {
+    return "Context size unavailable yet. Run a prompt to capture token usage.";
+  }
+  const { size } = tokens;
+  return [
+    `Context size (${tokens.provider}/${tokens.model})`,
+    `total: ${size.total} tokens`,
+    `input: ${size.input} tokens`,
+    `output: ${size.output} tokens`,
+    `cache read: ${size.cacheRead} tokens`,
+    `cache write: ${size.cacheWrite} tokens`
+  ].join("\n");
 }
