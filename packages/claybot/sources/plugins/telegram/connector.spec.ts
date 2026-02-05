@@ -179,7 +179,7 @@ describe("TelegramConnector polling", () => {
     telegramInstances.length = 0;
   });
 
-  it("cancels pending retry when polling conflict occurs", async () => {
+  it("keeps retrying after polling conflict", async () => {
     vi.useFakeTimers();
     try {
       const onFatal = vi.fn();
@@ -199,6 +199,9 @@ describe("TelegramConnector polling", () => {
       const bot = telegramInstances[0];
       expect(bot).toBeTruthy();
 
+      await Promise.resolve();
+      await Promise.resolve();
+
       const state = connector as unknown as {
         clearedWebhook: boolean;
         pollingEnabled: boolean;
@@ -214,11 +217,9 @@ describe("TelegramConnector polling", () => {
       pollingErrorHandler?.({ code: "ECONNRESET" });
       pollingErrorHandler?.({ code: "ETELEGRAM", response: { statusCode: 409 } });
 
-      expect(onFatal).toHaveBeenCalledTimes(1);
-      expect(onFatal).toHaveBeenCalledWith("polling_conflict", expect.anything());
-
+      expect(onFatal).not.toHaveBeenCalled();
       await vi.advanceTimersByTimeAsync(60000);
-      expect(bot!.startPolling).not.toHaveBeenCalled();
+      expect(bot!.startPolling).toHaveBeenCalledTimes(1);
       void connector;
     } finally {
       vi.useRealTimers();

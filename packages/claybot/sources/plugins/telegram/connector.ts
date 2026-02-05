@@ -604,11 +604,6 @@ export class TelegramConnector implements Connector {
 
   private scheduleRetry(error: unknown): void {
     if (isTelegramConflictError(error)) {
-      // Conflicts must cancel any pending retry so we don't restart polling again.
-      if (this.pendingRetry) {
-        clearTimeout(this.pendingRetry);
-        this.pendingRetry = null;
-      }
       if (!this.clearedWebhook) {
         logger.warn(
           { error },
@@ -621,13 +616,20 @@ export class TelegramConnector implements Connector {
         return;
       }
 
-      this.pollingEnabled = false;
+      if (this.pendingRetry || !this.pollingEnabled) {
+        return;
+      }
+
+      const delayMs = this.nextRetryDelay();
       logger.warn(
-        { error },
-        "Telegram polling stopped (another instance is polling)"
+        { error, delayMs },
+        "Telegram polling conflict, retrying"
       );
       void this.stopPolling("conflict");
-      this.onFatal?.("polling_conflict", error);
+      this.pendingRetry = setTimeout(() => {
+        this.pendingRetry = null;
+        void this.restartPolling();
+      }, delayMs);
       return;
     }
 
