@@ -10,6 +10,8 @@ type TelegramBotMock = {
   sendMessage: MockFn;
   editMessageText: MockFn;
   answerCallbackQuery: MockFn;
+  startPolling: MockFn;
+  deleteWebHook: MockFn;
 };
 
 const telegramInstances: TelegramBotMock[] = [];
@@ -169,5 +171,57 @@ describe("TelegramConnector commands", () => {
       channelId: "123",
       userId: "123"
     });
+  });
+});
+
+describe("TelegramConnector polling", () => {
+  beforeEach(() => {
+    telegramInstances.length = 0;
+  });
+
+  it("cancels pending retry when polling conflict occurs", async () => {
+    vi.useFakeTimers();
+    try {
+      const onFatal = vi.fn();
+      const fileStore = { saveFromPath: vi.fn() } as unknown as FileStore;
+      const connector = new TelegramConnector({
+        token: "token",
+        allowedUids: ["123"],
+        polling: false,
+        clearWebhook: false,
+        statePath: null,
+        fileStore,
+        dataDir: "/tmp",
+        enableGracefulShutdown: false,
+        onFatal
+      });
+
+      const bot = telegramInstances[0];
+      expect(bot).toBeTruthy();
+
+      const state = connector as unknown as {
+        clearedWebhook: boolean;
+        pollingEnabled: boolean;
+      };
+      state.clearedWebhook = true;
+      state.pollingEnabled = true;
+
+      const pollingErrorHandler = bot!.handlers.get("polling_error")?.[0];
+      expect(pollingErrorHandler).toBeTruthy();
+
+      bot!.startPolling.mockClear();
+
+      pollingErrorHandler?.({ code: "ECONNRESET" });
+      pollingErrorHandler?.({ code: "ETELEGRAM", response: { statusCode: 409 } });
+
+      expect(onFatal).toHaveBeenCalledTimes(1);
+      expect(onFatal).toHaveBeenCalledWith("polling_conflict", expect.anything());
+
+      await vi.advanceTimersByTimeAsync(60000);
+      expect(bot!.startPolling).not.toHaveBeenCalled();
+      void connector;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -78,6 +78,7 @@ export class TelegramConnector implements Connector {
   private pendingRetry: NodeJS.Timeout | null = null;
   private persistTimer: NodeJS.Timeout | null = null;
   private typingTimers = new Map<string, NodeJS.Timeout>();
+  private startingPolling = false;
   private allowedUids: Set<string>;
   private pendingPermissions = new Map<
     string,
@@ -557,6 +558,11 @@ export class TelegramConnector implements Connector {
       return;
     }
 
+    if (this.startingPolling) {
+      logger.debug("Polling start already in progress, returning");
+      return;
+    }
+
     if (this.bot.isPolling()) {
       logger.debug("Already polling, returning");
       return;
@@ -574,26 +580,35 @@ export class TelegramConnector implements Connector {
       logger.debug(`Resuming from last update ID offset=${this.lastUpdateId + 1}`);
     }
 
+    this.startingPolling = true;
     try {
       logger.debug("Starting Telegram polling");
       await this.bot.startPolling({
-        restart: true,
+        restart: false,
         polling: pollingOptions
       });
+      if (this.shuttingDown || !this.pollingEnabled) {
+        logger.debug("Polling disabled after start, stopping");
+        await this.stopPolling("disabled");
+        return;
+      }
       this.retryAttempt = 0;
       logger.debug("Telegram polling started successfully");
     } catch (error) {
       logger.debug(`Polling start failed, scheduling retry error=${String(error)}`);
       this.scheduleRetry(error);
+    } finally {
+      this.startingPolling = false;
     }
   }
 
   private scheduleRetry(error: unknown): void {
-    if (this.pendingRetry) {
-      return;
-    }
-
     if (isTelegramConflictError(error)) {
+      // Conflicts must cancel any pending retry so we don't restart polling again.
+      if (this.pendingRetry) {
+        clearTimeout(this.pendingRetry);
+        this.pendingRetry = null;
+      }
       if (!this.clearedWebhook) {
         logger.warn(
           { error },
@@ -613,6 +628,10 @@ export class TelegramConnector implements Connector {
       );
       void this.stopPolling("conflict");
       this.onFatal?.("polling_conflict", error);
+      return;
+    }
+
+    if (this.pendingRetry || !this.pollingEnabled) {
       return;
     }
 
