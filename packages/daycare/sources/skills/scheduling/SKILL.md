@@ -47,6 +47,7 @@ successful).
 - `command` (required)
 - `cwd`, `timeoutMs`, `env`
 - `permissions` (required tags; must already be allowed by the target agent)
+- `packageManagers` (`go` | `node` | `python`; auto-adds package registry hosts; requires `@network`)
 - `allowedDomains` (network allowlist; requires `@network`)
 
 ## Examples
@@ -60,6 +61,8 @@ schedule: "*/10 * * * *"
 agentId: cu3ql2p5q0000x5p3g7q1l8a9
 gate:
   command: "curl -fsS https://api.example.com/healthz >/dev/null"
+  packageManagers:
+    - node
   allowedDomains:
     - api.example.com
 ---

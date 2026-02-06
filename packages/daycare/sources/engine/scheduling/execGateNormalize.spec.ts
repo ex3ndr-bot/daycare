@@ -15,6 +15,7 @@ describe("execGateNormalize", () => {
       timeoutMs: 1500,
       env: { FOO: "bar", SKIP: 3, FLAG: true },
       permissions: ["@network", "  @read:/tmp  ", "", "@network"],
+      packageManagers: ["node", " node ", "python", "invalid"],
       allowedDomains: ["example.com", " example.com "]
     });
     expect(result).toEqual({
@@ -23,6 +24,7 @@ describe("execGateNormalize", () => {
       timeoutMs: 1500,
       env: { FOO: "bar", SKIP: "3", FLAG: "true" },
       permissions: ["@network", "@read:/tmp"],
+      packageManagers: ["node", "python"],
       allowedDomains: ["example.com"]
     });
   });

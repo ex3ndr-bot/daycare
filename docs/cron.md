@@ -20,6 +20,8 @@ enabled: true
 agentId: cu3ql2p5q0000x5p3g7q1l8a9
 gate:
   command: "curl -fsS https://api.example.com/healthz >/dev/null"
+  packageManagers:
+    - node
   allowedDomains:
     - api.example.com
 ---
@@ -67,7 +69,8 @@ to the prompt under `[Gate output]`. Gates run with the target agent permissions
 `gate.permissions` may declare required permission tags. If they are not already
 allowed by the target agent, a system message is posted and the gate is treated
 as allowed (the task still runs). Network access requires `@network` plus
-`gate.allowedDomains` to allowlist hosts.
+`gate.allowedDomains` to allowlist hosts. You can also use
+`gate.packageManagers` (`go`, `node`, `python`) to auto-allow package registry hosts.
 
 ## Permissions
 

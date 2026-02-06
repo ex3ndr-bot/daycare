@@ -7,6 +7,8 @@ import type { ExecException } from "node:child_process";
 import type { ToolDefinition, ToolExecutionResult } from "@/types";
 import type { SessionPermissions } from "@/types";
 import { resolveWorkspacePath } from "../../engine/permissions.js";
+import { sandboxAllowedDomainsResolve } from "../../sandbox/sandboxAllowedDomainsResolve.js";
+import { sandboxAllowedDomainsValidate } from "../../sandbox/sandboxAllowedDomainsValidate.js";
 import { runInSandbox } from "../../sandbox/runtime.js";
 import { sandboxFilesystemPolicyBuild } from "../../sandbox/sandboxFilesystemPolicyBuild.js";
 import { envNormalize } from "../../util/envNormalize.js";
@@ -69,6 +71,12 @@ const execSchema = Type.Object(
     cwd: Type.Optional(Type.String({ minLength: 1 })),
     timeoutMs: Type.Optional(Type.Number({ minimum: 100, maximum: 300_000 })),
     env: Type.Optional(envSchema),
+    packageManagers: Type.Optional(
+      Type.Array(
+        Type.Union([Type.Literal("go"), Type.Literal("node"), Type.Literal("python")]),
+        { minItems: 1 }
+      )
+    ),
     allowedDomains: Type.Optional(
       Type.Array(Type.String({ minLength: 1 }), { minItems: 1 })
     )
@@ -152,7 +160,7 @@ export function buildExecTool(): ToolDefinition {
     tool: {
       name: "exec",
       description:
-        "Execute a shell command inside the agent workspace (or a subdirectory). The cwd, if provided, must be an absolute path that resolves inside the workspace. Writes are sandboxed to the allowed write directories. Optional allowedDomains enables outbound access to specific domains (supports subdomain wildcards like *.example.com, no global wildcard). Returns stdout/stderr and failure details.",
+        "Execute a shell command inside the agent workspace (or a subdirectory). The cwd, if provided, must be an absolute path that resolves inside the workspace. Writes are sandboxed to the allowed write directories. Optional packageManagers presets (go/node/python) auto-allow package registry hosts. Optional allowedDomains enables outbound access to specific domains (supports subdomain wildcards like *.example.com, no global wildcard). Returns stdout/stderr and failure details.",
       parameters: execSchema
     },
     execute: async (args, toolContext, toolCall) => {
@@ -167,8 +175,11 @@ export function buildExecTool(): ToolDefinition {
       const cwd = payload.cwd
         ? resolveWorkspacePath(workingDir, payload.cwd)
         : workingDir;
-      const allowedDomains = normalizeAllowedDomains(payload.allowedDomains);
-      const domainIssues = validateAllowedDomains(
+      const allowedDomains = sandboxAllowedDomainsResolve(
+        payload.allowedDomains,
+        payload.packageManagers
+      );
+      const domainIssues = sandboxAllowedDomainsValidate(
         allowedDomains,
         toolContext.permissions.network
       );
@@ -465,34 +476,4 @@ function buildSandboxConfig(permissions: SessionPermissions, allowedDomains: str
       deniedDomains: []
     }
   };
-}
-
-function normalizeAllowedDomains(entries?: string[]): string[] {
-  if (!entries) {
-    return [];
-  }
-  const next: string[] = [];
-  const seen = new Set<string>();
-  for (const entry of entries) {
-    const trimmed = entry.trim();
-    if (!trimmed) {
-      throw new Error("allowedDomains entries cannot be blank.");
-    }
-    if (!seen.has(trimmed)) {
-      seen.add(trimmed);
-      next.push(trimmed);
-    }
-  }
-  return next;
-}
-
-function validateAllowedDomains(allowedDomains: string[], networkAllowed: boolean): string[] {
-  const issues: string[] = [];
-  if (allowedDomains.includes("*")) {
-    issues.push("Wildcard \"*\" is not allowed in allowedDomains.");
-  }
-  if (allowedDomains.length > 0 && !networkAllowed) {
-    issues.push("Network permission is required to set allowedDomains.");
-  }
-  return issues;
 }

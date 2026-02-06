@@ -28,6 +28,12 @@ const addSchema = Type.Object(
         timeoutMs: Type.Optional(Type.Number({ minimum: 100, maximum: 300_000 })),
         env: Type.Optional(envSchema),
         permissions: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { minItems: 1 })),
+        packageManagers: Type.Optional(
+          Type.Array(
+            Type.Union([Type.Literal("go"), Type.Literal("node"), Type.Literal("python")]),
+            { minItems: 1 }
+          )
+        ),
         allowedDomains: Type.Optional(
           Type.Array(Type.String({ minLength: 1 }), { minItems: 1 })
         )

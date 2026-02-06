@@ -1,4 +1,5 @@
 import type { ExecGateDefinition } from "@/types";
+import { SANDBOX_PACKAGE_MANAGERS } from "../../sandbox/sandboxPackageManagers.js";
 import { envNormalize } from "../../util/envNormalize.js";
 
 /**
@@ -15,6 +16,7 @@ export function execGateNormalize(value: unknown): ExecGateDefinition | undefine
     timeoutMs?: unknown;
     env?: unknown;
     permissions?: unknown;
+    packageManagers?: unknown;
     allowedDomains?: unknown;
   };
   if (typeof candidate.command !== "string") {
@@ -48,6 +50,11 @@ export function execGateNormalize(value: unknown): ExecGateDefinition | undefine
     next.permissions = permissions;
   }
 
+  const packageManagers = normalizePackageManagers(candidate.packageManagers);
+  if (packageManagers.length > 0) {
+    next.packageManagers = packageManagers;
+  }
+
   const allowedDomains = normalizeStringArray(candidate.allowedDomains);
   if (allowedDomains.length > 0) {
     next.allowedDomains = allowedDomains;
@@ -64,5 +71,17 @@ function normalizeStringArray(value: unknown): string[] {
     .filter((entry): entry is string => typeof entry === "string")
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
+  return Array.from(new Set(entries));
+}
+
+function normalizePackageManagers(value: unknown): (typeof SANDBOX_PACKAGE_MANAGERS)[number][] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const allowed = new Set<string>(SANDBOX_PACKAGE_MANAGERS);
+  const entries = value
+    .filter((entry): entry is string => typeof entry === "string")
+    .map((entry) => entry.trim())
+    .filter((entry): entry is (typeof SANDBOX_PACKAGE_MANAGERS)[number] => allowed.has(entry));
   return Array.from(new Set(entries));
 }

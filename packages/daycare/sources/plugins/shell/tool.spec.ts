@@ -36,6 +36,19 @@ describe("exec tool allowedDomains", () => {
     ).rejects.toThrow("Network permission is required");
   });
 
+  it("throws when packageManagers provided without network permission", async () => {
+    const tool = buildExecTool();
+    const context = createContext(workingDir, false);
+
+    await expect(
+      tool.execute(
+        { command: "echo ok", packageManagers: ["node"] },
+        context,
+        toolCall
+      )
+    ).rejects.toThrow("Network permission is required");
+  });
+
   it("throws when allowedDomains includes '*'", async () => {
     const tool = buildExecTool();
     const context = createContext(workingDir, true);

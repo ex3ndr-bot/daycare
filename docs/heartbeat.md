@@ -14,6 +14,8 @@ Example heartbeat file:
 title: Check internet
 gate:
   command: "curl -fsS https://api.example.com/healthz >/dev/null"
+  packageManagers:
+    - python
   allowedDomains:
     - api.example.com
 ---
@@ -51,7 +53,8 @@ appended to the prompt under `[Gate output]`. Gates run with the heartbeat agent
 permissions. `gate.permissions` may declare required permission tags. If they are
 not already allowed by the heartbeat agent, a system message is posted and the gate
 is treated as allowed (the task still runs). Network access requires `@network` plus
-`gate.allowedDomains` to allowlist hosts.
+`gate.allowedDomains` to allowlist hosts. You can also use
+`gate.packageManagers` (`go`, `node`, `python`) to auto-allow package registry hosts.
 
 ## Permissions
 

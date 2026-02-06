@@ -1,3 +1,5 @@
+import type { SandboxPackageManager } from "../../sandbox/sandboxPackageManagers.js";
+
 /**
  * Exec gate configuration for scheduled tasks.
  */
@@ -7,5 +9,6 @@ export type ExecGateDefinition = {
   timeoutMs?: number;
   env?: Record<string, string>;
   permissions?: string[];
+  packageManagers?: SandboxPackageManager[];
   allowedDomains?: string[];
 };

@@ -2,6 +2,8 @@ import path from "node:path";
 import type { ExecException } from "node:child_process";
 
 import type { ExecGateDefinition, SessionPermissions } from "@/types";
+import { sandboxAllowedDomainsResolve } from "../../sandbox/sandboxAllowedDomainsResolve.js";
+import { sandboxAllowedDomainsValidate } from "../../sandbox/sandboxAllowedDomainsValidate.js";
 import { runInSandbox } from "../../sandbox/runtime.js";
 import { sandboxFilesystemPolicyBuild } from "../../sandbox/sandboxFilesystemPolicyBuild.js";
 import { permissionClone } from "../permissions/permissionClone.js";
@@ -47,8 +49,11 @@ export async function execGateCheck(
   const permissions = permissionClone(input.permissions);
   permissions.workingDir = path.resolve(input.workingDir);
 
-  const allowedDomains = normalizeAllowedDomains(input.gate.allowedDomains);
-  const domainIssues = validateAllowedDomains(allowedDomains, permissions.network);
+  const allowedDomains = sandboxAllowedDomainsResolve(
+    input.gate.allowedDomains,
+    input.gate.packageManagers
+  );
+  const domainIssues = sandboxAllowedDomainsValidate(allowedDomains, permissions.network);
   if (domainIssues.length > 0) {
     return gateError(domainIssues.join(" "));
   }
@@ -115,36 +120,6 @@ function gateError(message: string): ExecGateCheckResult {
     stderr: "",
     error: new Error(message)
   };
-}
-
-function normalizeAllowedDomains(entries?: string[]): string[] {
-  if (!entries) {
-    return [];
-  }
-  const next: string[] = [];
-  const seen = new Set<string>();
-  for (const entry of entries) {
-    const trimmed = entry.trim();
-    if (!trimmed) {
-      throw new Error("allowedDomains entries cannot be blank.");
-    }
-    if (!seen.has(trimmed)) {
-      seen.add(trimmed);
-      next.push(trimmed);
-    }
-  }
-  return next;
-}
-
-function validateAllowedDomains(allowedDomains: string[], networkAllowed: boolean): string[] {
-  const issues: string[] = [];
-  if (allowedDomains.includes("*")) {
-    issues.push("Wildcard \"*\" is not allowed in allowedDomains.");
-  }
-  if (allowedDomains.length > 0 && !networkAllowed) {
-    issues.push("Network permission is required to set allowedDomains.");
-  }
-  return issues;
 }
 
 function buildSandboxConfig(permissions: SessionPermissions, allowedDomains: string[]) {

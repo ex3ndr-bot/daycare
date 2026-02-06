@@ -6,6 +6,7 @@ export type { SessionPermissions } from "./engine/permissions.js";
 
 // Scheduling
 export type { ExecGateDefinition } from "./engine/scheduling/execGateTypes.js";
+export type { SandboxPackageManager } from "./sandbox/sandboxPackageManagers.js";
 
 // Connectors
 export type {
