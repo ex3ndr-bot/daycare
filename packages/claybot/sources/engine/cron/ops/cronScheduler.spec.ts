@@ -88,6 +88,33 @@ describe("CronScheduler", () => {
     scheduler.stop();
   });
 
+  it("acquires read lock only for task execution", async () => {
+    vi.setSystemTime(new Date("2024-01-15T10:30:00Z"));
+
+    await store.createTask("lock-scope-test", {
+      name: "Lock Scope Test",
+      schedule: "* * * * *",
+      prompt: "Run me"
+    });
+
+    let readLockCalls = 0;
+    const scheduler = new CronScheduler({
+      store,
+      onTask: vi.fn(),
+      defaultPermissions: defaultPermissions(tempDir),
+      runWithReadLock: async (operation) => {
+        readLockCalls += 1;
+        return operation();
+      }
+    });
+
+    await scheduler.start();
+    await vi.advanceTimersByTimeAsync(60 * 1000);
+
+    expect(readLockCalls).toBe(1);
+    scheduler.stop();
+  });
+
   it("skips disabled tasks", async () => {
     await store.createTask("disabled-task", {
       name: "Disabled Task",

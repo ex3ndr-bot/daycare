@@ -367,13 +367,7 @@ export class Engine {
   }
 
   private isReloadable(next: Config): boolean {
-    return (
-      this.config.settingsPath === next.settingsPath &&
-      this.config.configDir === next.configDir &&
-      this.config.dataDir === next.dataDir &&
-      this.config.authPath === next.authPath &&
-      this.config.socketPath === next.socketPath
-    );
+    return configReloadPathsEqual(this.config, next);
   }
 
   private async inReadLock<T>(operation: () => Promise<T>): Promise<T> {
@@ -439,6 +433,15 @@ function contextCommandTextBuild(tokens: AgentTokenEntry | null): string {
 
 function configReloadEqual(left: Config, right: Config): boolean {
   return (
+    configReloadPathsEqual(left, right) &&
+    left.verbose === right.verbose &&
+    valueDeepEqual(left.settings, right.settings) &&
+    valueDeepEqual(left.defaultPermissions, right.defaultPermissions)
+  );
+}
+
+function configReloadPathsEqual(left: Config, right: Config): boolean {
+  return (
     left.settingsPath === right.settingsPath &&
     left.configDir === right.configDir &&
     left.dataDir === right.dataDir &&
@@ -446,9 +449,6 @@ function configReloadEqual(left: Config, right: Config): boolean {
     left.filesDir === right.filesDir &&
     left.authPath === right.authPath &&
     left.socketPath === right.socketPath &&
-    left.workspaceDir === right.workspaceDir &&
-    left.verbose === right.verbose &&
-    valueDeepEqual(left.settings, right.settings) &&
-    valueDeepEqual(left.defaultPermissions, right.defaultPermissions)
+    left.workspaceDir === right.workspaceDir
   );
 }

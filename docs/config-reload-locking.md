@@ -7,7 +7,7 @@ Read-locked runtime paths now include:
 - connector message/command/permission handlers
 - agent inbox item processing
 - inference router completions
-- cron scheduler task execution/tick
+- cron scheduler task execution (tick scheduling is unlocked)
 - heartbeat scheduler runs
 
 This currently favors strict quiescence over reload latency: a config write lock
@@ -26,7 +26,7 @@ sequenceDiagram
   participant Providers as ProviderManager
   participant Plugins as PluginManager
 
-  API->>Engine: reload(nextConfig)
+  API->>Engine: reload()
   Engine->>Sync: invalidateAndAwait()
   Sync->>Lock: inWriteLock(apply latest config)
   Lock-->>Engine: write section entered (readers paused)
@@ -35,4 +35,17 @@ sequenceDiagram
   Engine-->>Lock: apply complete
   Lock-->>Sync: release write lock
   Sync-->>API: reload resolved
+```
+
+```mermaid
+sequenceDiagram
+  participant Tick as Cron Tick
+  participant Scheduler as CronScheduler
+  participant Lock as ReadWriteLock
+  participant Task as executeTask
+
+  Tick->>Scheduler: runTickUnlocked()
+  Scheduler->>Task: schedule due task
+  Task->>Lock: inReadLock(executeTaskUnlocked)
+  Lock-->>Task: release after task completes
 ```
