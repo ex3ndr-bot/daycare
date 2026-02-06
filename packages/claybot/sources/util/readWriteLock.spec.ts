@@ -91,41 +91,26 @@ describe("ReadWriteLock", () => {
     ]);
   });
 
-  it("supports nested read locks while a writer is waiting", async () => {
+  it("blocks writer until active readers finish", async () => {
     const lock = new ReadWriteLock();
-    const nestedStart = deferred<void>();
-    const outerGate = deferred<void>();
-    const writerDone = deferred<void>();
-    const nestedDone = deferred<void>();
+    const readerGate = deferred<void>();
+    const writerStarted = deferred<void>();
 
     const reader = lock.inReadLock(async () => {
-      await nestedStart.promise;
-      await lock.inReadLock(async () => {
-        nestedDone.resolve();
-      });
-      await outerGate.promise;
+      await readerGate.promise;
+    });
+    await Promise.resolve();
+
+    const writer = lock.inWriteLock(async () => {
+      writerStarted.resolve();
     });
 
     await Promise.resolve();
-    const writer = lock.inWriteLock(async () => {
-      writerDone.resolve();
-    });
+    expect(await Promise.race([writerStarted.promise.then(() => true), Promise.resolve(false)])).toBe(false);
 
-    nestedStart.resolve();
-    await nestedDone.promise;
-    expect(await Promise.race([writerDone.promise.then(() => true), Promise.resolve(false)])).toBe(false);
-
-    outerGate.resolve();
-    await writerDone.promise;
+    readerGate.resolve();
+    await writerStarted.promise;
     await writer;
-    await writerDone.promise;
     await reader;
-  });
-
-  it("rejects read-to-write lock upgrade", async () => {
-    const lock = new ReadWriteLock();
-    await expect(
-      lock.inReadLock(async () => lock.inWriteLock(async () => "nope"))
-    ).rejects.toThrow("Cannot acquire write lock while holding read lock.");
   });
 });

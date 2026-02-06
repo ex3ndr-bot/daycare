@@ -20,7 +20,6 @@ Plugin/provider reload behavior during apply:
 Operational notes:
 - connector callbacks catch and log failures so connector event loops do not produce unhandled promise rejections
 - agent sleep persistence runs after inbox item read-lock work completes, so config reload is not blocked by sleep-state disk writes
-- `ReadWriteLock` reentrancy uses `AsyncLocalStorage`; fire-and-forget async work must not rely on inherited lock scope
 
 ```mermaid
 sequenceDiagram

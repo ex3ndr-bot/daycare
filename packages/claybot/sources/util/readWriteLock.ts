@@ -1,62 +1,26 @@
-import { AsyncLocalStorage } from "node:async_hooks";
-
-type LockScope = {
-  readDepth: number;
-  writeDepth: number;
-};
-
 /**
  * Runs async work under reader/writer exclusion with writer priority.
- * Expects: write lock is never acquired while already holding a read lock.
  * Note: queued writers block newly arriving readers to reduce reload latency.
- * Note: async work spawned without awaiting inside the lock scope inherits
- * AsyncLocalStorage context and can appear reentrant after the parent releases.
  */
 export class ReadWriteLock {
   private activeReaders = 0;
   private writerActive = false;
   private waitingReaders: Array<() => void> = [];
   private waitingWriters: Array<() => void> = [];
-  private scope = new AsyncLocalStorage<LockScope>();
 
   async inReadLock<T>(func: () => Promise<T> | T): Promise<T> {
-    const currentScope = this.scope.getStore();
-    if ((currentScope?.writeDepth ?? 0) > 0 || (currentScope?.readDepth ?? 0) > 0) {
-      const nestedScope: LockScope = {
-        readDepth: (currentScope?.readDepth ?? 0) + 1,
-        writeDepth: currentScope?.writeDepth ?? 0
-      };
-      return this.scope.run(nestedScope, async () => func());
-    }
-
     await this.acquireRead();
     try {
-      return await this.scope.run({ readDepth: 1, writeDepth: 0 }, async () => func());
+      return await func();
     } finally {
       this.releaseRead();
     }
   }
 
   async inWriteLock<T>(func: () => Promise<T> | T): Promise<T> {
-    const currentScope = this.scope.getStore();
-    if ((currentScope?.writeDepth ?? 0) > 0) {
-      const scope = currentScope;
-      if (!scope) {
-        throw new Error("Write lock scope missing.");
-      }
-      const nestedScope: LockScope = {
-        readDepth: scope.readDepth,
-        writeDepth: scope.writeDepth + 1
-      };
-      return this.scope.run(nestedScope, async () => func());
-    }
-    if ((currentScope?.readDepth ?? 0) > 0) {
-      throw new Error("Cannot acquire write lock while holding read lock.");
-    }
-
     await this.acquireWrite();
     try {
-      return await this.scope.run({ readDepth: 0, writeDepth: 1 }, async () => func());
+      return await func();
     } finally {
       this.releaseWrite();
     }
