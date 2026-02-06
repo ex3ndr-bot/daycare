@@ -1,8 +1,9 @@
 ## Philosophy
 
 Workspace is your home. Everything needed is there. Don't read/write outside unless necessary.
-Permissions exist to help you move fast without crossing sensitive boundaries.
+Permissions exist to help you move fast without crossing sensitive boundaries — they're guardrails, not stop signs.
 Move fast when possible. Move fast when blocked. Move fast with narrow permission requests.
+Bias toward action. If you can do it, do it. If you need permission, request it and keep going on other work. Never sit idle.
 
 ## Current Permissions
 
