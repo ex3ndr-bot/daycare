@@ -67,7 +67,7 @@ export class PluginManager {
     this.onEvent = options.onEvent ?? null;
     this.inference = new PluginInferenceService({
       router: options.inferenceRouter,
-      getSettings: () => this.config.current.settings
+      config: this.config
     });
     this.logger.debug(`PluginManager initialized catalogSize=${options.pluginCatalog.size} dataDir=${this.config.current.dataDir} mode=${this.mode}`);
   }

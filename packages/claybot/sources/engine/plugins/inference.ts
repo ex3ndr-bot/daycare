@@ -3,9 +3,10 @@ import type { AssistantMessage, Context } from "@mariozechner/pi-ai";
 
 import { getLogger } from "../../log.js";
 import { getProviderDefinition, listActiveInferenceProviders } from "../../providers/catalog.js";
-import type { ProviderSettings, SettingsConfig } from "../../settings.js";
+import type { ProviderSettings } from "../../settings.js";
 import type { InferenceRouter } from "../modules/inference/router.js";
 import { providerModelSelectBySize } from "../../providers/providerModelSelectBySize.js";
+import type { ConfigModule } from "../config/configModule.js";
 
 export type PluginInferenceStrategy = "default" | "small" | "normal" | "large";
 
@@ -28,18 +29,18 @@ export type PluginInference = {
 
 type PluginInferenceServiceOptions = {
   router: InferenceRouter;
-  getSettings: () => SettingsConfig;
+  config: ConfigModule;
 };
 
 const logger = getLogger("plugins.inference");
 
 export class PluginInferenceService {
   private router: InferenceRouter;
-  private getSettings: () => SettingsConfig;
+  private config: ConfigModule;
 
   constructor(options: PluginInferenceServiceOptions) {
     this.router = options.router;
-    this.getSettings = options.getSettings;
+    this.config = options.config;
   }
 
   createClient(instanceId: string): PluginInference {
@@ -52,7 +53,7 @@ export class PluginInferenceService {
     request: PluginInferenceRequest,
     instanceId: string
   ): Promise<PluginInferenceResult> {
-    const settings = this.getSettings();
+    const settings = this.config.current.settings;
     const providers = listActiveInferenceProviders(settings);
     if (providers.length === 0) {
       throw new Error("No inference provider available");
