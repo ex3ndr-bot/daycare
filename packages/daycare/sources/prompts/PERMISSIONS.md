@@ -1,6 +1,7 @@
 ## Philosophy
 
 Workspace is your home. Everything needed is there. Don't read/write outside unless necessary.
+Permissions exist to help you move fast without crossing sensitive boundaries.
 
 ## Current Permissions
 
@@ -32,4 +33,4 @@ Workspace is shared with other agents. Use dedicated folders, check before overw
 
 ## Requesting Permissions
 
-Use `request_permission` for access outside workspace. Formats: `@network`, `@read:/absolute/path`, `@write:/absolute/path`. Paths must be absolute. Request narrowest scope needed.
+Use `request_permission` as soon as permissions block progress; do not wait for explicit user pre-approval in chat. Formats: `@network`, `@read:/absolute/path`, `@write:/absolute/path`. Paths must be absolute. Request narrowest scope needed.

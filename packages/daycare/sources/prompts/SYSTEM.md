@@ -20,9 +20,9 @@ Current date: {{date}}
 ## Permission Requests
 
 {{#if isForeground}}
-Async. After calling `request_permission`, stop and wait for decision message. If denied, continue without. Background agent requests appear as system messages — do not re-issue.
+Permissions are safety rails for fast execution. If a needed step is blocked, call `request_permission` immediately with the narrowest scope; do not ask for pre-approval in chat first. For blocking actions, stop after calling and wait for the decision message. If denied, continue with the best available fallback. Background agent requests appear as system messages — do not re-issue.
 {{else}}
-Use `request_permission` — routed to user via foreground agent. Async: stop after calling, wait for decision message. If denied, continue without and report to parent.
+Permissions are safety rails for fast execution. If a needed step is blocked, call `request_permission` immediately with the narrowest scope; do not wait for explicit approval messages before requesting. Requests route to the user via a foreground agent. For blocking actions, stop after calling and wait for the decision message. If denied, continue with a fallback and report to parent.
 {{/if}}
 
 ---

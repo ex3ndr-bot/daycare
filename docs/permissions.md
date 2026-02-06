@@ -45,6 +45,9 @@ agents call the same tool; the engine routes the request through the most recent
 and includes the requesting agent id so the decision returns to the right agent. The tool returns
 immediately, and the permission decision is delivered later to resume the agent.
 
+Prompt stance: agents should request permissions proactively when blocked, without waiting for
+manual pre-approval messages. Permissions act as safety rails that enable fast execution.
+
 ```mermaid
 sequenceDiagram
   participant Foreground as Foreground Agent
@@ -55,6 +58,16 @@ sequenceDiagram
   User->>Connector: approve/deny
   Connector->>Foreground: onPermission(decision)
   Foreground->>Foreground: permissionApply + resume message
+```
+
+```mermaid
+flowchart TD
+  Need[Need action] --> Check{In current permissions?}
+  Check -->|yes| Execute[Execute immediately]
+  Check -->|no| Request[Call request_permission now]
+  Request --> Wait[Wait for decision if action is blocked]
+  Wait -->|approved| Resume[Resume action]
+  Wait -->|denied| Fallback[Use fallback path]
 ```
 
 Tool payload shape:
