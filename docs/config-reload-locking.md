@@ -6,6 +6,8 @@ Runtime config state and lock now live in `ConfigModule` (`current config` + `co
 and that module is shared across engine modules.
 Modules now receive that shared module as `config` and call `config.inReadLock(...)` directly
 instead of callback-style lock plumbing.
+`AgentSystem` no longer exposes a `reload` method; config mutation is centralized in
+`Engine.reloadApplyLatest()` via `ConfigModule.configSet(...)` under write lock.
 
 Read-locked runtime paths now include:
 - connector message/command/permission handlers
