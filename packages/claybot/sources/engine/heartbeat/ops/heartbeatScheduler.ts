@@ -17,6 +17,7 @@ const logger = getLogger("heartbeat.scheduler");
  * Runs all heartbeat tasks in a single batch at regular intervals.
  */
 export class HeartbeatScheduler {
+  private config: HeartbeatSchedulerOptions["config"];
   private store: HeartbeatStoreInterface;
   private intervalMs: number;
   private onRun: HeartbeatSchedulerOptions["onRun"];
@@ -24,7 +25,6 @@ export class HeartbeatScheduler {
   private onGatePermissionSkip?: HeartbeatSchedulerOptions["onGatePermissionSkip"];
   private onTaskComplete?: HeartbeatSchedulerOptions["onTaskComplete"];
   private defaultPermissions: HeartbeatSchedulerOptions["defaultPermissions"];
-  private runWithReadLock?: HeartbeatSchedulerOptions["runWithReadLock"];
   private resolvePermissions?: HeartbeatSchedulerOptions["resolvePermissions"];
   private gateCheck: HeartbeatSchedulerOptions["gateCheck"];
   private timer: NodeJS.Timeout | null = null;
@@ -34,6 +34,7 @@ export class HeartbeatScheduler {
   private nextRunAt: Date | null = null;
 
   constructor(options: HeartbeatSchedulerOptions) {
+    this.config = options.config;
     this.store = options.store;
     this.intervalMs = options.intervalMs ?? 30 * 60 * 1000;
     this.onRun = options.onRun;
@@ -41,7 +42,6 @@ export class HeartbeatScheduler {
     this.onGatePermissionSkip = options.onGatePermissionSkip;
     this.onTaskComplete = options.onTaskComplete;
     this.defaultPermissions = options.defaultPermissions;
-    this.runWithReadLock = options.runWithReadLock;
     this.resolvePermissions = options.resolvePermissions;
     this.gateCheck = options.gateCheck ?? execGateCheck;
     logger.debug("HeartbeatScheduler initialized");
@@ -111,10 +111,7 @@ export class HeartbeatScheduler {
   }
 
   private async runOnce(taskIds?: string[]): Promise<{ ran: number; taskIds: string[] }> {
-    if (this.runWithReadLock) {
-      return this.runWithReadLock(async () => this.runOnceUnlocked(taskIds));
-    }
-    return this.runOnceUnlocked(taskIds);
+    return this.config.inReadLock(async () => this.runOnceUnlocked(taskIds));
   }
 
   private async runOnceUnlocked(taskIds?: string[]): Promise<{ ran: number; taskIds: string[] }> {

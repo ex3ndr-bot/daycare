@@ -50,7 +50,7 @@ export type EngineOptions = {
 };
 
 export class Engine {
-  readonly configModule: ConfigModule;
+  readonly config: ConfigModule;
   readonly authStore: AuthStore;
   readonly fileStore: FileStore;
   readonly modules: ModuleRegistry;
@@ -66,13 +66,13 @@ export class Engine {
 
   constructor(options: EngineOptions) {
     logger.debug(`Engine constructor starting, dataDir=${options.config.dataDir}`);
-    this.configModule = new ConfigModule(options.config);
+    this.config = new ConfigModule(options.config);
     this.eventBus = options.eventBus;
     this.reloadSync = new InvalidateSync(async () => {
       await this.reloadApplyLatest();
     });
-    this.authStore = new AuthStore(this.config);
-    this.fileStore = new FileStore(this.config);
+    this.authStore = new AuthStore(this.runtimeConfig);
+    this.fileStore = new FileStore(this.runtimeConfig);
     logger.debug(`AuthStore and FileStore initialized`);
 
     this.modules = new ModuleRegistry({
@@ -158,18 +158,18 @@ export class Engine {
     });
 
     this.inferenceRouter = new InferenceRouter({
-      providers: listActiveInferenceProviders(this.config.settings),
+      providers: listActiveInferenceProviders(this.runtimeConfig.settings),
       registry: this.modules.inference,
       auth: this.authStore,
       // Hold read lock for the full inference lifecycle so write-locked reload reaches
       // a strict quiescent point with no active model calls.
-      runWithReadLock: async (operation) => this.configModule.inReadLock(operation)
+      config: this.config
     });
 
     this.pluginRegistry = new PluginRegistry(this.modules);
 
     this.pluginManager = new PluginManager({
-      configModule: this.configModule,
+      config: this.config,
       registry: this.pluginRegistry,
       auth: this.authStore,
       fileStore: this.fileStore,
@@ -182,7 +182,7 @@ export class Engine {
     });
 
     this.providerManager = new ProviderManager({
-      configModule: this.configModule,
+      config: this.config,
       auth: this.authStore,
       fileStore: this.fileStore,
       inferenceRegistry: this.modules.inference,
@@ -190,7 +190,7 @@ export class Engine {
     });
 
     this.agentSystem = new AgentSystem({
-      configModule: this.configModule,
+      config: this.config,
       eventBus: this.eventBus,
       connectorRegistry: this.modules.connectors,
       imageRegistry: this.modules.images,
@@ -198,24 +198,21 @@ export class Engine {
       pluginManager: this.pluginManager,
       inferenceRouter: this.inferenceRouter,
       fileStore: this.fileStore,
-      authStore: this.authStore,
-      runWithReadLock: async (operation) => this.inReadLock(operation)
+      authStore: this.authStore
     });
 
     this.crons = new Crons({
-      configModule: this.configModule,
+      config: this.config,
       eventBus: this.eventBus,
-      agentSystem: this.agentSystem,
-      runWithReadLock: async (operation) => this.configModule.inReadLock(operation)
+      agentSystem: this.agentSystem
     });
     this.agentSystem.setCrons(this.crons);
 
     const heartbeats = new Heartbeats({
-      configModule: this.configModule,
+      config: this.config,
       eventBus: this.eventBus,
       intervalMs: 30 * 60 * 1000,
-      agentSystem: this.agentSystem,
-      runWithReadLock: async (operation) => this.configModule.inReadLock(operation)
+      agentSystem: this.agentSystem
     });
     this.heartbeats = heartbeats;
     this.agentSystem.setHeartbeats(heartbeats);
@@ -224,7 +221,7 @@ export class Engine {
 
   async start(): Promise<void> {
     logger.debug("Engine.start() beginning");
-    await ensureWorkspaceDir(this.config.defaultPermissions.workingDir);
+    await ensureWorkspaceDir(this.runtimeConfig.defaultPermissions.workingDir);
 
     logger.debug("Loading agents");
     await this.agentSystem.load();
@@ -234,7 +231,7 @@ export class Engine {
     await this.providerManager.sync();
     logger.debug("Provider manager sync complete");
     logger.debug("Loading enabled plugins");
-    await this.pluginManager.loadEnabled(this.config);
+    await this.pluginManager.loadEnabled(this.runtimeConfig);
     logger.debug("Plugins loaded");
 
     await this.crons.ensureDir();
@@ -364,16 +361,16 @@ export class Engine {
     await this.reloadSync.invalidateAndAwait();
   }
 
-  get config(): Config {
-    return this.configModule.configGet();
+  get runtimeConfig(): Config {
+    return this.config.configGet();
   }
 
   private isReloadable(next: Config): boolean {
-    return configReloadPathsEqual(this.config, next);
+    return configReloadPathsEqual(this.runtimeConfig, next);
   }
 
   private async inReadLock<T>(operation: () => Promise<T>): Promise<T> {
-    return this.configModule.inReadLock(operation);
+    return this.config.inReadLock(operation);
   }
 
   private async runConnectorCallback(
@@ -388,20 +385,20 @@ export class Engine {
   }
 
   private async reloadApplyLatest(): Promise<void> {
-    const config = await configLoad(this.config.settingsPath, { verbose: this.config.verbose });
-    await this.configModule.inWriteLock(async () => {
+    const config = await configLoad(this.runtimeConfig.settingsPath, { verbose: this.runtimeConfig.verbose });
+    await this.config.inWriteLock(async () => {
       if (!this.isReloadable(config)) {
         throw new Error("Config reload requires restart (paths changed).");
       }
-      if (configReloadEqual(this.config, config)) {
+      if (configReloadEqual(this.runtimeConfig, config)) {
         logger.debug("Reload requested but config is unchanged.");
         return;
       }
-      this.configModule.configSet(config);
-      await ensureWorkspaceDir(this.config.defaultPermissions.workingDir);
+      this.config.configSet(config);
+      await ensureWorkspaceDir(this.runtimeConfig.defaultPermissions.workingDir);
       await this.providerManager.sync();
       await this.pluginManager.syncWithConfig(config);
-      this.inferenceRouter.updateProviders(listActiveInferenceProviders(this.config.settings));
+      this.inferenceRouter.updateProviders(listActiveInferenceProviders(this.runtimeConfig.settings));
       logger.info("Runtime configuration reloaded");
     });
   }

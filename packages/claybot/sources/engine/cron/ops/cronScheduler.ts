@@ -18,10 +18,12 @@ import {
 } from "../../scheduling/execGateCheck.js";
 import { execGateOutputAppend } from "../../scheduling/execGateOutputAppend.js";
 import { gatePermissionsCheck } from "../../scheduling/gatePermissionsCheck.js";
+import type { ConfigModule } from "../../config/configModule.js";
 
 const logger = getLogger("cron.scheduler");
 
 export type CronSchedulerOptions = {
+  config: ConfigModule;
   store: CronStore;
   defaultPermissions: SessionPermissions;
   resolvePermissions?: (task: CronTaskWithPaths) => Promise<SessionPermissions> | SessionPermissions;
@@ -31,7 +33,6 @@ export type CronSchedulerOptions = {
     task: CronTaskWithPaths,
     missing: string[]
   ) => void | Promise<void>;
-  runWithReadLock?: <T>(operation: () => Promise<T>) => Promise<T>;
   onTaskComplete?: (task: CronTaskWithPaths, runAt: Date) => void | Promise<void>;
   gateCheck?: (input: ExecGateCheckInput) => Promise<ExecGateCheckResult>;
 };
@@ -40,6 +41,7 @@ export type CronSchedulerOptions = {
  * Schedules and executes cron tasks based on their cron expressions.
  */
 export class CronScheduler {
+  private config: ConfigModule;
   private store: CronStore;
   private tasks = new Map<string, ScheduledTask>();
   private started = false;
@@ -47,7 +49,6 @@ export class CronScheduler {
   private onTask: CronSchedulerOptions["onTask"];
   private onError?: CronSchedulerOptions["onError"];
   private onGatePermissionSkip?: CronSchedulerOptions["onGatePermissionSkip"];
-  private runWithReadLock?: CronSchedulerOptions["runWithReadLock"];
   private onTaskComplete?: CronSchedulerOptions["onTaskComplete"];
   private defaultPermissions: SessionPermissions;
   private resolvePermissions?: CronSchedulerOptions["resolvePermissions"];
@@ -56,11 +57,11 @@ export class CronScheduler {
   private runningTasks = new Set<string>();
 
   constructor(options: CronSchedulerOptions) {
+    this.config = options.config;
     this.store = options.store;
     this.onTask = options.onTask;
     this.onError = options.onError;
     this.onGatePermissionSkip = options.onGatePermissionSkip;
-    this.runWithReadLock = options.runWithReadLock;
     this.onTaskComplete = options.onTaskComplete;
     this.defaultPermissions = options.defaultPermissions;
     this.resolvePermissions = options.resolvePermissions;
@@ -209,11 +210,7 @@ export class CronScheduler {
   }
 
   private async executeTask(task: CronTaskWithPaths): Promise<void> {
-    if (this.runWithReadLock) {
-      await this.runWithReadLock(async () => this.executeTaskUnlocked(task));
-      return;
-    }
-    await this.executeTaskUnlocked(task);
+    await this.config.inReadLock(async () => this.executeTaskUnlocked(task));
   }
 
   private async executeTaskUnlocked(task: CronTaskWithPaths): Promise<void> {

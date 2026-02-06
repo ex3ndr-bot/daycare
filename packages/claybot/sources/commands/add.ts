@@ -274,7 +274,7 @@ async function validatePluginLoad(
     auth: authStore
   });
   const pluginManager = new PluginManager({
-    configModule: new ConfigModule(config),
+    config: new ConfigModule(config),
     registry: pluginRegistry,
     auth: authStore,
     fileStore,

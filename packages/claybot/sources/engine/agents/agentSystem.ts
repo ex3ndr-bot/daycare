@@ -48,7 +48,7 @@ type AgentEntry = {
 };
 
 export type AgentSystemOptions = {
-  configModule: ConfigModule;
+  config: ConfigModule;
   eventBus: EngineEventBus;
   connectorRegistry: ConnectorRegistry;
   imageRegistry: ImageGenerationRegistry;
@@ -57,11 +57,10 @@ export type AgentSystemOptions = {
   inferenceRouter: InferenceRouter;
   fileStore: FileStore;
   authStore: AuthStore;
-  runWithReadLock?: <T>(operation: () => Promise<T>) => Promise<T>;
 };
 
 export class AgentSystem {
-  private readonly configModule: ConfigModule;
+  readonly config: ConfigModule;
   readonly eventBus: EngineEventBus;
   readonly connectorRegistry: ConnectorRegistry;
   readonly imageRegistry: ImageGenerationRegistry;
@@ -70,7 +69,6 @@ export class AgentSystem {
   readonly inferenceRouter: InferenceRouter;
   readonly fileStore: FileStore;
   readonly authStore: AuthStore;
-  private runWithReadLock?: <T>(operation: () => Promise<T>) => Promise<T>;
   private _crons: Crons | null = null;
   private _heartbeats: Heartbeats | null = null;
   private entries = new Map<string, AgentEntry>();
@@ -78,7 +76,7 @@ export class AgentSystem {
   private stage: "idle" | "loaded" | "running" = "idle";
 
   constructor(options: AgentSystemOptions) {
-    this.configModule = options.configModule;
+    this.config = options.config;
     this.eventBus = options.eventBus;
     this.connectorRegistry = options.connectorRegistry;
     this.imageRegistry = options.imageRegistry;
@@ -87,11 +85,10 @@ export class AgentSystem {
     this.inferenceRouter = options.inferenceRouter;
     this.fileStore = options.fileStore;
     this.authStore = options.authStore;
-    this.runWithReadLock = options.runWithReadLock;
   }
 
-  get config(): Config {
-    return this.configModule.configGet();
+  get runtimeConfig(): Config {
+    return this.config.configGet();
   }
 
   get crons(): Crons {
@@ -120,10 +117,10 @@ export class AgentSystem {
     if (this.stage !== "idle") {
       return;
     }
-    await fs.mkdir(this.config.agentsDir, { recursive: true });
+    await fs.mkdir(this.runtimeConfig.agentsDir, { recursive: true });
     let entries: Dirent[] = [];
     try {
-      entries = await fs.readdir(this.config.agentsDir, { withFileTypes: true });
+      entries = await fs.readdir(this.runtimeConfig.agentsDir, { withFileTypes: true });
     } catch {
       entries = [];
     }
@@ -136,8 +133,8 @@ export class AgentSystem {
       let descriptor: AgentDescriptor | null = null;
       let state: Awaited<ReturnType<typeof agentStateRead>> = null;
       try {
-        descriptor = await agentDescriptorRead(this.config, agentId);
-        state = await agentStateRead(this.config, agentId);
+        descriptor = await agentDescriptorRead(this.runtimeConfig, agentId);
+        state = await agentStateRead(this.runtimeConfig, agentId);
       } catch (error) {
         logger.warn({ agentId, error }, "Agent restore skipped due to invalid persisted data");
         continue;
@@ -246,7 +243,7 @@ export class AgentSystem {
     if (!applied) {
       throw new Error("Permission could not be applied.");
     }
-    await agentStateWrite(this.config, entry.agentId, entry.agent.state);
+    await agentStateWrite(this.runtimeConfig, entry.agentId, entry.agent.state);
     this.eventBus.emit("permission.granted", {
       agentId: entry.agentId,
       source: "agent",
@@ -262,7 +259,7 @@ export class AgentSystem {
   }
 
   reload(config: Config): void {
-    this.configModule.configSet(config);
+    this.config.configSet(config);
   }
 
   markStopped(agentId: string, error?: unknown): void {
@@ -291,7 +288,7 @@ export class AgentSystem {
         return;
       }
       entry.agent.state.state = "sleeping";
-      await agentStateWrite(this.config, agentId, entry.agent.state);
+      await agentStateWrite(this.runtimeConfig, agentId, entry.agent.state);
       this.eventBus.emit("agent.sleep", { agentId, reason });
       logger.debug({ agentId, reason }, "Agent entered sleep mode");
     });
@@ -348,10 +345,7 @@ export class AgentSystem {
   }
 
   async inReadLock<T>(operation: () => Promise<T>): Promise<T> {
-    if (!this.runWithReadLock) {
-      return operation();
-    }
-    return this.runWithReadLock(operation);
+    return this.config.inReadLock(operation);
   }
 
   private async resolveEntry(
@@ -469,7 +463,7 @@ export class AgentSystem {
       return;
     }
     entry.agent.state.state = "active";
-    await agentStateWrite(this.config, entry.agentId, entry.agent.state);
+    await agentStateWrite(this.runtimeConfig, entry.agentId, entry.agent.state);
     this.eventBus.emit("agent.woke", { agentId: entry.agentId });
     logger.debug({ agentId: entry.agentId }, "Agent woke from sleep");
   }
@@ -481,8 +475,8 @@ export class AgentSystem {
     let descriptor: AgentDescriptor | null = null;
     let state: Awaited<ReturnType<typeof agentStateRead>> = null;
     try {
-      descriptor = await agentDescriptorRead(this.config, agentId);
-      state = await agentStateRead(this.config, agentId);
+      descriptor = await agentDescriptorRead(this.runtimeConfig, agentId);
+      state = await agentStateRead(this.runtimeConfig, agentId);
     } catch (error) {
       logger.warn({ agentId, error }, "Agent restore failed due to invalid persisted data");
       return null;

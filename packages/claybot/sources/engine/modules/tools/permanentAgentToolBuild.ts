@@ -56,7 +56,7 @@ export function permanentAgentToolBuild(): ToolDefinition {
         throw new Error("Permanent agent system prompt is required.");
       }
 
-      const config = toolContext.agentSystem.config;
+      const config = toolContext.agentSystem.runtimeConfig;
       const existingAgents = await agentPermanentList(config);
       const resolvedAgent = resolveExistingAgent(existingAgents, payload.agentId, name);
       const agentId = resolvedAgent?.agentId ?? createId();

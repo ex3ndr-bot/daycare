@@ -86,7 +86,7 @@ describe("ProviderManager", () => {
     };
 
     const manager = new ProviderManager({
-      configModule: new ConfigModule(baseConfig),
+      config: new ConfigModule(baseConfig),
       auth: new AuthStore(baseConfig),
       fileStore: new FileStore(baseConfig),
       inferenceRegistry,
@@ -159,7 +159,7 @@ describe("ProviderManager", () => {
     };
 
     const manager = new ProviderManager({
-      configModule: new ConfigModule(config),
+      config: new ConfigModule(config),
       auth: new AuthStore(config),
       fileStore: new FileStore(config),
       inferenceRegistry,

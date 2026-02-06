@@ -63,7 +63,7 @@ function createManager(
   return {
     modules,
     manager: new PluginManager({
-      configModule: new ConfigModule(config),
+      config: new ConfigModule(config),
       registry: pluginRegistry,
       auth,
       fileStore,

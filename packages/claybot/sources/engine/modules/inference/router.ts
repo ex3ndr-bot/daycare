@@ -4,6 +4,7 @@ import type { InferenceRegistry } from "../inferenceRegistry.js";
 import type { ProviderSettings } from "../../../settings.js";
 import type { AuthStore } from "../../../auth/store.js";
 import { getLogger } from "../../../log.js";
+import type { ConfigModule } from "../../config/configModule.js";
 
 export type InferenceResult = {
   message: AssistantMessage;
@@ -15,7 +16,7 @@ export type InferenceRouterOptions = {
   providers: ProviderSettings[];
   registry: InferenceRegistry;
   auth: AuthStore;
-  runWithReadLock?: <T>(operation: () => Promise<T>) => Promise<T>;
+  config?: ConfigModule;
   onAttempt?: (providerId: string, modelId: string) => void;
   onFallback?: (providerId: string, error: unknown) => void;
   onSuccess?: (providerId: string, modelId: string, message: AssistantMessage) => void;
@@ -27,14 +28,14 @@ export class InferenceRouter {
   private providers: ProviderSettings[];
   private registry: InferenceRegistry;
   private auth: AuthStore;
-  private runWithReadLock?: <T>(operation: () => Promise<T>) => Promise<T>;
+  private config?: ConfigModule;
   private logger = getLogger("inference.router");
 
   constructor(options: InferenceRouterOptions) {
     this.providers = options.providers;
     this.registry = options.registry;
     this.auth = options.auth;
-    this.runWithReadLock = options.runWithReadLock;
+    this.config = options.config;
     this.logger.debug(`InferenceRouter initialized providerCount=${options.providers.length}`);
   }
 
@@ -103,10 +104,10 @@ export class InferenceRouter {
       throw new Error("No inference provider available");
     };
 
-    if (!this.runWithReadLock) {
+    if (!this.config) {
       return execute();
     }
     // Intentionally lock the full provider call to keep reload quiescence strict.
-    return this.runWithReadLock(execute);
+    return this.config.inReadLock(execute);
   }
 }

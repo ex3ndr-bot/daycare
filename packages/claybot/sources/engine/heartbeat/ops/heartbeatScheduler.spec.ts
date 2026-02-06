@@ -6,6 +6,8 @@ import path from "node:path";
 import { HeartbeatScheduler } from "./heartbeatScheduler.js";
 import { HeartbeatStore } from "./heartbeatStore.js";
 import type { SessionPermissions } from "@/types";
+import { configResolve } from "../../../config/configResolve.js";
+import { ConfigModule } from "../../config/configModule.js";
 
 async function createTempStore() {
   const dir = await fs.mkdtemp(path.join(os.tmpdir(), "claybot-heartbeat-"));
@@ -26,6 +28,13 @@ describe("HeartbeatScheduler", () => {
     readDirs: [],
     web: false
   });
+  const runtimeConfig = (workingDir: string): ConfigModule =>
+    new ConfigModule(
+      configResolve(
+        { engine: { dataDir: workingDir } },
+        path.join(workingDir, "settings.json")
+      )
+    );
 
   afterEach(async () => {
     await Promise.all(temps.map((dir) => cleanupTempStore(dir)));
@@ -41,6 +50,7 @@ describe("HeartbeatScheduler", () => {
     const onTaskComplete = vi.fn();
 
     const scheduler = new HeartbeatScheduler({
+      config: runtimeConfig(dir),
       store,
       onRun,
       onTaskComplete,
@@ -71,6 +81,7 @@ describe("HeartbeatScheduler", () => {
     const onRun = vi.fn();
 
     const scheduler = new HeartbeatScheduler({
+      config: runtimeConfig(dir),
       store,
       onRun,
       defaultPermissions: defaultPermissions(dir)
@@ -104,6 +115,7 @@ describe("HeartbeatScheduler", () => {
     });
 
     const scheduler = new HeartbeatScheduler({
+      config: runtimeConfig(dir),
       store,
       onRun,
       gateCheck,
@@ -138,6 +150,7 @@ describe("HeartbeatScheduler", () => {
     });
 
     const scheduler = new HeartbeatScheduler({
+      config: runtimeConfig(dir),
       store,
       onRun,
       gateCheck,

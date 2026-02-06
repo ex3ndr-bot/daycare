@@ -4,6 +4,7 @@
 
 import type { ExecGateDefinition, SessionPermissions } from "@/types";
 import type { ExecGateCheckInput, ExecGateCheckResult } from "../scheduling/execGateCheck.js";
+import type { ConfigModule } from "../config/configModule.js";
 
 export type HeartbeatDefinition = {
   id: string;
@@ -19,10 +20,10 @@ export type HeartbeatState = {
 };
 
 export type HeartbeatSchedulerOptions = {
+  config: ConfigModule;
   store: HeartbeatStoreInterface;
   intervalMs?: number;
   defaultPermissions: SessionPermissions;
-  runWithReadLock?: <T>(operation: () => Promise<T>) => Promise<T>;
   resolvePermissions?: () => Promise<SessionPermissions> | SessionPermissions;
   onRun: (tasks: HeartbeatDefinition[], runAt: Date) => void | Promise<void>;
   onError?: (error: unknown, taskIds?: string[]) => void | Promise<void>;

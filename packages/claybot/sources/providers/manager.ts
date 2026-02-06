@@ -11,7 +11,7 @@ import { valueDeepEqual } from "../util/valueDeepEqual.js";
 import type { ConfigModule } from "../engine/config/configModule.js";
 
 export type ProviderManagerOptions = {
-  configModule: ConfigModule;
+  config: ConfigModule;
   auth: AuthStore;
   fileStore: FileStore;
   inferenceRegistry: InferenceRegistry;
@@ -27,7 +27,7 @@ type LoadedProvider = {
 const logger = getLogger("providers.manager");
 
 export class ProviderManager {
-  private readonly configModule: ConfigModule;
+  private readonly config: ConfigModule;
   private auth: AuthStore;
   private fileStore: FileStore;
   private inferenceRegistry: InferenceRegistry;
@@ -36,7 +36,7 @@ export class ProviderManager {
   private loaded = new Map<string, LoadedProvider>();
 
   constructor(options: ProviderManagerOptions) {
-    this.configModule = options.configModule;
+    this.config = options.config;
     this.auth = options.auth;
     this.fileStore = options.fileStore;
     this.inferenceRegistry = options.inferenceRegistry;
@@ -59,13 +59,13 @@ export class ProviderManager {
   }
 
   reload(config: Config): void {
-    this.configModule.configSet(config);
+    this.config.configSet(config);
   }
 
   async sync(): Promise<void> {
-    const config = this.configModule.configGet();
+    const runtimeConfig = this.config.configGet();
     logger.debug(`sync() starting loadedCount=${this.loaded.size}`);
-    const activeProviders = listProviders(config.settings).filter(
+    const activeProviders = listProviders(runtimeConfig.settings).filter(
       (provider) => provider.enabled !== false
     );
     const activeIds = activeProviders.map(p => p.id).join(",");

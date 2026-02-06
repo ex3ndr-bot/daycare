@@ -216,7 +216,7 @@ async function setupProvider(providerId: string, config: ProviderConfig) {
   const imageRegistry = new ImageGenerationRegistry();
 
   const providerManager = new ProviderManager({
-    configModule: new ConfigModule(resolvedConfig),
+    config: new ConfigModule(resolvedConfig),
     auth,
     fileStore: new FileStore(resolvedConfig),
     inferenceRegistry,

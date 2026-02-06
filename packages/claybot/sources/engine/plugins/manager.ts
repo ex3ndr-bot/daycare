@@ -23,7 +23,7 @@ import { valueDeepEqual } from "../../util/valueDeepEqual.js";
 import type { ConfigModule } from "../config/configModule.js";
 
 export type PluginManagerOptions = {
-  configModule: ConfigModule;
+  config: ConfigModule;
   registry: PluginRegistry;
   auth: AuthStore;
   fileStore: FileStore;
@@ -44,7 +44,7 @@ type LoadedPlugin = {
 };
 
 export class PluginManager {
-  private readonly configModule: ConfigModule;
+  private readonly config: ConfigModule;
   private registry: PluginRegistry;
   private auth: AuthStore;
   private fileStore: FileStore;
@@ -57,7 +57,7 @@ export class PluginManager {
   private logger = getLogger("plugins.manager");
 
   constructor(options: PluginManagerOptions) {
-    this.configModule = options.configModule;
+    this.config = options.config;
     this.registry = options.registry;
     this.auth = options.auth;
     this.fileStore = options.fileStore;
@@ -67,13 +67,13 @@ export class PluginManager {
     this.onEvent = options.onEvent ?? null;
     this.inference = new PluginInferenceService({
       router: options.inferenceRouter,
-      getSettings: () => this.config.settings
+      getSettings: () => this.runtimeConfig.settings
     });
-    this.logger.debug(`PluginManager initialized catalogSize=${options.pluginCatalog.size} dataDir=${this.config.dataDir} mode=${this.mode}`);
+    this.logger.debug(`PluginManager initialized catalogSize=${options.pluginCatalog.size} dataDir=${this.runtimeConfig.dataDir} mode=${this.mode}`);
   }
 
-  private get config(): Config {
-    return this.configModule.configGet();
+  private get runtimeConfig(): Config {
+    return this.config.configGet();
   }
 
   listLoaded(): string[] {
@@ -133,12 +133,12 @@ export class PluginManager {
   }
 
   reload(config: Config): void {
-    this.configModule.configSet(config);
+    this.config.configSet(config);
   }
 
   async syncWithConfig(config: Config): Promise<void> {
     this.logger.debug(`syncWithSettings starting loadedCount=${this.loaded.size}`);
-    this.configModule.configSet(config);
+    this.config.configSet(config);
     const settings = config.settings;
     const desired = this.resolveEnabledPlugins(settings);
     const desiredMap = new Map(desired.map((plugin) => [plugin.instanceId, plugin]));
@@ -263,7 +263,7 @@ export class PluginManager {
     const api: PluginApi = {
       instance: pluginConfig,
       settings: parsedSettings,
-      engineSettings: this.config.settings,
+      engineSettings: this.runtimeConfig.settings,
       logger: getLogger(`plugin.${instanceId}`),
       auth: this.auth,
       dataDir,
@@ -333,7 +333,7 @@ export class PluginManager {
   }
 
   async loadEnabled(config: Config): Promise<void> {
-    this.configModule.configSet(config);
+    this.config.configSet(config);
     const enabled = this.resolveEnabledPlugins(config.settings);
     const enabledIds = enabled.map(p => p.instanceId).join(",");
     this.logger.debug(`loadEnabled() starting enabledCount=${enabled.length} enabledIds=${enabledIds}`);
@@ -353,7 +353,7 @@ export class PluginManager {
   }
 
   private async ensurePluginDir(instanceId: string): Promise<string> {
-    const dir = path.join(this.config.dataDir, "plugins", instanceId);
+    const dir = path.join(this.runtimeConfig.dataDir, "plugins", instanceId);
     await fs.mkdir(dir, { recursive: true });
     return dir;
   }

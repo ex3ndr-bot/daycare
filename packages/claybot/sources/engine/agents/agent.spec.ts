@@ -30,7 +30,7 @@ describe("Agent", () => {
         path.join(dir, "settings.json")
       );
       const agentSystem = new AgentSystem({
-        configModule: new ConfigModule(config),
+        config: new ConfigModule(config),
         eventBus: new EngineEventBus(),
         connectorRegistry: new ConnectorRegistry({
           onMessage: async () => undefined

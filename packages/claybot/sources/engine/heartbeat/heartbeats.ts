@@ -12,11 +12,10 @@ import type { ConfigModule } from "../config/configModule.js";
 const logger = getLogger("heartbeat.facade");
 
 export type HeartbeatsOptions = {
-  configModule: ConfigModule;
+  config: ConfigModule;
   eventBus: EngineEventBus;
   agentSystem: AgentSystem;
   intervalMs?: number;
-  runWithReadLock?: <T>(operation: () => Promise<T>) => Promise<T>;
 };
 
 /**
@@ -32,14 +31,14 @@ export class Heartbeats {
   constructor(options: HeartbeatsOptions) {
     this.eventBus = options.eventBus;
     this.agentSystem = options.agentSystem;
-    const config = options.configModule.configGet();
-    const basePath = path.join(config.configDir, "heartbeat");
+    const runtimeConfig = options.config.configGet();
+    const basePath = path.join(runtimeConfig.configDir, "heartbeat");
     this.store = new HeartbeatStore(basePath);
     this.scheduler = new HeartbeatScheduler({
+      config: options.config,
       store: this.store,
       intervalMs: options.intervalMs,
-      defaultPermissions: config.defaultPermissions,
-      runWithReadLock: options.runWithReadLock,
+      defaultPermissions: runtimeConfig.defaultPermissions,
       resolvePermissions: async () =>
         this.agentSystem.permissionsForTarget({ descriptor: { type: "heartbeat" } }),
       onRun: async (tasks) => {

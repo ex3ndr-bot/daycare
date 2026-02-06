@@ -13,10 +13,9 @@ import type { ConfigModule } from "../config/configModule.js";
 const logger = getLogger("cron.facade");
 
 export type CronsOptions = {
-  configModule: ConfigModule;
+  config: ConfigModule;
   eventBus: EngineEventBus;
   agentSystem: AgentSystem;
-  runWithReadLock?: <T>(operation: () => Promise<T>) => Promise<T>;
 };
 
 /**
@@ -32,18 +31,18 @@ export class Crons {
   constructor(options: CronsOptions) {
     this.eventBus = options.eventBus;
     this.agentSystem = options.agentSystem;
-    const config = options.configModule.configGet();
-    const basePath = path.join(config.configDir, "cron");
+    const runtimeConfig = options.config.configGet();
+    const basePath = path.join(runtimeConfig.configDir, "cron");
     this.store = new CronStore(basePath);
     this.scheduler = new CronScheduler({
+      config: options.config,
       store: this.store,
-      defaultPermissions: config.defaultPermissions,
-      runWithReadLock: options.runWithReadLock,
+      defaultPermissions: runtimeConfig.defaultPermissions,
       resolvePermissions: async (task) => {
         if (task.agentId) {
           return this.agentSystem.permissionsForTarget({ agentId: task.agentId });
         }
-        const base = permissionBuildCron(options.configModule.configGet().defaultPermissions, task.filesPath);
+        const base = permissionBuildCron(options.config.configGet().defaultPermissions, task.filesPath);
         const current = await this.agentSystem.permissionsForTarget({
           descriptor: { type: "cron", id: task.taskUid }
         });

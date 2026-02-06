@@ -4,6 +4,8 @@ Engine config reload now applies online through `Engine.reload()` using `Invalid
 Reload requests coalesce; each sync run loads config from disk, then applies it inside a runtime write lock.
 Runtime config state and lock now live in `ConfigModule` (`current config` + `configurationLock`),
 and that module is shared across engine modules.
+Modules now receive that shared module as `config` and call `config.inReadLock(...)` directly
+instead of callback-style lock plumbing.
 
 Read-locked runtime paths now include:
 - connector message/command/permission handlers
