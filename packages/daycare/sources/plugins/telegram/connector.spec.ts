@@ -8,6 +8,7 @@ type MockFn = ReturnType<typeof vi.fn>;
 type TelegramBotMock = {
   handlers: Map<string, Handler[]>;
   sendMessage: MockFn;
+  setMyCommands: MockFn;
   sendPhoto: MockFn;
   sendVideo: MockFn;
   sendDocument: MockFn;
@@ -23,6 +24,7 @@ vi.mock("node-telegram-bot-api", () => {
   class TelegramBotMockClass {
     handlers = new Map<string, Handler[]>();
     sendMessage = vi.fn(async () => ({ message_id: 101, chat: { id: 123 } }));
+    setMyCommands = vi.fn(async () => true);
     sendPhoto = vi.fn(async () => ({ message_id: 101, chat: { id: 123 } }));
     sendVideo = vi.fn(async () => ({ message_id: 101, chat: { id: 123 } }));
     sendDocument = vi.fn(async () => ({ message_id: 101, chat: { id: 123 } }));
@@ -177,6 +179,48 @@ describe("TelegramConnector commands", () => {
       channelId: "123",
       userId: "123"
     });
+  });
+});
+
+describe("TelegramConnector startup", () => {
+  beforeEach(() => {
+    telegramInstances.length = 0;
+  });
+
+  it("registers slash commands on start", async () => {
+    const fileStore = { saveFromPath: vi.fn() } as unknown as FileStore;
+    new TelegramConnector({
+      token: "token",
+      allowedUids: ["123"],
+      polling: false,
+      clearWebhook: false,
+      statePath: null,
+      fileStore,
+      dataDir: "/tmp",
+      enableGracefulShutdown: false
+    });
+
+    await Promise.resolve();
+
+    const bot = telegramInstances[0];
+    expect(bot).toBeTruthy();
+    expect(bot!.setMyCommands).toHaveBeenCalledWith(
+      [
+        {
+          command: "reset",
+          description: "Reset the current conversation."
+        },
+        {
+          command: "context",
+          description: "Show latest context token usage."
+        }
+      ],
+      {
+        scope: {
+          type: "all_private_chats"
+        }
+      }
+    );
   });
 });
 

@@ -48,6 +48,16 @@ const TELEGRAM_MESSAGE_FORMAT_PROMPT = [
 
 const TELEGRAM_MESSAGE_MAX_LENGTH = 4096;
 const TELEGRAM_CAPTION_MAX_LENGTH = 1024;
+const TELEGRAM_SLASH_COMMANDS: TelegramBot.BotCommand[] = [
+  {
+    command: "reset",
+    description: "Reset the current conversation."
+  },
+  {
+    command: "context",
+    description: "Show latest context token usage."
+  }
+];
 
 export class TelegramConnector implements Connector {
   capabilities: ConnectorCapabilities = {
@@ -433,6 +443,7 @@ export class TelegramConnector implements Connector {
 
   private async initialize(): Promise<void> {
     logger.debug(`initialize() starting pollingEnabled=${this.pollingEnabled} clearWebhookOnStart=${this.clearWebhookOnStart}`);
+    await this.registerSlashCommands();
     if (this.pollingEnabled && this.clearWebhookOnStart) {
       logger.debug("Clearing webhook before polling");
       await this.ensureWebhookCleared();
@@ -444,6 +455,19 @@ export class TelegramConnector implements Connector {
       await this.startPolling();
     }
     logger.debug("initialize() complete");
+  }
+
+  private async registerSlashCommands(): Promise<void> {
+    try {
+      await this.bot.setMyCommands(TELEGRAM_SLASH_COMMANDS, {
+        scope: {
+          type: "all_private_chats"
+        }
+      });
+      logger.debug("Telegram slash commands registered");
+    } catch (error) {
+      logger.warn({ error }, "Failed to register Telegram slash commands");
+    }
   }
 
   private trackUpdate(update: TelegramBot.Update): void {

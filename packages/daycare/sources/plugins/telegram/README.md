@@ -29,5 +29,9 @@ It normalizes incoming messages into `ConnectorMessage` objects and sends respon
 - Sends images with `sendPhoto` and other files with `sendDocument`.
 - Supports typing indicators and emoji reactions.
 
+## Slash commands
+- Registers Telegram bot commands during startup via `setMyCommands`.
+- Commands are scoped to private chats: `/reset` and `/context`.
+
 ## Persistence
 - Tracks the last processed Telegram `update_id` and persists it to the configured state file.

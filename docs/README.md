@@ -38,5 +38,6 @@ This folder documents the current Daycare CLI, plugins, agents, and runtime.
 - `conventions.md` - import and compatibility rules
 - `telegram-message-splitting.md` - telegram message splitting logic
 - `telegram-polling-retry.md` - telegram polling retry behavior
+- `telegram-slash-commands.md` - telegram startup slash command registration
 - `network-permission-rename.md` - @web to @network rename notes
 - `rebrand-daycare.md` - otterbot to daycare rebrand notes
