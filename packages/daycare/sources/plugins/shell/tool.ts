@@ -74,10 +74,15 @@ const execSchema = Type.Object(
     packageManagers: Type.Optional(
       Type.Array(
         Type.Union([
+          Type.Literal("dart"),
+          Type.Literal("dotnet"),
           Type.Literal("go"),
           Type.Literal("java"),
           Type.Literal("node"),
-          Type.Literal("python")
+          Type.Literal("php"),
+          Type.Literal("python"),
+          Type.Literal("ruby"),
+          Type.Literal("rust")
         ]),
         { minItems: 1 }
       )
@@ -165,7 +170,7 @@ export function buildExecTool(): ToolDefinition {
     tool: {
       name: "exec",
       description:
-        "Execute a shell command inside the agent workspace (or a subdirectory). The cwd, if provided, must be an absolute path that resolves inside the workspace. Writes are sandboxed to the allowed write directories. Optional packageManagers language presets (go/java/node/python) auto-allow package registry hosts. Optional allowedDomains enables outbound access to specific domains (supports subdomain wildcards like *.example.com, no global wildcard). Returns stdout/stderr and failure details.",
+        "Execute a shell command inside the agent workspace (or a subdirectory). The cwd, if provided, must be an absolute path that resolves inside the workspace. Writes are sandboxed to the allowed write directories. Optional packageManagers language presets auto-allow ecosystem hosts (dart/dotnet/go/java/node/php/python/ruby/rust). Optional allowedDomains enables outbound access to specific domains (supports subdomain wildcards like *.example.com, no global wildcard). Returns stdout/stderr and failure details.",
       parameters: execSchema
     },
     execute: async (args, toolContext, toolCall) => {

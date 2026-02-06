@@ -5,10 +5,15 @@ The list is explicit: exact domains are allowed, and subdomain wildcards like
 `*.example.com` are supported. A global wildcard (`*`) is not allowed.
 
 `exec` and exec gates also support typed language ecosystem presets:
+- `dart` -> `pub.dev`, `storage.googleapis.com`
+- `dotnet` -> `nuget.org`, `api.nuget.org`, `globalcdn.nuget.org`
 - `go` -> `proxy.golang.org`, `sum.golang.org`, `index.golang.org`, `golang.org`
 - `java` -> `repo.maven.apache.org`, `repo1.maven.org`, `plugins.gradle.org`, `services.gradle.org`
 - `node` -> `registry.npmjs.org`, `registry.yarnpkg.com`, `repo.yarnpkg.com`, `bun.sh` (covers npm/pnpm/yarn/bun)
+- `php` -> `packagist.org`, `repo.packagist.org`
 - `python` -> `pypi.org`, `files.pythonhosted.org`, `pypi.python.org`
+- `ruby` -> `rubygems.org`
+- `rust` -> `crates.io`, `index.crates.io`, `static.crates.io`
 
 Presets are merged with explicit `allowedDomains`, deduped, then validated.
 

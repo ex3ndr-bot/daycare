@@ -29,4 +29,22 @@ describe("sandboxAllowedDomainsResolve", () => {
     expect(() => sandboxAllowedDomainsResolve(["  "], ["go"]))
       .toThrow("allowedDomains entries cannot be blank.");
   });
+
+  it("expands additional language ecosystems", () => {
+    const result = sandboxAllowedDomainsResolve([], ["rust", "dotnet", "ruby", "php", "dart"]);
+
+    expect(result).toEqual([
+      "crates.io",
+      "index.crates.io",
+      "static.crates.io",
+      "nuget.org",
+      "api.nuget.org",
+      "globalcdn.nuget.org",
+      "rubygems.org",
+      "packagist.org",
+      "repo.packagist.org",
+      "pub.dev",
+      "storage.googleapis.com"
+    ]);
+  });
 });

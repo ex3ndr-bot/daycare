@@ -15,7 +15,17 @@ describe("execGateNormalize", () => {
       timeoutMs: 1500,
       env: { FOO: "bar", SKIP: 3, FLAG: true },
       permissions: ["@network", "  @read:/tmp  ", "", "@network"],
-      packageManagers: ["node", " java ", "node", "python", "invalid"],
+      packageManagers: [
+        "node",
+        " java ",
+        "rust",
+        "dotnet",
+        "python",
+        "ruby",
+        "php",
+        "dart",
+        "invalid"
+      ],
       allowedDomains: ["example.com", " example.com "]
     });
     expect(result).toEqual({
@@ -24,7 +34,7 @@ describe("execGateNormalize", () => {
       timeoutMs: 1500,
       env: { FOO: "bar", SKIP: "3", FLAG: "true" },
       permissions: ["@network", "@read:/tmp"],
-      packageManagers: ["node", "java", "python"],
+      packageManagers: ["node", "java", "rust", "dotnet", "python", "ruby", "php", "dart"],
       allowedDomains: ["example.com"]
     });
   });

@@ -30,10 +30,15 @@ const addCronSchema = Type.Object(
         packageManagers: Type.Optional(
           Type.Array(
             Type.Union([
+              Type.Literal("dart"),
+              Type.Literal("dotnet"),
               Type.Literal("go"),
               Type.Literal("java"),
               Type.Literal("node"),
-              Type.Literal("python")
+              Type.Literal("php"),
+              Type.Literal("python"),
+              Type.Literal("ruby"),
+              Type.Literal("rust")
             ]),
             { minItems: 1 }
           )

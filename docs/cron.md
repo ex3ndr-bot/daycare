@@ -70,7 +70,7 @@ to the prompt under `[Gate output]`. Gates run with the target agent permissions
 allowed by the target agent, a system message is posted and the gate is treated
 as allowed (the task still runs). Network access requires `@network` plus
 `gate.allowedDomains` to allowlist hosts. You can also use
-`gate.packageManagers` (`go`, `java`, `node`, `python`) to auto-allow language ecosystem hosts.
+`gate.packageManagers` (`dart`, `dotnet`, `go`, `java`, `node`, `php`, `python`, `ruby`, `rust`) to auto-allow language ecosystem hosts.
 
 ## Permissions
 

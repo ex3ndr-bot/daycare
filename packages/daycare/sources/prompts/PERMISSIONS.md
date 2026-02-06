@@ -27,7 +27,7 @@ Bias toward action. If you can do it, do it. If you need permission, request it 
 
 ## Exec Networking
 
-`exec` requires `allowedDomains` for outbound HTTP. `packageManagers` language presets (`go`, `java`, `node`, `python`) can auto-add ecosystem hosts. `node` covers npm/pnpm/yarn/bun. Needs `@network` permission first. No global wildcard (`*`). No raw TCP or local port binding.
+`exec` requires `allowedDomains` for outbound HTTP. `packageManagers` language presets (`dart`, `dotnet`, `go`, `java`, `node`, `php`, `python`, `ruby`, `rust`) can auto-add ecosystem hosts. `node` covers npm/pnpm/yarn/bun. Needs `@network` permission first. No global wildcard (`*`). No raw TCP or local port binding.
 
 ## Multi-Agent Workspace
 
