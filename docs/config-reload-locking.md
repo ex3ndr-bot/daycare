@@ -17,6 +17,11 @@ Plugin/provider reload behavior during apply:
 - providers: deep-equal settings are no-op; changed settings unload/load; unload always removes registry entries bound to the provider id
 - plugins: deep-equal settings are no-op; changed settings unload/load; unload calls plugin `unload` first, then unregisters all registrar-owned modules
 
+Operational notes:
+- connector callbacks catch and log failures so connector event loops do not produce unhandled promise rejections
+- agent sleep persistence runs after inbox item read-lock work completes, so config reload is not blocked by sleep-state disk writes
+- `ReadWriteLock` reentrancy uses `AsyncLocalStorage`; fire-and-forget async work must not rely on inherited lock scope
+
 ```mermaid
 sequenceDiagram
   participant API as Engine API
@@ -48,4 +53,17 @@ sequenceDiagram
   Scheduler->>Task: schedule due task
   Task->>Lock: inReadLock(executeTaskUnlocked)
   Lock-->>Task: release after task completes
+```
+
+```mermaid
+sequenceDiagram
+  participant Inbox as Agent Inbox
+  participant Lock as ReadWriteLock
+  participant Agent as Agent Handler
+  participant State as sleepIfIdle()
+
+  Inbox->>Lock: inReadLock(handleInboxItem)
+  Lock->>Agent: handle message/reset/permission
+  Lock-->>Inbox: release read lock
+  Inbox->>State: persist sleep state (if idle)
 ```

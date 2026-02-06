@@ -9,6 +9,8 @@ type LockScope = {
  * Runs async work under reader/writer exclusion with writer priority.
  * Expects: write lock is never acquired while already holding a read lock.
  * Note: queued writers block newly arriving readers to reduce reload latency.
+ * Note: async work spawned without awaiting inside the lock scope inherits
+ * AsyncLocalStorage context and can appear reentrant after the parent releases.
  */
 export class ReadWriteLock {
   private activeReaders = 0;

@@ -78,7 +78,7 @@ export class Engine {
     logger.debug(`AuthStore and FileStore initialized`);
 
     this.modules = new ModuleRegistry({
-      onMessage: async (message, context, descriptor) => this.inReadLock(async () => {
+      onMessage: async (message, context, descriptor) => this.runConnectorCallback("message", async () => {
         const connector = descriptor.type === "user" ? descriptor.connector : "unknown";
         logger.debug(
           `Connector message received: connector=${connector} type=${descriptor.type} text=${message.text?.length ?? 0}chars files=${message.files?.length ?? 0}`
@@ -88,7 +88,7 @@ export class Engine {
           { type: "message", message, context }
         );
       }),
-      onCommand: async (command, context, descriptor) => this.inReadLock(async () => {
+      onCommand: async (command, context, descriptor) => this.runConnectorCallback("command", async () => {
         const connector = descriptor.type === "user" ? descriptor.connector : "unknown";
         const parsed = parseCommand(command);
         if (!parsed) {
@@ -121,7 +121,7 @@ export class Engine {
         }
         logger.debug({ connector, command: parsed.name }, "Unknown command ignored");
       }),
-      onPermission: async (decision, context, descriptor) => this.inReadLock(async () => {
+      onPermission: async (decision, context, descriptor) => this.runConnectorCallback("permission", async () => {
         if (decision.agentId) {
           await this.agentSystem.post(
             { agentId: decision.agentId },
@@ -374,6 +374,17 @@ export class Engine {
     return this.runtimeLock.inReadLock(operation);
   }
 
+  private async runConnectorCallback(
+    kind: "message" | "command" | "permission",
+    operation: () => Promise<void>
+  ): Promise<void> {
+    try {
+      await this.inReadLock(operation);
+    } catch (error) {
+      logger.error({ kind, error }, "Connector callback failed");
+    }
+  }
+
   private async reloadApplyLatest(): Promise<void> {
     const config = await configLoad(this.config.settingsPath, { verbose: this.config.verbose });
     await this.runtimeLock.inWriteLock(async () => {
@@ -431,6 +442,10 @@ function contextCommandTextBuild(tokens: AgentTokenEntry | null): string {
   ].join("\n");
 }
 
+/**
+ * Compares reloadable runtime config fields.
+ * Keep this in sync with `Config` whenever runtime behavior changes.
+ */
 function configReloadEqual(left: Config, right: Config): boolean {
   return (
     configReloadPathsEqual(left, right) &&

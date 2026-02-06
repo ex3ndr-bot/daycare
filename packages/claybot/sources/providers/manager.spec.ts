@@ -123,4 +123,52 @@ describe("ProviderManager", () => {
     expect(inferenceRegistry.list()).toEqual([]);
     expect(manager.listLoaded()).toEqual([]);
   });
+
+  it("cleans partial registrations when provider load fails", async () => {
+    const root = await createTempDir();
+    const inferenceRegistry = new InferenceRegistry();
+    const imageRegistry = new ImageGenerationRegistry();
+    const config = configWithProvider(root);
+
+    const definition: ProviderDefinition = {
+      id: "fake-provider",
+      name: "Fake Provider",
+      description: "Test provider",
+      auth: "none",
+      capabilities: { inference: true, image: true },
+      create: (context) => ({
+        load: async () => {
+          context.inferenceRegistry.register(context.settings.id, {
+            id: "fake-provider-inference",
+            label: "fake",
+            createClient: async () => ({
+              modelId: "fake",
+              complete: async () => ({}) as never,
+              stream: () => ({}) as never
+            })
+          });
+          context.imageRegistry.register(context.settings.id, {
+            id: "fake-provider-image",
+            label: "fake",
+            generate: async () => ({ files: [] })
+          });
+          throw new Error("Provider load failed");
+        }
+      })
+    };
+
+    const manager = new ProviderManager({
+      config,
+      auth: new AuthStore(config),
+      fileStore: new FileStore(config),
+      inferenceRegistry,
+      imageRegistry,
+      providerDefinitionResolve: (id) => (id === "fake-provider" ? definition : null)
+    });
+
+    await expect(manager.sync()).rejects.toThrow("Provider load failed");
+    expect(manager.listLoaded()).toEqual([]);
+    expect(inferenceRegistry.list()).toEqual([]);
+    expect(imageRegistry.list()).toEqual([]);
+  });
 });

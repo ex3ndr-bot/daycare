@@ -167,11 +167,10 @@ export class Agent {
         );
         this.processing = true;
         try {
-          const result = await this.agentSystem.inReadLock(async () => {
-            const handled = await this.handleInboxItem(entry.item);
-            await this.sleepAfterItem(entry.item);
-            return handled;
-          });
+          const result = await this.agentSystem.inReadLock(async () =>
+            this.handleInboxItem(entry.item)
+          );
+          await this.sleepAfterItem(entry.item);
           entry.completion?.resolve(result);
         } catch (error) {
           const failure = error instanceof Error ? error : new Error(String(error));
