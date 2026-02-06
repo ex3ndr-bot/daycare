@@ -362,7 +362,7 @@ export class Engine {
   }
 
   get runtimeConfig(): Config {
-    return this.config.configGet();
+    return this.config.current();
   }
 
   private isReloadable(next: Config): boolean {

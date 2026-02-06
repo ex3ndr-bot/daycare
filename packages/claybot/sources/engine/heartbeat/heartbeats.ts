@@ -31,7 +31,7 @@ export class Heartbeats {
   constructor(options: HeartbeatsOptions) {
     this.eventBus = options.eventBus;
     this.agentSystem = options.agentSystem;
-    const runtimeConfig = options.config.configGet();
+    const runtimeConfig = options.config.current();
     const basePath = path.join(runtimeConfig.configDir, "heartbeat");
     this.store = new HeartbeatStore(basePath);
     this.scheduler = new HeartbeatScheduler({

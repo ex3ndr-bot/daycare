@@ -31,7 +31,7 @@ export class Crons {
   constructor(options: CronsOptions) {
     this.eventBus = options.eventBus;
     this.agentSystem = options.agentSystem;
-    const runtimeConfig = options.config.configGet();
+    const runtimeConfig = options.config.current();
     const basePath = path.join(runtimeConfig.configDir, "cron");
     this.store = new CronStore(basePath);
     this.scheduler = new CronScheduler({
@@ -42,7 +42,7 @@ export class Crons {
         if (task.agentId) {
           return this.agentSystem.permissionsForTarget({ agentId: task.agentId });
         }
-        const base = permissionBuildCron(options.config.configGet().defaultPermissions, task.filesPath);
+        const base = permissionBuildCron(options.config.current().defaultPermissions, task.filesPath);
         const current = await this.agentSystem.permissionsForTarget({
           descriptor: { type: "cron", id: task.taskUid }
         });

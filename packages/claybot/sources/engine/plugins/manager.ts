@@ -73,7 +73,7 @@ export class PluginManager {
   }
 
   private get runtimeConfig(): Config {
-    return this.config.configGet();
+    return this.config.current();
   }
 
   listLoaded(): string[] {

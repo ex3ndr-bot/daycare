@@ -14,7 +14,7 @@ export class ConfigModule {
     this.configurationLock = new ReadWriteLock();
   }
 
-  configGet(): Config {
+  current(): Config {
     return this.config;
   }
 

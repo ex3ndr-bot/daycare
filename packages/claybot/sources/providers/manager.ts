@@ -63,7 +63,7 @@ export class ProviderManager {
   }
 
   async sync(): Promise<void> {
-    const runtimeConfig = this.config.configGet();
+    const runtimeConfig = this.config.current();
     logger.debug(`sync() starting loadedCount=${this.loaded.size}`);
     const activeProviders = listProviders(runtimeConfig.settings).filter(
       (provider) => provider.enabled !== false

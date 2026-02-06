@@ -48,9 +48,9 @@ sequenceDiagram
 ```mermaid
 flowchart TD
   Engine --> ConfigModule
-  ConfigModule -->|configGet/configSet| AgentSystem
-  ConfigModule -->|configGet/configSet| ProviderManager
-  ConfigModule -->|configGet/configSet| PluginManager
+  ConfigModule -->|current/configSet| AgentSystem
+  ConfigModule -->|current/configSet| ProviderManager
+  ConfigModule -->|current/configSet| PluginManager
   ConfigModule -->|inReadLock/inWriteLock| RuntimePaths
 ```
 

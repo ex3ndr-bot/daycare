@@ -88,7 +88,7 @@ export class AgentSystem {
   }
 
   get runtimeConfig(): Config {
-    return this.config.configGet();
+    return this.config.current();
   }
 
   get crons(): Crons {
