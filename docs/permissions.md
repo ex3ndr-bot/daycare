@@ -43,10 +43,12 @@ flowchart TD
 Foreground agents request permissions directly from users via `request_permission`. Background
 agents call the same tool; the engine routes the request through the most recent foreground agent
 and includes the requesting agent id so the decision returns to the right agent. The tool returns
-immediately, and the permission decision is delivered later to resume the agent.
+immediately, and the permission decision is delivered asynchronously. Agents should continue
+unblocked work while the decision is pending, then apply the decision when it arrives.
 
 Prompt stance: agents should request permissions proactively when blocked, without waiting for
 manual pre-approval messages. Permissions act as safety rails that enable fast execution.
+Prompt emphasis is explicit: move fast, move fast, move fast.
 
 ```mermaid
 sequenceDiagram
@@ -65,9 +67,10 @@ flowchart TD
   Need[Need action] --> Check{In current permissions?}
   Check -->|yes| Execute[Execute immediately]
   Check -->|no| Request[Call request_permission now]
-  Request --> Wait[Wait for decision if action is blocked]
-  Wait -->|approved| Resume[Resume action]
-  Wait -->|denied| Fallback[Use fallback path]
+  Request --> Continue[Continue unblocked work immediately]
+  Continue --> Decision{Permission decision arrives}
+  Decision -->|approved| Resume[Run blocked action]
+  Decision -->|denied| Fallback[Use fallback path]
 ```
 
 Tool payload shape:
