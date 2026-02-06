@@ -28,7 +28,7 @@ describe("HeartbeatScheduler", () => {
     readDirs: [],
     web: false
   });
-  const runtimeConfig = (workingDir: string): ConfigModule =>
+  const configModule = (workingDir: string): ConfigModule =>
     new ConfigModule(
       configResolve(
         { engine: { dataDir: workingDir } },
@@ -50,7 +50,7 @@ describe("HeartbeatScheduler", () => {
     const onTaskComplete = vi.fn();
 
     const scheduler = new HeartbeatScheduler({
-      config: runtimeConfig(dir),
+      config: configModule(dir),
       store,
       onRun,
       onTaskComplete,
@@ -81,7 +81,7 @@ describe("HeartbeatScheduler", () => {
     const onRun = vi.fn();
 
     const scheduler = new HeartbeatScheduler({
-      config: runtimeConfig(dir),
+      config: configModule(dir),
       store,
       onRun,
       defaultPermissions: defaultPermissions(dir)
@@ -115,7 +115,7 @@ describe("HeartbeatScheduler", () => {
     });
 
     const scheduler = new HeartbeatScheduler({
-      config: runtimeConfig(dir),
+      config: configModule(dir),
       store,
       onRun,
       gateCheck,
@@ -150,7 +150,7 @@ describe("HeartbeatScheduler", () => {
     });
 
     const scheduler = new HeartbeatScheduler({
-      config: runtimeConfig(dir),
+      config: configModule(dir),
       store,
       onRun,
       gateCheck,

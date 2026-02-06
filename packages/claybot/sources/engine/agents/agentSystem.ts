@@ -87,10 +87,6 @@ export class AgentSystem {
     this.authStore = options.authStore;
   }
 
-  get runtimeConfig(): Config {
-    return this.config.current();
-  }
-
   get crons(): Crons {
     if (!this._crons) {
       throw new Error("Crons not set");
@@ -117,10 +113,10 @@ export class AgentSystem {
     if (this.stage !== "idle") {
       return;
     }
-    await fs.mkdir(this.runtimeConfig.agentsDir, { recursive: true });
+    await fs.mkdir(this.config.current.agentsDir, { recursive: true });
     let entries: Dirent[] = [];
     try {
-      entries = await fs.readdir(this.runtimeConfig.agentsDir, { withFileTypes: true });
+      entries = await fs.readdir(this.config.current.agentsDir, { withFileTypes: true });
     } catch {
       entries = [];
     }
@@ -133,8 +129,8 @@ export class AgentSystem {
       let descriptor: AgentDescriptor | null = null;
       let state: Awaited<ReturnType<typeof agentStateRead>> = null;
       try {
-        descriptor = await agentDescriptorRead(this.runtimeConfig, agentId);
-        state = await agentStateRead(this.runtimeConfig, agentId);
+        descriptor = await agentDescriptorRead(this.config.current, agentId);
+        state = await agentStateRead(this.config.current, agentId);
       } catch (error) {
         logger.warn({ agentId, error }, "Agent restore skipped due to invalid persisted data");
         continue;
@@ -243,7 +239,7 @@ export class AgentSystem {
     if (!applied) {
       throw new Error("Permission could not be applied.");
     }
-    await agentStateWrite(this.runtimeConfig, entry.agentId, entry.agent.state);
+    await agentStateWrite(this.config.current, entry.agentId, entry.agent.state);
     this.eventBus.emit("permission.granted", {
       agentId: entry.agentId,
       source: "agent",
@@ -288,7 +284,7 @@ export class AgentSystem {
         return;
       }
       entry.agent.state.state = "sleeping";
-      await agentStateWrite(this.runtimeConfig, agentId, entry.agent.state);
+      await agentStateWrite(this.config.current, agentId, entry.agent.state);
       this.eventBus.emit("agent.sleep", { agentId, reason });
       logger.debug({ agentId, reason }, "Agent entered sleep mode");
     });
@@ -463,7 +459,7 @@ export class AgentSystem {
       return;
     }
     entry.agent.state.state = "active";
-    await agentStateWrite(this.runtimeConfig, entry.agentId, entry.agent.state);
+    await agentStateWrite(this.config.current, entry.agentId, entry.agent.state);
     this.eventBus.emit("agent.woke", { agentId: entry.agentId });
     logger.debug({ agentId: entry.agentId }, "Agent woke from sleep");
   }
@@ -475,8 +471,8 @@ export class AgentSystem {
     let descriptor: AgentDescriptor | null = null;
     let state: Awaited<ReturnType<typeof agentStateRead>> = null;
     try {
-      descriptor = await agentDescriptorRead(this.runtimeConfig, agentId);
-      state = await agentStateRead(this.runtimeConfig, agentId);
+      descriptor = await agentDescriptorRead(this.config.current, agentId);
+      state = await agentStateRead(this.config.current, agentId);
     } catch (error) {
       logger.warn({ agentId, error }, "Agent restore failed due to invalid persisted data");
       return null;

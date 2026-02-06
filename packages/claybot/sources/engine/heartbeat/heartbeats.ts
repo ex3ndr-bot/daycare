@@ -31,14 +31,14 @@ export class Heartbeats {
   constructor(options: HeartbeatsOptions) {
     this.eventBus = options.eventBus;
     this.agentSystem = options.agentSystem;
-    const runtimeConfig = options.config.current();
-    const basePath = path.join(runtimeConfig.configDir, "heartbeat");
+    const currentConfig = options.config.current;
+    const basePath = path.join(currentConfig.configDir, "heartbeat");
     this.store = new HeartbeatStore(basePath);
     this.scheduler = new HeartbeatScheduler({
       config: options.config,
       store: this.store,
       intervalMs: options.intervalMs,
-      defaultPermissions: runtimeConfig.defaultPermissions,
+      defaultPermissions: currentConfig.defaultPermissions,
       resolvePermissions: async () =>
         this.agentSystem.permissionsForTarget({ descriptor: { type: "heartbeat" } }),
       onRun: async (tasks) => {

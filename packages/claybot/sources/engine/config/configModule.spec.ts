@@ -10,8 +10,8 @@ describe("ConfigModule", () => {
     const second = configResolve({ engine: { dataDir: "/tmp/b" } }, path.join("/tmp/b", "settings.json"));
     const module = new ConfigModule(first);
 
-    expect(module.current().dataDir).toBe(first.dataDir);
+    expect(module.current.dataDir).toBe(first.dataDir);
     module.configSet(second);
-    expect(module.current().dataDir).toBe(second.dataDir);
+    expect(module.current.dataDir).toBe(second.dataDir);
   });
 });

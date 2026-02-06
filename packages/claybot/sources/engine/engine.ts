@@ -71,8 +71,8 @@ export class Engine {
     this.reloadSync = new InvalidateSync(async () => {
       await this.reloadApplyLatest();
     });
-    this.authStore = new AuthStore(this.runtimeConfig);
-    this.fileStore = new FileStore(this.runtimeConfig);
+    this.authStore = new AuthStore(this.config.current);
+    this.fileStore = new FileStore(this.config.current);
     logger.debug(`AuthStore and FileStore initialized`);
 
     this.modules = new ModuleRegistry({
@@ -158,7 +158,7 @@ export class Engine {
     });
 
     this.inferenceRouter = new InferenceRouter({
-      providers: listActiveInferenceProviders(this.runtimeConfig.settings),
+      providers: listActiveInferenceProviders(this.config.current.settings),
       registry: this.modules.inference,
       auth: this.authStore,
       // Hold read lock for the full inference lifecycle so write-locked reload reaches
@@ -221,7 +221,7 @@ export class Engine {
 
   async start(): Promise<void> {
     logger.debug("Engine.start() beginning");
-    await ensureWorkspaceDir(this.runtimeConfig.defaultPermissions.workingDir);
+    await ensureWorkspaceDir(this.config.current.defaultPermissions.workingDir);
 
     logger.debug("Loading agents");
     await this.agentSystem.load();
@@ -231,7 +231,7 @@ export class Engine {
     await this.providerManager.sync();
     logger.debug("Provider manager sync complete");
     logger.debug("Loading enabled plugins");
-    await this.pluginManager.loadEnabled(this.runtimeConfig);
+    await this.pluginManager.loadEnabled(this.config.current);
     logger.debug("Plugins loaded");
 
     await this.crons.ensureDir();
@@ -361,12 +361,8 @@ export class Engine {
     await this.reloadSync.invalidateAndAwait();
   }
 
-  get runtimeConfig(): Config {
-    return this.config.current();
-  }
-
   private isReloadable(next: Config): boolean {
-    return configReloadPathsEqual(this.runtimeConfig, next);
+    return configReloadPathsEqual(this.config.current, next);
   }
 
   private async inReadLock<T>(operation: () => Promise<T>): Promise<T> {
@@ -385,20 +381,20 @@ export class Engine {
   }
 
   private async reloadApplyLatest(): Promise<void> {
-    const config = await configLoad(this.runtimeConfig.settingsPath, { verbose: this.runtimeConfig.verbose });
+    const config = await configLoad(this.config.current.settingsPath, { verbose: this.config.current.verbose });
     await this.config.inWriteLock(async () => {
       if (!this.isReloadable(config)) {
         throw new Error("Config reload requires restart (paths changed).");
       }
-      if (configReloadEqual(this.runtimeConfig, config)) {
+      if (configReloadEqual(this.config.current, config)) {
         logger.debug("Reload requested but config is unchanged.");
         return;
       }
       this.config.configSet(config);
-      await ensureWorkspaceDir(this.runtimeConfig.defaultPermissions.workingDir);
+      await ensureWorkspaceDir(this.config.current.defaultPermissions.workingDir);
       await this.providerManager.sync();
       await this.pluginManager.syncWithConfig(config);
-      this.inferenceRouter.updateProviders(listActiveInferenceProviders(this.runtimeConfig.settings));
+      this.inferenceRouter.updateProviders(listActiveInferenceProviders(this.config.current.settings));
       logger.info("Runtime configuration reloaded");
     });
   }

@@ -93,14 +93,14 @@ export async function startEngineServer(
 
   app.get("/v1/engine/agents/background", async (_request, reply) => {
     logger.debug("GET /v1/engine/agents/background");
-    const agents = await agentBackgroundList(options.runtime.runtimeConfig);
+    const agents = await agentBackgroundList(options.runtime.config.current);
     logger.debug(`Background agents retrieved agentCount=${agents.length}`);
     return reply.send({ ok: true, agents });
   });
 
   app.get("/v1/engine/agents", async (_request, reply) => {
     logger.debug("GET /v1/engine/agents");
-    const agents = await agentList(options.runtime.runtimeConfig);
+    const agents = await agentList(options.runtime.config.current);
     logger.debug(`Agents retrieved agentCount=${agents.length}`);
     return reply.send({ ok: true, agents });
   });
@@ -108,7 +108,7 @@ export async function startEngineServer(
   app.get("/v1/engine/agents/:agentId/history", async (request, reply) => {
     const agentId = (request.params as { agentId: string }).agentId;
     logger.debug(`GET /v1/engine/agents/:agentId/history agentId=${agentId}`);
-    const records = await agentHistoryLoad(options.runtime.runtimeConfig, agentId);
+    const records = await agentHistoryLoad(options.runtime.config.current, agentId);
     logger.debug(`Agent history retrieved agentId=${agentId} recordCount=${records.length}`);
     return reply.send({ ok: true, records });
   });
@@ -339,7 +339,7 @@ export async function startEngineServer(
         status: options.runtime.getStatus(),
         cron: options.runtime.crons.listScheduledTasks(),
         heartbeat: await options.runtime.heartbeats.listTasks(),
-        backgroundAgents: await agentBackgroundList(options.runtime.runtimeConfig)
+        backgroundAgents: await agentBackgroundList(options.runtime.config.current)
       },
       timestamp: new Date().toISOString()
     });

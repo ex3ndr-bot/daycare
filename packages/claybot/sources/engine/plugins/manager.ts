@@ -67,13 +67,9 @@ export class PluginManager {
     this.onEvent = options.onEvent ?? null;
     this.inference = new PluginInferenceService({
       router: options.inferenceRouter,
-      getSettings: () => this.runtimeConfig.settings
+      getSettings: () => this.config.current.settings
     });
-    this.logger.debug(`PluginManager initialized catalogSize=${options.pluginCatalog.size} dataDir=${this.runtimeConfig.dataDir} mode=${this.mode}`);
-  }
-
-  private get runtimeConfig(): Config {
-    return this.config.current();
+    this.logger.debug(`PluginManager initialized catalogSize=${options.pluginCatalog.size} dataDir=${this.config.current.dataDir} mode=${this.mode}`);
   }
 
   listLoaded(): string[] {
@@ -263,7 +259,7 @@ export class PluginManager {
     const api: PluginApi = {
       instance: pluginConfig,
       settings: parsedSettings,
-      engineSettings: this.runtimeConfig.settings,
+      engineSettings: this.config.current.settings,
       logger: getLogger(`plugin.${instanceId}`),
       auth: this.auth,
       dataDir,
@@ -353,7 +349,7 @@ export class PluginManager {
   }
 
   private async ensurePluginDir(instanceId: string): Promise<string> {
-    const dir = path.join(this.runtimeConfig.dataDir, "plugins", instanceId);
+    const dir = path.join(this.config.current.dataDir, "plugins", instanceId);
     await fs.mkdir(dir, { recursive: true });
     return dir;
   }

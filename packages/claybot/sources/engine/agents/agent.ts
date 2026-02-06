@@ -100,7 +100,7 @@ export class Agent {
     const now = Date.now();
     const state: AgentState = {
       context: { messages: [] },
-      permissions: permissionClone(agentSystem.runtimeConfig.defaultPermissions),
+      permissions: permissionClone(agentSystem.config.current.defaultPermissions),
       tokens: null,
       stats: {},
       createdAt: now,
@@ -109,9 +109,9 @@ export class Agent {
     };
 
     const agent = new Agent(agentId, descriptor, state, inbox, agentSystem);
-    await agentDescriptorWrite(agentSystem.runtimeConfig, agentId, descriptor);
-    await agentStateWrite(agentSystem.runtimeConfig, agentId, state);
-    await agentHistoryAppend(agentSystem.runtimeConfig, agentId, {
+    await agentDescriptorWrite(agentSystem.config.current, agentId, descriptor);
+    await agentStateWrite(agentSystem.config.current, agentId, state);
+    await agentHistoryAppend(agentSystem.config.current, agentId, {
       type: "start",
       at: now
     });
@@ -298,7 +298,7 @@ export class Agent {
       files
     };
 
-    const providers = listActiveInferenceProviders(this.agentSystem.runtimeConfig.settings);
+    const providers = listActiveInferenceProviders(this.agentSystem.config.current.settings);
     const providerId = this.resolveAgentProvider(providers);
 
     const connector = this.agentSystem.connectorRegistry.get(source);
@@ -328,14 +328,14 @@ export class Agent {
     const pluginSkills = await skillListRegistered(pluginManager.listRegisteredSkills());
     const skills = [...coreSkills, ...pluginSkills];
     const skillsPrompt = skillPromptFormat(skills);
-    const permanentAgents = await agentPermanentList(this.agentSystem.runtimeConfig);
+    const permanentAgents = await agentPermanentList(this.agentSystem.config.current);
     const permanentAgentsPrompt = agentPermanentPromptBuild(permanentAgents);
     const agentPrompt =
       this.descriptor.type === "permanent" ? this.descriptor.systemPrompt.trim() : "";
     const agentKind = this.resolveAgentKind();
     const allowCronTools = agentDescriptorIsCron(this.descriptor);
 
-    const defaultPermissions = this.agentSystem.runtimeConfig.defaultPermissions;
+    const defaultPermissions = this.agentSystem.config.current.defaultPermissions;
     if (cronTask?.filesPath) {
       this.state.permissions = permissionBuildCron(defaultPermissions, cronTask.filesPath);
     } else if (agentDescriptorIsHeartbeat(this.descriptor)) {
@@ -386,11 +386,11 @@ export class Agent {
       parentAgentId: this.descriptor.type === "subagent"
         ? this.descriptor.parentAgentId ?? ""
         : "",
-      configDir: this.agentSystem.runtimeConfig.configDir
+      configDir: this.agentSystem.config.current.configDir
     });
 
     try {
-      const wrote = await agentSystemPromptWrite(this.agentSystem.runtimeConfig, this.id, systemPrompt);
+      const wrote = await agentSystemPromptWrite(this.agentSystem.config.current, this.id, systemPrompt);
       if (wrote) {
         logger.debug(`System prompt snapshot written agentId=${this.id}`);
       }
@@ -398,11 +398,11 @@ export class Agent {
       logger.warn({ agentId: this.id, error }, "Failed to write system prompt snapshot");
     }
 
-    const history = await agentHistoryLoad(this.agentSystem.runtimeConfig, this.id);
+    const history = await agentHistoryLoad(this.agentSystem.config.current, this.id);
     const extraTokens = Math.ceil((systemPrompt.length + rawText.length) / 4);
     const compactionStatus = contextCompactionStatusBuild(
       history,
-      this.agentSystem.runtimeConfig.settings.agents.emergencyContextLimit,
+      this.agentSystem.config.current.settings.agents.emergencyContextLimit,
       { extraTokens }
     );
     if (compactionStatus.severity !== "ok") {
@@ -439,11 +439,11 @@ export class Agent {
               ]
             };
             this.state.tokens = null;
-            await agentHistoryAppend(this.agentSystem.runtimeConfig, this.id, {
+            await agentHistoryAppend(this.agentSystem.config.current, this.id, {
               type: "reset",
               at: compactionAt
             });
-          await agentHistoryAppend(this.agentSystem.runtimeConfig, this.id, {
+          await agentHistoryAppend(this.agentSystem.config.current, this.id, {
             type: "user_message",
             at: compactionAt,
             text: summaryWithContinue,
@@ -459,7 +459,7 @@ export class Agent {
       if (compactionAt !== null) {
         pendingUserRecord = { ...pendingUserRecord, at: compactionAt + 1 };
       }
-      await agentHistoryAppend(this.agentSystem.runtimeConfig, this.id, pendingUserRecord);
+      await agentHistoryAppend(this.agentSystem.config.current, this.id, pendingUserRecord);
     }
 
     const agentContext = this.state.context;
@@ -497,11 +497,11 @@ export class Agent {
       fileStore: this.agentSystem.fileStore,
       authStore: this.agentSystem.authStore,
       eventBus: this.agentSystem.eventBus,
-      assistant: this.agentSystem.runtimeConfig.settings.assistant ?? null,
+      assistant: this.agentSystem.config.current.settings.assistant ?? null,
       agentSystem: this.agentSystem,
       heartbeats: this.agentSystem.heartbeats,
       providersForAgent,
-      verbose: this.agentSystem.runtimeConfig.verbose,
+      verbose: this.agentSystem.config.current.verbose,
       logger,
       notifySubagentFailure: (reason, error) => this.notifySubagentFailure(reason, error)
     });
@@ -513,7 +513,7 @@ export class Agent {
     }
 
     for (const record of result.historyRecords) {
-      await agentHistoryAppend(this.agentSystem.runtimeConfig, this.id, record);
+      await agentHistoryAppend(this.agentSystem.config.current, this.id, record);
     }
 
     if (result.tokenStatsUpdates.length > 0) {
@@ -545,7 +545,7 @@ export class Agent {
 
     this.state.context = { messages: contextForRun.messages };
     this.state.updatedAt = Date.now();
-    await agentStateWrite(this.agentSystem.runtimeConfig, this.id, this.state);
+    await agentStateWrite(this.agentSystem.config.current, this.id, this.state);
 
     return result.responseText ?? null;
   }
@@ -556,7 +556,7 @@ export class Agent {
     const text = messageBuildSystemText(item.text, item.origin);
     if (item.silent) {
       const receivedAt = Date.now();
-      await agentHistoryAppend(this.agentSystem.runtimeConfig, this.id, {
+      await agentHistoryAppend(this.agentSystem.config.current, this.id, {
         type: "user_message",
         at: receivedAt,
         text,
@@ -577,7 +577,7 @@ export class Agent {
       }
       this.state.context.messages.push(userMessage);
       this.state.updatedAt = receivedAt;
-      await agentStateWrite(this.agentSystem.runtimeConfig, this.id, this.state);
+      await agentStateWrite(this.agentSystem.config.current, this.id, this.state);
       return null;
     }
 
@@ -601,12 +601,12 @@ export class Agent {
     }
     this.state.tokens = null;
     this.state.updatedAt = now;
-    await agentHistoryAppend(this.agentSystem.runtimeConfig, this.id, {
+    await agentHistoryAppend(this.agentSystem.config.current, this.id, {
       type: "reset",
       at: now,
       ...(resetMessage.length > 0 ? { message: resetMessage } : {})
     });
-    await agentStateWrite(this.agentSystem.runtimeConfig, this.id, this.state);
+    await agentStateWrite(this.agentSystem.config.current, this.id, this.state);
     this.agentSystem.eventBus.emit("agent.reset", {
       agentId: this.id,
       context: {}
@@ -654,11 +654,11 @@ export class Agent {
   }
 
   private async handleRestore(_item: AgentInboxRestore): Promise<boolean> {
-    const history = await agentHistoryLoad(this.agentSystem.runtimeConfig, this.id);
+    const history = await agentHistoryLoad(this.agentSystem.config.current, this.id);
     const messages = await this.buildHistoryContext(history);
     this.state.context = { messages };
     this.state.updatedAt = Date.now();
-    await agentStateWrite(this.agentSystem.runtimeConfig, this.id, this.state);
+    await agentStateWrite(this.agentSystem.config.current, this.id, this.state);
     this.agentSystem.eventBus.emit("agent.restored", { agentId: this.id });
     return true;
   }
@@ -696,7 +696,7 @@ export class Agent {
 
     if (decision.approved) {
       permissionApply(this.state.permissions, decision);
-      await agentStateWrite(this.agentSystem.runtimeConfig, this.id, this.state);
+      await agentStateWrite(this.agentSystem.config.current, this.id, this.state);
       this.agentSystem.eventBus.emit("permission.granted", {
         agentId: this.id,
         source,

@@ -18,7 +18,7 @@ describe("CronScheduler", () => {
     readDirs: [],
     web: false
   });
-  const runtimeConfig = (workingDir: string): ConfigModule =>
+  const configModule = (workingDir: string): ConfigModule =>
     new ConfigModule(
       configResolve(
         { engine: { dataDir: workingDir } },
@@ -46,7 +46,7 @@ describe("CronScheduler", () => {
 
     const onTask = vi.fn();
     const scheduler = new CronScheduler({
-      config: runtimeConfig(tempDir),
+      config: configModule(tempDir),
       store,
       onTask,
       defaultPermissions: defaultPermissions(tempDir)
@@ -74,7 +74,7 @@ describe("CronScheduler", () => {
 
     const onTask = vi.fn();
     const scheduler = new CronScheduler({
-      config: runtimeConfig(tempDir),
+      config: configModule(tempDir),
       store,
       onTask,
       defaultPermissions: defaultPermissions(tempDir)
@@ -108,7 +108,7 @@ describe("CronScheduler", () => {
       prompt: "Run me"
     });
 
-    const config = runtimeConfig(tempDir);
+    const config = configModule(tempDir);
     const inReadLock = vi.spyOn(config, "inReadLock");
     const scheduler = new CronScheduler({
       config,
@@ -134,7 +134,7 @@ describe("CronScheduler", () => {
 
     const onTask = vi.fn();
     const scheduler = new CronScheduler({
-      config: runtimeConfig(tempDir),
+      config: configModule(tempDir),
       store,
       onTask,
       defaultPermissions: defaultPermissions(tempDir)
@@ -151,7 +151,7 @@ describe("CronScheduler", () => {
   it("reloads tasks from disk", async () => {
     const onTask = vi.fn();
     const scheduler = new CronScheduler({
-      config: runtimeConfig(tempDir),
+      config: configModule(tempDir),
       store,
       onTask,
       defaultPermissions: defaultPermissions(tempDir)
@@ -182,7 +182,7 @@ describe("CronScheduler", () => {
 
     const onTask = vi.fn();
     const scheduler = new CronScheduler({
-      config: runtimeConfig(tempDir),
+      config: configModule(tempDir),
       store,
       onTask,
       defaultPermissions: defaultPermissions(tempDir)
@@ -213,7 +213,7 @@ describe("CronScheduler", () => {
 
     const onError = vi.fn();
     const scheduler = new CronScheduler({
-      config: runtimeConfig(tempDir),
+      config: configModule(tempDir),
       store,
       onTask: () => {
         throw new Error("Task failed");
@@ -251,7 +251,7 @@ describe("CronScheduler", () => {
       stderr: ""
     });
     const scheduler = new CronScheduler({
-      config: runtimeConfig(tempDir),
+      config: configModule(tempDir),
       store,
       onTask,
       gateCheck,
@@ -285,7 +285,7 @@ describe("CronScheduler", () => {
       stderr: " warn "
     });
     const scheduler = new CronScheduler({
-      config: runtimeConfig(tempDir),
+      config: configModule(tempDir),
       store,
       onTask,
       gateCheck,
