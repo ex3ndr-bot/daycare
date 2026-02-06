@@ -4,9 +4,10 @@ The `exec` tool can optionally allow outbound network access for specific domain
 The list is explicit: exact domains are allowed, and subdomain wildcards like
 `*.example.com` are supported. A global wildcard (`*`) is not allowed.
 
-`exec` and exec gates also support a typed package-manager preset list:
+`exec` and exec gates also support typed language ecosystem presets:
 - `go` -> `proxy.golang.org`, `sum.golang.org`, `index.golang.org`, `golang.org`
-- `node` -> `registry.npmjs.org`, `registry.yarnpkg.com`
+- `java` -> `repo.maven.apache.org`, `repo1.maven.org`, `plugins.gradle.org`, `services.gradle.org`
+- `node` -> `registry.npmjs.org`, `registry.yarnpkg.com`, `repo.yarnpkg.com`, `bun.sh` (covers npm/pnpm/yarn/bun)
 - `python` -> `pypi.org`, `files.pythonhosted.org`, `pypi.python.org`
 
 Presets are merged with explicit `allowedDomains`, deduped, then validated.

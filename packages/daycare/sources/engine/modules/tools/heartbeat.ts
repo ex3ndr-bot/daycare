@@ -30,7 +30,12 @@ const addSchema = Type.Object(
         permissions: Type.Optional(Type.Array(Type.String({ minLength: 1 }), { minItems: 1 })),
         packageManagers: Type.Optional(
           Type.Array(
-            Type.Union([Type.Literal("go"), Type.Literal("node"), Type.Literal("python")]),
+            Type.Union([
+              Type.Literal("go"),
+              Type.Literal("java"),
+              Type.Literal("node"),
+              Type.Literal("python")
+            ]),
             { minItems: 1 }
           )
         ),

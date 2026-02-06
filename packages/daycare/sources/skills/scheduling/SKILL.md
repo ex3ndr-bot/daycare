@@ -47,7 +47,7 @@ successful).
 - `command` (required)
 - `cwd`, `timeoutMs`, `env`
 - `permissions` (required tags; must already be allowed by the target agent)
-- `packageManagers` (`go` | `node` | `python`; auto-adds package registry hosts; requires `@network`)
+- `packageManagers` (`go` | `java` | `node` | `python`; auto-adds language ecosystem hosts; requires `@network`)
 - `allowedDomains` (network allowlist; requires `@network`)
 
 ## Examples

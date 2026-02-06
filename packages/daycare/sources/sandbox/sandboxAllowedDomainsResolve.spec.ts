@@ -6,13 +6,19 @@ describe("sandboxAllowedDomainsResolve", () => {
   it("expands package manager presets and dedupes domains", () => {
     const result = sandboxAllowedDomainsResolve(
       ["example.com", "registry.npmjs.org", " example.com "],
-      ["node", "python"]
+      ["java", "node", "python"]
     );
 
     expect(result).toEqual([
       "example.com",
       "registry.npmjs.org",
+      "repo.maven.apache.org",
+      "repo1.maven.org",
+      "plugins.gradle.org",
+      "services.gradle.org",
       "registry.yarnpkg.com",
+      "repo.yarnpkg.com",
+      "bun.sh",
       "pypi.org",
       "files.pythonhosted.org",
       "pypi.python.org"
