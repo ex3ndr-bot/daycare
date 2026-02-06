@@ -1,13 +1,10 @@
 import path from "node:path";
-import { exec as execCallback, type ExecException } from "node:child_process";
-import { promisify } from "node:util";
+import type { ExecException } from "node:child_process";
 
 import type { ExecGateDefinition, SessionPermissions } from "@/types";
-import { wrapWithSandbox } from "../../sandbox/runtime.js";
+import { runInSandbox } from "../../sandbox/runtime.js";
 import { permissionClone } from "../permissions/permissionClone.js";
 import { pathResolveSecure } from "../permissions/pathResolveSecure.js";
-
-const exec = promisify(execCallback);
 
 const MAX_EXEC_BUFFER = 1_000_000;
 const DEFAULT_EXEC_TIMEOUT = 30_000;
@@ -68,15 +65,13 @@ export async function execGateCheck(
   const env = input.gate.env ? { ...process.env, ...input.gate.env } : process.env;
   const timeoutMs = clampTimeout(input.gate.timeoutMs ?? DEFAULT_EXEC_TIMEOUT);
   const sandboxConfig = buildSandboxConfig(permissions, allowedDomains);
-  const sandboxedCommand = await wrapWithSandbox(command, sandboxConfig);
 
   try {
-    const result = await exec(sandboxedCommand, {
+    const result = await runInSandbox(command, sandboxConfig, {
       cwd: resolvedCwd,
       env,
-      timeout: timeoutMs,
-      maxBuffer: MAX_EXEC_BUFFER,
-      encoding: "utf8"
+      timeoutMs,
+      maxBufferBytes: MAX_EXEC_BUFFER
     });
     return {
       shouldRun: true,

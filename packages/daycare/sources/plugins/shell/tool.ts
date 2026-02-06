@@ -2,21 +2,18 @@ import { Type, type Static } from "@sinclair/typebox";
 import type { ToolResultMessage } from "@mariozechner/pi-ai";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { exec as execCallback, type ExecException } from "node:child_process";
-import { promisify } from "node:util";
+import type { ExecException } from "node:child_process";
 
 import type { ToolDefinition, ToolExecutionResult } from "@/types";
 import type { SessionPermissions } from "@/types";
 import { resolveWorkspacePath } from "../../engine/permissions.js";
-import { wrapWithSandbox } from "../../sandbox/runtime.js";
+import { runInSandbox } from "../../sandbox/runtime.js";
 import { envNormalize } from "../../util/envNormalize.js";
 import {
   pathResolveSecure,
   isWithinSecure,
   openSecure
 } from "../../engine/permissions/pathResolveSecure.js";
-
-const exec = promisify(execCallback);
 
 const MAX_READ_BYTES = 200_000;
 const MAX_EXEC_BUFFER = 1_000_000;
@@ -181,15 +178,13 @@ export function buildExecTool(): ToolDefinition {
       const env = envOverrides ? { ...process.env, ...envOverrides } : process.env;
       const timeout = payload.timeoutMs ?? DEFAULT_EXEC_TIMEOUT;
       const sandboxConfig = buildSandboxConfig(toolContext.permissions, allowedDomains);
-      const sandboxedCommand = await wrapWithSandbox(payload.command, sandboxConfig);
 
       try {
-        const result = await exec(sandboxedCommand, {
+        const result = await runInSandbox(payload.command, sandboxConfig, {
           cwd,
           env,
-          timeout,
-          maxBuffer: MAX_EXEC_BUFFER,
-          encoding: "utf8"
+          timeoutMs: timeout,
+          maxBufferBytes: MAX_EXEC_BUFFER
         });
         const stdout = toText(result.stdout);
         const stderr = toText(result.stderr);

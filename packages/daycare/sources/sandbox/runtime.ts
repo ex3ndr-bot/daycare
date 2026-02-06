@@ -1,42 +1,59 @@
-import { SandboxManager, type SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
+import type { SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
+import { execFile as execFileCallback } from "node:child_process";
+import { promises as fs } from "node:fs";
+import { createRequire } from "node:module";
+import os from "node:os";
+import path from "node:path";
+import { promisify } from "node:util";
 
 import { getLogger } from "../log.js";
 
 const logger = getLogger("sandbox.runtime");
+const nodeRequire = createRequire(import.meta.url);
+const srtCliPath = nodeRequire.resolve("@anthropic-ai/sandbox-runtime/dist/cli.js");
+const execFile = promisify(execFileCallback);
+const DEFAULT_TIMEOUT_MS = 30_000;
+const DEFAULT_MAX_BUFFER_BYTES = 1_000_000;
 
-let currentConfigKey: string | null = null;
-let initPromise: Promise<void> | null = null;
-
-export async function ensureSandbox(config: SandboxRuntimeConfig): Promise<void> {
-  const key = JSON.stringify(config);
-  if (currentConfigKey === key) {
-    return;
-  }
-
-  if (initPromise) {
-    await initPromise;
-    if (currentConfigKey === key) {
-      return;
-    }
-  }
-
-  initPromise = (async () => {
-    logger.debug("Initializing sandbox runtime");
-    await SandboxManager.initialize(config);
-    currentConfigKey = key;
-  })();
-
-  try {
-    await initPromise;
-  } finally {
-    initPromise = null;
-  }
-}
-
-export async function wrapWithSandbox(
+/**
+ * Runs a command with a per-call sandbox config.
+ * Expects: command is non-empty and config is fully resolved for this execution.
+ */
+export async function runInSandbox(
   command: string,
-  config: SandboxRuntimeConfig
-): Promise<string> {
-  await ensureSandbox(config);
-  return SandboxManager.wrapWithSandbox(command);
+  config: SandboxRuntimeConfig,
+  options: {
+    cwd?: string;
+    env?: NodeJS.ProcessEnv;
+    timeoutMs?: number;
+    maxBufferBytes?: number;
+  } = {}
+): Promise<{ stdout: string; stderr: string }> {
+  const settingsPath = path.join(
+    os.tmpdir(),
+    `claybot-srt-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.json`
+  );
+  await fs.writeFile(settingsPath, JSON.stringify(config), "utf8");
+  logger.debug("Executing command with sandbox config");
+  try {
+    const result = await execFile(process.execPath, [
+      srtCliPath,
+      "--settings",
+      settingsPath,
+      "-c",
+      command
+    ], {
+      cwd: options.cwd,
+      env: options.env,
+      timeout: options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+      maxBuffer: options.maxBufferBytes ?? DEFAULT_MAX_BUFFER_BYTES,
+      encoding: "utf8"
+    });
+    return {
+      stdout: result.stdout,
+      stderr: result.stderr
+    };
+  } finally {
+    await fs.rm(settingsPath, { force: true });
+  }
 }

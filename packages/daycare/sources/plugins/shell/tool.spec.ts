@@ -48,6 +48,43 @@ describe("exec tool allowedDomains", () => {
       )
     ).rejects.toThrow("Wildcard");
   });
+
+  it("only allows exact domain unless wildcard subdomain is listed", async () => {
+    const tool = buildExecTool();
+    const context = createContext(workingDir, true);
+
+    const allowedResult = await tool.execute(
+      {
+        command: "curl -I -sS https://google.com",
+        allowedDomains: ["google.com"],
+        timeoutMs: 30_000
+      },
+      context,
+      toolCall
+    );
+    const allowedText = allowedResult.toolMessage.content
+      .filter((item) => item.type === "text")
+      .map((item) => item.text)
+      .join("\n");
+    expect(allowedResult.toolMessage.isError).toBe(false);
+    expect(allowedText).toContain("HTTP/");
+
+    const blockedResult = await tool.execute(
+      {
+        command: "curl -I -sS https://www.google.com",
+        allowedDomains: ["google.com"],
+        timeoutMs: 30_000
+      },
+      context,
+      toolCall
+    );
+    const blockedText = blockedResult.toolMessage.content
+      .filter((item) => item.type === "text")
+      .map((item) => item.text)
+      .join("\n");
+    expect(blockedResult.toolMessage.isError).toBe(true);
+    expect(blockedText).toContain("CONNECT tunnel failed");
+  });
 });
 
 function createContext(workingDir: string, web: boolean): ToolExecutionContext {
