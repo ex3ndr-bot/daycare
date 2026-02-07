@@ -83,5 +83,6 @@ export type {
   SignalGenerateInput,
   SignalSource,
   SignalSubscription,
-  SignalSubscribeInput
+  SignalSubscribeInput,
+  SignalUnsubscribeInput
 } from "./engine/signals/signalTypes.js";

@@ -57,6 +57,17 @@ When a signal is generated, matching subscriptions are delivered immediately to 
 - `silent=false` -> delivered as regular system messages
 - subscribing another agent requires that agent to exist; otherwise tool call fails
 
+`signal_unsubscribe` is also registered for agent contexts.
+
+Arguments:
+- `pattern` (required string, must exactly match the saved subscription pattern)
+- `agentId` (optional target agent id; defaults to current agent)
+
+Behavior:
+- removes the subscription for `(agentId, pattern)` when it exists
+- returns `removed=false` when there is nothing to remove
+- unsubscribing another agent requires that agent to exist; otherwise tool call fails
+
 ## Dashboard API
 
 The engine exposes persisted signal events for the dashboard:
@@ -83,4 +94,5 @@ flowchart TD
   Match --> Deliver[AgentSystem.post to inbox]
   Deliver --> Silent[silent system message]
   Deliver --> NonSilent[non-silent system message]
+  AgentA -->|signal_unsubscribe| Signals
 ```

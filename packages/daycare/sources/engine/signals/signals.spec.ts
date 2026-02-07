@@ -92,4 +92,33 @@ describe("Signals", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("stops delivering after unsubscribe", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-signals-"));
+    try {
+      const delivered: string[] = [];
+      const signals = new Signals({
+        eventBus: new EngineEventBus(),
+        configDir: dir,
+        onDeliver: (_signal, subscriptions) => {
+          delivered.push(...subscriptions.map((subscription) => subscription.agentId));
+        }
+      });
+      await signals.ensureDir();
+
+      signals.subscribe({ agentId: "agent-a", pattern: "build:*:done", silent: true });
+      const removed = signals.unsubscribe({ agentId: "agent-a", pattern: "build:*:done" });
+      expect(removed).toBe(true);
+
+      await signals.generate({
+        type: "build:alpha:done",
+        source: { type: "system" }
+      });
+
+      expect(delivered).toEqual([]);
+      expect(signals.unsubscribe({ agentId: "agent-a", pattern: "build:*:done" })).toBe(false);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });

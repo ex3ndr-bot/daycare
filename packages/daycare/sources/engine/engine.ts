@@ -23,6 +23,7 @@ import { buildPermissionGrantTool, buildPermissionRequestTool } from "./modules/
 import { buildSendFileTool } from "./modules/tools/send-file.js";
 import { buildSignalGenerateTool } from "./modules/tools/signal.js";
 import { buildSignalSubscribeTool } from "./modules/tools/signalSubscribeToolBuild.js";
+import { buildSignalUnsubscribeTool } from "./modules/tools/signalUnsubscribeToolBuild.js";
 import { agentListToolBuild } from "./modules/tools/agentListToolBuild.js";
 import { sessionHistoryToolBuild } from "./modules/tools/sessionHistoryToolBuild.js";
 import { permanentAgentToolBuild } from "./modules/tools/permanentAgentToolBuild.js";
@@ -279,10 +280,11 @@ export class Engine {
     this.modules.tools.register("core", buildSendFileTool());
     this.modules.tools.register("core", buildSignalGenerateTool(this.signals));
     this.modules.tools.register("core", buildSignalSubscribeTool(this.signals));
+    this.modules.tools.register("core", buildSignalUnsubscribeTool(this.signals));
     this.modules.tools.register("core", buildPermissionRequestTool());
     this.modules.tools.register("core", buildPermissionGrantTool());
     logger.debug(
-      "Core tools registered: cron, cron_memory, heartbeat, background, agent_listing, session_history, permanent_agents, image_generation, reaction, send_file, generate_signal, signal_subscribe, request_permission, grant_permission"
+      "Core tools registered: cron, cron_memory, heartbeat, background, agent_listing, session_history, permanent_agents, image_generation, reaction, send_file, generate_signal, signal_subscribe, signal_unsubscribe, request_permission, grant_permission"
     );
 
     logger.debug("Starting agent system");

@@ -31,3 +31,8 @@ export type SignalSubscribeInput = {
   pattern: string;
   silent?: boolean;
 };
+
+export type SignalUnsubscribeInput = {
+  agentId: string;
+  pattern: string;
+};

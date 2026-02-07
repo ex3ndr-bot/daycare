@@ -12,7 +12,8 @@ import type {
   SignalGenerateInput,
   SignalSource,
   SignalSubscribeInput,
-  SignalSubscription
+  SignalSubscription,
+  SignalUnsubscribeInput
 } from "./signalTypes.js";
 
 const logger = getLogger("signal.facade");
@@ -85,14 +86,7 @@ export class Signals {
   }
 
   subscribe(input: SignalSubscribeInput): SignalSubscription {
-    const pattern = input.pattern.trim();
-    if (!pattern) {
-      throw new Error("Signal subscription pattern is required");
-    }
-    const agentId = input.agentId.trim();
-    if (!agentId) {
-      throw new Error("Signal subscription agentId is required");
-    }
+    const { pattern, agentId } = signalSubscriptionInputNormalize(input);
     const key = signalSubscriptionKeyBuild(agentId, pattern);
     const now = Date.now();
     const existing = this.subscriptions.get(key);
@@ -111,6 +105,16 @@ export class Signals {
         };
     this.subscriptions.set(key, subscription);
     return subscription;
+  }
+
+  /**
+   * Removes an existing signal subscription for agent + pattern.
+   * Returns: true when a subscription existed and was removed.
+   */
+  unsubscribe(input: SignalUnsubscribeInput): boolean {
+    const { pattern, agentId } = signalSubscriptionInputNormalize(input);
+    const key = signalSubscriptionKeyBuild(agentId, pattern);
+    return this.subscriptions.delete(key);
   }
 
   async listRecent(limit = 200): Promise<Signal[]> {
@@ -222,4 +226,18 @@ function signalLinesParse(content: string, limit: number): Signal[] {
 
 function signalSubscriptionKeyBuild(agentId: string, pattern: string): string {
   return `${agentId}::${pattern}`;
+}
+
+function signalSubscriptionInputNormalize(
+  input: { agentId: string; pattern: string }
+): { agentId: string; pattern: string } {
+  const pattern = input.pattern.trim();
+  if (!pattern) {
+    throw new Error("Signal subscription pattern is required");
+  }
+  const agentId = input.agentId.trim();
+  if (!agentId) {
+    throw new Error("Signal subscription agentId is required");
+  }
+  return { pattern, agentId };
 }
