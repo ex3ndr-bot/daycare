@@ -39,17 +39,8 @@ export async function pathResolveSecure(
   let realPath: string;
   try {
     realPath = await fs.realpath(target);
-  } catch (error) {
-    // If the file doesn't exist yet (for write operations), resolve the parent
-    const parent = path.dirname(target);
-    const basename = path.basename(target);
-    try {
-      const realParent = await fs.realpath(parent);
-      realPath = path.join(realParent, basename);
-    } catch {
-      // Parent also doesn't exist - use logical resolution
-      realPath = path.resolve(target);
-    }
+  } catch {
+    realPath = await resolveMissingPath(target);
   }
 
   // Check containment against each allowed directory (also resolve their real paths)
@@ -68,6 +59,25 @@ export async function pathResolveSecure(
   }
 
   throw new Error("Path is outside the allowed directories.");
+}
+
+async function resolveMissingPath(target: string): Promise<string> {
+  const missing: string[] = [path.basename(target)];
+  let parent = path.dirname(target);
+
+  while (true) {
+    try {
+      const realParent = await fs.realpath(parent);
+      return path.join(realParent, ...missing);
+    } catch {
+      const next = path.dirname(parent);
+      if (next === parent) {
+        return path.resolve(target);
+      }
+      missing.unshift(path.basename(parent));
+      parent = next;
+    }
+  }
 }
 
 /**

@@ -78,6 +78,17 @@ describe("pathResolveSecure", () => {
     expect(result.realPath).toBe(path.join(realTempDir, "allowed", "newfile.txt"));
   });
 
+  it("handles nested non-existent files for write operations", async () => {
+    const allowedDirs = [path.join(tempDir, "allowed")];
+    const result = await pathResolveSecure(
+      allowedDirs,
+      path.join(tempDir, "allowed", "nested", "deep", "newfile.txt")
+    );
+    expect(result.realPath).toBe(
+      path.join(realTempDir, "allowed", "nested", "deep", "newfile.txt")
+    );
+  });
+
   it("rejects paths with null bytes", async () => {
     const allowedDirs = [path.join(tempDir, "allowed")];
     await expect(

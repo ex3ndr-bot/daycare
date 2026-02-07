@@ -18,6 +18,7 @@ This folder documents the current Daycare CLI, plugins, agents, and runtime.
 - `auth.md` - auth store and helper commands
 - `inference.md` - inference runtime and provider catalog
 - `permissions.md` - permission system and resolution
+- `read-write-permission-alignment.md` - sandbox read/write permission path resolution
 - `skills.md` - agent skills and loading workflow
 - `agents.md` - agent queueing and sequencing
 - `agent-types.md` - agent descriptors and resolution

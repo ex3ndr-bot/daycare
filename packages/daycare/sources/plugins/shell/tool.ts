@@ -9,11 +9,12 @@ import type { SessionPermissions } from "@/types";
 import { resolveWorkspacePath } from "../../engine/permissions.js";
 import { sandboxAllowedDomainsResolve } from "../../sandbox/sandboxAllowedDomainsResolve.js";
 import { sandboxAllowedDomainsValidate } from "../../sandbox/sandboxAllowedDomainsValidate.js";
+import { sandboxCanRead } from "../../sandbox/sandboxCanRead.js";
+import { sandboxCanWrite } from "../../sandbox/sandboxCanWrite.js";
 import { runInSandbox } from "../../sandbox/runtime.js";
 import { sandboxFilesystemPolicyBuild } from "../../sandbox/sandboxFilesystemPolicyBuild.js";
 import { envNormalize } from "../../util/envNormalize.js";
 import {
-  pathResolveSecure,
   isWithinSecure,
   openSecure
 } from "../../engine/permissions/pathResolveSecure.js";
@@ -464,21 +465,14 @@ async function resolveWritePathSecure(
   permissions: SessionPermissions,
   target: string
 ): Promise<string> {
-  const allowedDirs = [permissions.workingDir, ...permissions.writeDirs];
-  const result = await pathResolveSecure(allowedDirs, target);
-  return result.realPath;
+  return sandboxCanWrite(permissions, target);
 }
 
 async function resolveReadPathSecure(
   permissions: SessionPermissions,
   target: string
 ): Promise<string> {
-  const allowedDirs =
-    permissions.readDirs.length > 0
-      ? [permissions.workingDir, ...permissions.readDirs]
-      : [path.parse(target).root];
-  const result = await pathResolveSecure(allowedDirs, target);
-  return result.realPath;
+  return sandboxCanRead(permissions, target);
 }
 
 function formatDisplayPath(workingDir: string, target: string): string {

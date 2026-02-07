@@ -52,6 +52,20 @@ describe("read tool allowed paths", () => {
       tool.execute({ path: outsideFile }, context, readToolCall)
     ).rejects.toThrow("Path is outside the allowed directories.");
   });
+
+  it("allows reading write-granted files when readDirs are restricted", async () => {
+    const tool = buildWorkspaceReadTool();
+    const context = createContext(workingDir, false, [workingDir], [outsideFile]);
+
+    const result = await tool.execute({ path: outsideFile }, context, readToolCall);
+    const text = result.toolMessage.content
+      .filter((item) => item.type === "text")
+      .map((item) => item.text)
+      .join("\n");
+
+    expect(result.toolMessage.isError).toBe(false);
+    expect(text).toContain("outside-content");
+  });
 });
 
 describe("exec tool allowedDomains", () => {
@@ -167,7 +181,8 @@ describe("exec tool allowedDomains", () => {
 function createContext(
   workingDir: string,
   network: boolean,
-  readDirs: string[] = []
+  readDirs: string[] = [],
+  writeDirs: string[] = []
 ): ToolExecutionContext {
   const agentId = createId();
   const messageContext = {};
@@ -177,7 +192,7 @@ function createContext(
     context: { messages: [] },
     permissions: {
       workingDir,
-      writeDirs: [],
+      writeDirs: writeDirs.map((entry) => path.resolve(entry)),
       readDirs: readDirs.map((entry) => path.resolve(entry)),
       network
     },
