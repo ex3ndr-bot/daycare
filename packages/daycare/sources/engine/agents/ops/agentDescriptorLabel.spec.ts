@@ -29,7 +29,14 @@ describe("agentDescriptorLabel", () => {
         type: "cron",
         id: "cron-1"
       })
-    ).toBe("cron:cron-1");
+    ).toBe("cron task");
+    expect(
+      agentDescriptorLabel({
+        type: "cron",
+        id: "cron-2",
+        name: "daily summary"
+      })
+    ).toBe("daily summary");
     expect(agentDescriptorLabel({ type: "heartbeat" })).toBe("heartbeat");
   });
 

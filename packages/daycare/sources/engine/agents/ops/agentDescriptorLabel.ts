@@ -9,7 +9,7 @@ export function agentDescriptorLabel(descriptor: AgentDescriptor): string {
     return descriptor.name ?? descriptor.type;
   }
   if (descriptor.type === "cron") {
-    return `cron:${descriptor.id}`;
+    return descriptor.name ?? "cron task";
   }
   if (descriptor.type === "heartbeat") {
     return "heartbeat";

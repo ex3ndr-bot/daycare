@@ -19,7 +19,8 @@ const descriptorSchema = z.discriminatedUnion("type", [
   z
     .object({
       type: z.literal("cron"),
-      id: z.string().min(1)
+      id: z.string().min(1),
+      name: z.string().min(1).optional()
     })
     .strict(),
   z

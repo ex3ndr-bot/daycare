@@ -103,7 +103,7 @@ export function buildPermissionRequestTool(): ToolDefinition {
       const heading =
         requestedDescriptor.type === "user"
           ? "Permission request:"
-          : `Permission request from background agent "${requesterLabel}" (${requestedAgentId}):`;
+          : `Permission request from background agent "${requesterLabel}":`;
       const text = `${heading}\n${friendly}\nReason: ${reason}`;
       const request: PermissionRequest = {
         token: createId(),
@@ -137,7 +137,7 @@ export function buildPermissionRequestTool(): ToolDefinition {
       if (!isForeground && requestedDescriptor.type !== "user") {
         const agentName = agentDescriptorLabel(requestedDescriptor);
         const notice = [
-          `Permission request from background agent "${agentName}" (${requestedAgentId}) was presented to the user.`,
+          `Permission request from background agent "${agentName}" was presented to the user.`,
           `permission: ${permission}`,
           `reason: ${reason}`
         ].join("\n");

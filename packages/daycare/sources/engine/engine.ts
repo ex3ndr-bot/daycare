@@ -140,7 +140,7 @@ export class Engine {
             const permissionLabel = permissionDescribeDecision(decision.access);
             const agentLabel = requester ? agentDescriptorLabel(requester) : "agent";
             const notice = [
-              `User ${status} ${permissionLabel} for background agent "${agentLabel}" (${decision.agentId}).`,
+              `User ${status} ${permissionLabel} for background agent "${agentLabel}".`,
               "Decision delivered to background agent."
             ].join("\n");
             await this.agentSystem.post(

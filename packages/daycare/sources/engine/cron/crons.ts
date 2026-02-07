@@ -44,14 +44,20 @@ export class Crons {
         }
         const base = permissionBuildCron(options.config.current.defaultPermissions, task.filesPath);
         const current = await this.agentSystem.permissionsForTarget({
-          descriptor: { type: "cron", id: task.taskUid }
+          descriptor: { type: "cron", id: task.taskUid, name: task.name }
         });
         return mergeCronPermissions(base, current);
       },
       onTask: async (task, messageContext) => {
         const target = task.agentId
           ? { agentId: task.agentId }
-          : { descriptor: { type: "cron" as const, id: task.taskUid } };
+          : {
+              descriptor: {
+                type: "cron" as const,
+                id: task.taskUid,
+                name: task.taskName
+              }
+            };
         logger.debug(
           `CronScheduler.onTask triggered taskUid=${task.taskUid} agentId=${task.agentId ?? "cron"}`
         );
@@ -74,7 +80,13 @@ export class Crons {
         )}. The gate check was skipped and the task ran anyway.`;
         const target = task.agentId
           ? { agentId: task.agentId }
-          : { descriptor: { type: "cron" as const, id: task.taskUid } };
+          : {
+              descriptor: {
+                type: "cron" as const,
+                id: task.taskUid,
+                name: task.name
+              }
+            };
         await this.agentSystem.post(target, {
           type: "system_message",
           text: notice,
