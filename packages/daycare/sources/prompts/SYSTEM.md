@@ -35,8 +35,6 @@ If denied, continue with a fallback and report to parent.
 
 ---
 
-## Agentic Behavior
-
 {{{agentic}}}
 
 ---
