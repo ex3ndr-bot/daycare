@@ -6,13 +6,24 @@ import { createId } from "@paralleldrive/cuid2";
 import { getLogger } from "../../log.js";
 import { AsyncLock } from "../../util/lock.js";
 import type { EngineEventBus } from "../ipc/events.js";
-import type { Signal, SignalGenerateInput, SignalSource } from "./signalTypes.js";
+import { signalTypeMatchesPattern } from "./signalTypeMatchesPattern.js";
+import type {
+  Signal,
+  SignalGenerateInput,
+  SignalSource,
+  SignalSubscribeInput,
+  SignalSubscription
+} from "./signalTypes.js";
 
 const logger = getLogger("signal.facade");
 
 export type SignalsOptions = {
   eventBus: EngineEventBus;
   configDir: string;
+  onDeliver?: (
+    signal: Signal,
+    subscriptions: SignalSubscription[]
+  ) => Promise<void> | void;
 };
 
 export class Signals {
@@ -20,11 +31,14 @@ export class Signals {
   private readonly signalsDir: string;
   private readonly eventsPath: string;
   private readonly appendLock = new AsyncLock();
+  private readonly onDeliver: SignalsOptions["onDeliver"];
+  private readonly subscriptions = new Map<string, SignalSubscription>();
 
   constructor(options: SignalsOptions) {
     this.eventBus = options.eventBus;
     this.signalsDir = path.join(options.configDir, "signals");
     this.eventsPath = path.join(this.signalsDir, "events.jsonl");
+    this.onDeliver = options.onDeliver;
   }
 
   async ensureDir(): Promise<void> {
@@ -53,6 +67,10 @@ export class Signals {
 
     await this.signalAppend(signal);
     this.eventBus.emit("signal.generated", signal);
+    const subscriptions = this.signalSubscriptionsMatch(signal.type);
+    if (subscriptions.length > 0) {
+      await this.signalDeliver(signal, subscriptions);
+    }
     logger.info(
       {
         signalId: signal.id,
@@ -64,6 +82,35 @@ export class Signals {
     );
 
     return signal;
+  }
+
+  subscribe(input: SignalSubscribeInput): SignalSubscription {
+    const pattern = input.pattern.trim();
+    if (!pattern) {
+      throw new Error("Signal subscription pattern is required");
+    }
+    const agentId = input.agentId.trim();
+    if (!agentId) {
+      throw new Error("Signal subscription agentId is required");
+    }
+    const key = signalSubscriptionKeyBuild(agentId, pattern);
+    const now = Date.now();
+    const existing = this.subscriptions.get(key);
+    const subscription: SignalSubscription = existing
+      ? {
+          ...existing,
+          silent: input.silent ?? existing.silent,
+          updatedAt: now
+        }
+      : {
+          agentId,
+          pattern,
+          silent: input.silent ?? true,
+          createdAt: now,
+          updatedAt: now
+        };
+    this.subscriptions.set(key, subscription);
+    return subscription;
   }
 
   async listRecent(limit = 200): Promise<Signal[]> {
@@ -87,6 +134,30 @@ export class Signals {
       await fs.mkdir(this.signalsDir, { recursive: true });
       await fs.appendFile(this.eventsPath, line, "utf8");
     });
+  }
+
+  private signalSubscriptionsMatch(type: string): SignalSubscription[] {
+    const matches: SignalSubscription[] = [];
+    for (const subscription of this.subscriptions.values()) {
+      if (signalTypeMatchesPattern(type, subscription.pattern)) {
+        matches.push(subscription);
+      }
+    }
+    return matches;
+  }
+
+  private async signalDeliver(
+    signal: Signal,
+    subscriptions: SignalSubscription[]
+  ): Promise<void> {
+    if (!this.onDeliver) {
+      return;
+    }
+    try {
+      await this.onDeliver(signal, subscriptions);
+    } catch (error) {
+      logger.warn({ signalId: signal.id, error }, "Signal delivery failed");
+    }
   }
 }
 
@@ -147,4 +218,8 @@ function signalLinesParse(content: string, limit: number): Signal[] {
     }
   }
   return events;
+}
+
+function signalSubscriptionKeyBuild(agentId: string, pattern: string): string {
+  return `${agentId}::${pattern}`;
 }

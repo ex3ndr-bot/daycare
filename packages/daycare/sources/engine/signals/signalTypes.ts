@@ -17,3 +17,17 @@ export type Signal = {
   data?: unknown;
   createdAt: number;
 };
+
+export type SignalSubscription = {
+  agentId: string;
+  pattern: string;
+  silent: boolean;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type SignalSubscribeInput = {
+  agentId: string;
+  pattern: string;
+  silent?: boolean;
+};

@@ -49,4 +49,47 @@ describe("Signals", () => {
       await rm(dir, { recursive: true, force: true });
     }
   });
+
+  it("delivers only matching subscriptions", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-signals-"));
+    try {
+      const delivered: Array<{
+        signalType: string;
+        subscriptions: Array<{ agentId: string; pattern: string; silent: boolean }>;
+      }> = [];
+      const signals = new Signals({
+        eventBus: new EngineEventBus(),
+        configDir: dir,
+        onDeliver: (signal, subscriptions) => {
+          delivered.push({
+            signalType: signal.type,
+            subscriptions: subscriptions.map((subscription) => ({
+              agentId: subscription.agentId,
+              pattern: subscription.pattern,
+              silent: subscription.silent
+            }))
+          });
+        }
+      });
+      await signals.ensureDir();
+
+      signals.subscribe({ agentId: "agent-a", pattern: "build:*:done", silent: true });
+      signals.subscribe({ agentId: "agent-b", pattern: "build:*:done", silent: false });
+      signals.subscribe({ agentId: "agent-c", pattern: "other:*" });
+
+      await signals.generate({
+        type: "build:alpha:done",
+        source: { type: "system" }
+      });
+
+      expect(delivered).toHaveLength(1);
+      expect(delivered[0]?.signalType).toBe("build:alpha:done");
+      expect(delivered[0]?.subscriptions).toEqual([
+        { agentId: "agent-a", pattern: "build:*:done", silent: true },
+        { agentId: "agent-b", pattern: "build:*:done", silent: false }
+      ]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });

@@ -22,6 +22,7 @@ import { buildReactionTool } from "./modules/tools/reaction.js";
 import { buildPermissionGrantTool, buildPermissionRequestTool } from "./modules/tools/permissions.js";
 import { buildSendFileTool } from "./modules/tools/send-file.js";
 import { buildSignalGenerateTool } from "./modules/tools/signal.js";
+import { buildSignalSubscribeTool } from "./modules/tools/signalSubscribeToolBuild.js";
 import { agentListToolBuild } from "./modules/tools/agentListToolBuild.js";
 import { sessionHistoryToolBuild } from "./modules/tools/sessionHistoryToolBuild.js";
 import { permanentAgentToolBuild } from "./modules/tools/permanentAgentToolBuild.js";
@@ -75,7 +76,10 @@ export class Engine {
     this.eventBus = options.eventBus;
     this.signals = new Signals({
       eventBus: this.eventBus,
-      configDir: this.config.current.configDir
+      configDir: this.config.current.configDir,
+      onDeliver: async (signal, subscriptions) => {
+        await this.agentSystem.signalDeliver(signal, subscriptions);
+      }
     });
     this.reloadSync = new InvalidateSync(async () => {
       await this.reloadApplyLatest();
@@ -223,6 +227,7 @@ export class Engine {
       agentSystem: this.agentSystem
     });
     this.agentSystem.setCrons(this.crons);
+    this.agentSystem.setSignals(this.signals);
 
     const heartbeats = new Heartbeats({
       config: this.config,
@@ -273,10 +278,11 @@ export class Engine {
     this.modules.tools.register("core", buildReactionTool());
     this.modules.tools.register("core", buildSendFileTool());
     this.modules.tools.register("core", buildSignalGenerateTool(this.signals));
+    this.modules.tools.register("core", buildSignalSubscribeTool(this.signals));
     this.modules.tools.register("core", buildPermissionRequestTool());
     this.modules.tools.register("core", buildPermissionGrantTool());
     logger.debug(
-      "Core tools registered: cron, cron_memory, heartbeat, background, agent_listing, session_history, permanent_agents, image_generation, reaction, send_file, generate_signal, request_permission, grant_permission"
+      "Core tools registered: cron, cron_memory, heartbeat, background, agent_listing, session_history, permanent_agents, image_generation, reaction, send_file, generate_signal, signal_subscribe, request_permission, grant_permission"
     );
 
     logger.debug("Starting agent system");

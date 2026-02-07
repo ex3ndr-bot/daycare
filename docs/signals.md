@@ -40,6 +40,23 @@ Arguments:
 - `source` (optional object; defaults to `{ type: "agent", id: <current-agent-id> }` in tool usage)
 - `data` (optional payload)
 
+`signal_subscribe` is also registered for agent contexts.
+
+Arguments:
+- `pattern` (required string, `:` separated segments)
+- `silent` (optional boolean, defaults to `true`)
+- `agentId` (optional target agent id; defaults to current agent)
+
+Wildcard matching supports only `*` as a segment placeholder.
+Example:
+- pattern `asdasd:*:asdasd`
+- matches signal type `asdasd:anything:asdasd`
+
+When a signal is generated, matching subscriptions are delivered immediately to agent inboxes:
+- `silent=true` -> delivered as silent system messages
+- `silent=false` -> delivered as regular system messages
+- subscribing another agent requires that agent to exist; otherwise tool call fails
+
 ## Dashboard API
 
 The engine exposes persisted signal events for the dashboard:
@@ -55,4 +72,15 @@ flowchart LR
   Api --> Engine["engine/ipc/server.ts"]
   Engine --> Signals[Signals.listRecent]
   Signals --> Jsonl["<config>/signals/events.jsonl"]
+```
+
+```mermaid
+flowchart TD
+  AgentA[agent A] -->|signal_subscribe| Signals[Signals facade]
+  AgentB[agent B] -->|signal_subscribe agentId=B| Signals
+  Generator[generate_signal] --> Signals
+  Signals --> Match["pattern match (* segments)"]
+  Match --> Deliver[AgentSystem.post to inbox]
+  Deliver --> Silent[silent system message]
+  Deliver --> NonSilent[non-silent system message]
 ```

@@ -6,7 +6,13 @@ import { createId } from "@paralleldrive/cuid2";
 import { getLogger } from "../../log.js";
 import type { FileStore } from "../../files/store.js";
 import type { AuthStore } from "../../auth/store.js";
-import type { AgentTokenEntry, PermissionAccess, SessionPermissions } from "@/types";
+import type {
+  AgentTokenEntry,
+  PermissionAccess,
+  SessionPermissions,
+  Signal,
+  SignalSubscription
+} from "@/types";
 import { cuid2Is } from "../../utils/cuid2Is.js";
 import type { ConnectorRegistry } from "../modules/connectorRegistry.js";
 import type { ImageGenerationRegistry } from "../modules/imageGenerationRegistry.js";
@@ -35,6 +41,8 @@ import { AsyncLock } from "../../util/lock.js";
 import { permissionClone } from "../permissions/permissionClone.js";
 import { permissionAccessApply } from "../permissions/permissionAccessApply.js";
 import type { ConfigModule } from "../config/configModule.js";
+import { signalMessageBuild } from "../signals/signalMessageBuild.js";
+import type { Signals } from "../signals/signals.js";
 
 const logger = getLogger("engine.agent-system");
 
@@ -71,6 +79,7 @@ export class AgentSystem {
   readonly authStore: AuthStore;
   private _crons: Crons | null = null;
   private _heartbeats: Heartbeats | null = null;
+  private _signals: Signals | null = null;
   private entries = new Map<string, AgentEntry>();
   private keyMap = new Map<string, string>();
   private stage: "idle" | "loaded" | "running" = "idle";
@@ -107,6 +116,17 @@ export class AgentSystem {
 
   setHeartbeats(heartbeats: Heartbeats): void {
     this._heartbeats = heartbeats;
+  }
+
+  get signals(): Signals {
+    if (!this._signals) {
+      throw new Error("Signals not set");
+    }
+    return this._signals;
+  }
+
+  setSignals(signals: Signals): void {
+    this._signals = signals;
   }
 
   async load(): Promise<void> {
@@ -224,6 +244,49 @@ export class AgentSystem {
       model: tokens.model,
       size: { ...tokens.size }
     };
+  }
+
+  async agentExists(agentId: string): Promise<boolean> {
+    if (this.entries.has(agentId)) {
+      return true;
+    }
+    try {
+      const descriptor = await agentDescriptorRead(this.config.current, agentId);
+      return !!descriptor;
+    } catch {
+      return false;
+    }
+  }
+
+  async signalDeliver(signal: Signal, subscriptions: SignalSubscription[]): Promise<void> {
+    const text = signalMessageBuild(signal);
+    await Promise.all(
+      subscriptions.map(async (subscription) => {
+        try {
+          await this.post(
+            { agentId: subscription.agentId },
+            {
+              type: "system_message",
+              text,
+              origin: `signal:${signal.id}`,
+              silent: subscription.silent,
+              context: {}
+            }
+          );
+        } catch (error) {
+          logger.warn(
+            {
+              signalId: signal.id,
+              signalType: signal.type,
+              agentId: subscription.agentId,
+              pattern: subscription.pattern,
+              error
+            },
+            "Signal delivery skipped"
+          );
+        }
+      })
+    );
   }
 
   /**
