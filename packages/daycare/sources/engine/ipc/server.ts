@@ -51,6 +51,9 @@ const authSchema = z.object({
   key: z.string().min(1),
   value: z.string().min(1)
 });
+const signalEventsQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(1000).optional()
+});
 
 export async function startEngineServer(
   options: EngineServerOptions
@@ -89,6 +92,18 @@ export async function startEngineServer(
     const tasks = await options.runtime.heartbeats.listTasks();
     logger.debug(`Heartbeat tasks retrieved taskCount=${tasks.length}`);
     return reply.send({ ok: true, tasks });
+  });
+
+  app.get("/v1/engine/signals/events", async (request, reply) => {
+    logger.debug("GET /v1/engine/signals/events");
+    const parsed = signalEventsQuerySchema.safeParse(request.query);
+    if (!parsed.success) {
+      return reply.status(400).send({ ok: false, error: "Invalid query" });
+    }
+    const limit = parsed.data.limit ?? 200;
+    const events = await options.runtime.signals.listRecent(limit);
+    logger.debug(`Signal events retrieved eventCount=${events.length} limit=${limit}`);
+    return reply.send({ ok: true, events });
   });
 
   app.get("/v1/engine/agents/background", async (_request, reply) => {

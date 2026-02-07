@@ -1,6 +1,10 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
+
 import { createId } from "@paralleldrive/cuid2";
 
 import { getLogger } from "../../log.js";
+import { AsyncLock } from "../../util/lock.js";
 import type { EngineEventBus } from "../ipc/events.js";
 import type { Signal, SignalGenerateInput, SignalSource } from "./signalTypes.js";
 
@@ -8,20 +12,30 @@ const logger = getLogger("signal.facade");
 
 export type SignalsOptions = {
   eventBus: EngineEventBus;
+  configDir: string;
 };
 
 export class Signals {
   private readonly eventBus: EngineEventBus;
+  private readonly signalsDir: string;
+  private readonly eventsPath: string;
+  private readonly appendLock = new AsyncLock();
 
   constructor(options: SignalsOptions) {
     this.eventBus = options.eventBus;
+    this.signalsDir = path.join(options.configDir, "signals");
+    this.eventsPath = path.join(this.signalsDir, "events.jsonl");
+  }
+
+  async ensureDir(): Promise<void> {
+    await fs.mkdir(this.signalsDir, { recursive: true });
   }
 
   /**
    * Generates a signal event and publishes it to the engine event bus.
    * Expects: input.type is non-empty after trim.
    */
-  generate(input: SignalGenerateInput): Signal {
+  async generate(input: SignalGenerateInput): Promise<Signal> {
     const type = input.type.trim();
     if (!type) {
       throw new Error("Signal type is required");
@@ -37,6 +51,7 @@ export class Signals {
       createdAt: Date.now()
     };
 
+    await this.signalAppend(signal);
     this.eventBus.emit("signal.generated", signal);
     logger.info(
       {
@@ -49,6 +64,29 @@ export class Signals {
     );
 
     return signal;
+  }
+
+  async listRecent(limit = 200): Promise<Signal[]> {
+    const normalizedLimit = signalLimitNormalize(limit);
+    return this.appendLock.inLock(async () => {
+      try {
+        const raw = await fs.readFile(this.eventsPath, "utf8");
+        return signalLinesParse(raw, normalizedLimit);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+          return [];
+        }
+        throw error;
+      }
+    });
+  }
+
+  private async signalAppend(signal: Signal): Promise<void> {
+    const line = `${JSON.stringify(signal)}\n`;
+    await this.appendLock.inLock(async () => {
+      await fs.mkdir(this.signalsDir, { recursive: true });
+      await fs.appendFile(this.eventsPath, line, "utf8");
+    });
   }
 }
 
@@ -83,4 +121,30 @@ function signalSourceNormalize(source?: SignalSource): SignalSource {
     };
   }
   throw new Error(`Unsupported signal source type: ${(source as { type?: unknown }).type}`);
+}
+
+function signalLimitNormalize(limit: number): number {
+  if (!Number.isFinite(limit)) {
+    return 200;
+  }
+  return Math.min(1000, Math.max(1, Math.floor(limit)));
+}
+
+function signalLinesParse(content: string, limit: number): Signal[] {
+  const lines = content.split("\n").filter((line) => line.trim().length > 0);
+  if (lines.length === 0) {
+    return [];
+  }
+  const start = Math.max(0, lines.length - limit);
+  const recent = lines.slice(start);
+  const events: Signal[] = [];
+  for (const line of recent) {
+    try {
+      const parsed = JSON.parse(line) as Signal;
+      events.push(parsed);
+    } catch {
+      // Ignore malformed lines to keep dashboard reads resilient.
+    }
+  }
+  return events;
 }

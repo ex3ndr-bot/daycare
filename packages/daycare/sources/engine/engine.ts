@@ -73,7 +73,10 @@ export class Engine {
     logger.debug(`Engine constructor starting, dataDir=${options.config.dataDir}`);
     this.config = new ConfigModule(options.config);
     this.eventBus = options.eventBus;
-    this.signals = new Signals({ eventBus: this.eventBus });
+    this.signals = new Signals({
+      eventBus: this.eventBus,
+      configDir: this.config.current.configDir
+    });
     this.reloadSync = new InvalidateSync(async () => {
       await this.reloadApplyLatest();
     });
@@ -249,6 +252,7 @@ export class Engine {
 
     await this.crons.ensureDir();
     await this.heartbeats.ensureDir();
+    await this.signals.ensureDir();
 
     logger.debug("Registering core tools");
     this.modules.tools.register("core", buildCronTool(this.crons));

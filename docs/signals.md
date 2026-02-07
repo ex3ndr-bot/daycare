@@ -11,7 +11,7 @@ Supported source variants:
 ## Runtime model
 
 `Engine` owns a `Signals` facade (`sources/engine/signals/signals.ts`).
-`Signals.generate()` creates a signal object and emits `signal.generated` on the engine event bus.
+`Signals.generate()` creates a signal object, appends it to `<config>/signals/events.jsonl`, and emits `signal.generated` on the engine event bus.
 
 Signal shape:
 - `id` (cuid2)
@@ -26,6 +26,7 @@ flowchart TD
   Tool --> Signals[Signals facade]
   Process[Process code] --> Signals
   Webhook[Webhook handler] --> Signals
+  Signals --> Jsonl["<config>/signals/events.jsonl"]
   Signals --> EventBus[EngineEventBus]
   EventBus --> Event[signal.generated]
 ```
@@ -38,3 +39,20 @@ Arguments:
 - `type` (required string)
 - `source` (optional object; defaults to `{ type: "agent", id: <current-agent-id> }` in tool usage)
 - `data` (optional payload)
+
+## Dashboard API
+
+The engine exposes persisted signal events for the dashboard:
+- `GET /v1/engine/signals/events?limit=<n>`
+- Returns `{ ok: true, events: Signal[] }`
+- Default `limit` is `200`, max is `1000`
+
+Signal reads and writes share a lock in `Signals`, so JSONL appends and dashboard reads stay ordered.
+
+```mermaid
+flowchart LR
+  Dashboard[daycare-dashboard] --> Api["/api/v1/engine/signals/events"]
+  Api --> Engine["engine/ipc/server.ts"]
+  Engine --> Signals[Signals.listRecent]
+  Signals --> Jsonl["<config>/signals/events.jsonl"]
+```

@@ -56,7 +56,7 @@ export function buildSignalGenerateTool(signals: Signals): ToolDefinition {
     execute: async (args, toolContext, toolCall) => {
       const payload = args as GenerateSignalArgs;
       const source = payload.source ?? { type: "agent", id: toolContext.agent.id };
-      const signal = signals.generate({
+      const signal = await signals.generate({
         type: payload.type,
         source,
         data: payload.data

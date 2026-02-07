@@ -51,6 +51,20 @@ export type BackgroundAgentState = {
   updatedAt: number;
 };
 
+export type SignalSource =
+  | { type: "system" }
+  | { type: "agent"; id: string }
+  | { type: "webhook"; id?: string }
+  | { type: "process"; id?: string };
+
+export type SignalEvent = {
+  id: string;
+  type: string;
+  source: SignalSource;
+  data?: unknown;
+  createdAt: number;
+};
+
 export type FileReference = {
   id: string;
   name: string;
@@ -118,6 +132,10 @@ type HeartbeatResponse = {
   tasks?: HeartbeatTask[];
 };
 
+type SignalEventsResponse = {
+  events?: SignalEvent[];
+};
+
 type BackgroundAgentsResponse = {
   agents?: BackgroundAgentState[];
 };
@@ -151,6 +169,12 @@ export async function fetchCronTasks() {
 export async function fetchHeartbeatTasks() {
   const data = await fetchJSON<HeartbeatResponse>("/api/v1/engine/heartbeat/tasks");
   return data.tasks ?? [];
+}
+
+export async function fetchSignalEvents(limit = 200) {
+  const query = new URLSearchParams({ limit: String(limit) });
+  const data = await fetchJSON<SignalEventsResponse>(`/api/v1/engine/signals/events?${query}`);
+  return data.events ?? [];
 }
 
 export async function fetchBackgroundAgents() {
