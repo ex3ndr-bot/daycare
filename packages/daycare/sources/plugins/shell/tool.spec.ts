@@ -3,14 +3,56 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-import { buildExecTool } from "./tool.js";
+import { buildExecTool, buildWorkspaceReadTool } from "./tool.js";
 import { Agent } from "../../engine/agents/agent.js";
 import { AgentInbox } from "../../engine/agents/ops/agentInbox.js";
 import { agentDescriptorBuild } from "../../engine/agents/ops/agentDescriptorBuild.js";
 import type { AgentState, ToolExecutionContext } from "@/types";
 import { createId } from "@paralleldrive/cuid2";
 
-const toolCall = { id: "tool-call-1", name: "exec" };
+const execToolCall = { id: "tool-call-1", name: "exec" };
+const readToolCall = { id: "tool-call-2", name: "read" };
+
+describe("read tool allowed paths", () => {
+  let workingDir: string;
+  let outsideDir: string;
+  let outsideFile: string;
+
+  beforeEach(async () => {
+    workingDir = await fs.mkdtemp(path.join(os.tmpdir(), "read-tool-workspace-"));
+    outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "read-tool-outside-"));
+    outsideFile = path.join(outsideDir, "outside.txt");
+    await fs.writeFile(outsideFile, "outside-content", "utf8");
+  });
+
+  afterEach(async () => {
+    await fs.rm(workingDir, { recursive: true, force: true });
+    await fs.rm(outsideDir, { recursive: true, force: true });
+  });
+
+  it("allows reading any absolute path when readDirs is empty", async () => {
+    const tool = buildWorkspaceReadTool();
+    const context = createContext(workingDir, false);
+
+    const result = await tool.execute({ path: outsideFile }, context, readToolCall);
+    const text = result.toolMessage.content
+      .filter((item) => item.type === "text")
+      .map((item) => item.text)
+      .join("\n");
+
+    expect(result.toolMessage.isError).toBe(false);
+    expect(text).toContain("outside-content");
+  });
+
+  it("keeps readDirs restrictions when explicitly configured", async () => {
+    const tool = buildWorkspaceReadTool();
+    const context = createContext(workingDir, false, [workingDir]);
+
+    await expect(
+      tool.execute({ path: outsideFile }, context, readToolCall)
+    ).rejects.toThrow("Path is outside the allowed directories.");
+  });
+});
 
 describe("exec tool allowedDomains", () => {
   let workingDir: string;
@@ -31,7 +73,7 @@ describe("exec tool allowedDomains", () => {
       tool.execute(
         { command: "echo ok", allowedDomains: ["example.com"] },
         context,
-        toolCall
+        execToolCall
       )
     ).rejects.toThrow("Network permission is required");
   });
@@ -44,7 +86,7 @@ describe("exec tool allowedDomains", () => {
       tool.execute(
         { command: "echo ok", packageManagers: ["node"] },
         context,
-        toolCall
+        execToolCall
       )
     ).rejects.toThrow("Network permission is required");
   });
@@ -57,7 +99,7 @@ describe("exec tool allowedDomains", () => {
       tool.execute(
         { command: "echo ok", allowedDomains: ["*"] },
         context,
-        toolCall
+        execToolCall
       )
     ).rejects.toThrow("Wildcard");
   });
@@ -73,7 +115,7 @@ describe("exec tool allowedDomains", () => {
         timeoutMs: 30_000
       },
       context,
-      toolCall
+      execToolCall
     );
     const allowedText = allowedResult.toolMessage.content
       .filter((item) => item.type === "text")
@@ -89,7 +131,7 @@ describe("exec tool allowedDomains", () => {
         timeoutMs: 30_000
       },
       context,
-      toolCall
+      execToolCall
     );
     const blockedText = blockedResult.toolMessage.content
       .filter((item) => item.type === "text")
@@ -110,7 +152,7 @@ describe("exec tool allowedDomains", () => {
         home
       },
       context,
-      toolCall
+      execToolCall
     );
     const text = result.toolMessage.content
       .filter((item) => item.type === "text")
@@ -122,7 +164,11 @@ describe("exec tool allowedDomains", () => {
   });
 });
 
-function createContext(workingDir: string, network: boolean): ToolExecutionContext {
+function createContext(
+  workingDir: string,
+  network: boolean,
+  readDirs: string[] = []
+): ToolExecutionContext {
   const agentId = createId();
   const messageContext = {};
   const descriptor = agentDescriptorBuild("system", messageContext, agentId);
@@ -132,7 +178,7 @@ function createContext(workingDir: string, network: boolean): ToolExecutionConte
     permissions: {
       workingDir,
       writeDirs: [],
-      readDirs: [],
+      readDirs: readDirs.map((entry) => path.resolve(entry)),
       network
     },
     tokens: null,

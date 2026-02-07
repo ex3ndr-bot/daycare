@@ -102,7 +102,7 @@ export function buildWorkspaceReadTool(): ToolDefinition {
     tool: {
       name: "read",
       description:
-        "Read a UTF-8 text file from the agent workspace or an allowed read directory. The path must be absolute and within the allowed read set. Large files are truncated.",
+        "Read a UTF-8 text file by absolute path. If read directories are configured, the path must be within the allowed read set; otherwise any absolute path is allowed. Large files are truncated.",
       parameters: readSchema
     },
     execute: async (args, toolContext, toolCall) => {
@@ -473,7 +473,10 @@ async function resolveReadPathSecure(
   permissions: SessionPermissions,
   target: string
 ): Promise<string> {
-  const allowedDirs = [permissions.workingDir, ...permissions.readDirs];
+  const allowedDirs =
+    permissions.readDirs.length > 0
+      ? [permissions.workingDir, ...permissions.readDirs]
+      : [path.parse(target).root];
   const result = await pathResolveSecure(allowedDirs, target);
   return result.realPath;
 }

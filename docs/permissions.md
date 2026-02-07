@@ -87,6 +87,22 @@ Tool availability by agent type:
 | Tool | Foreground | Background |
 |------|------------|------------|
 | `request_permission` | ✓ | ✓ |
+
+## Read tool fallback behavior
+
+The shell `read` tool treats empty `readDirs` as unrestricted absolute-path reads (matching
+sandbox default read behavior). If `readDirs` is explicitly configured, `read` enforces
+`workingDir + readDirs` containment.
+
+```mermaid
+flowchart LR
+  ReadCall[read path request] --> HasDirs{readDirs configured?}
+  HasDirs -->|no| Root[target root allowed]
+  HasDirs -->|yes| Scoped[workingDir + readDirs allowed]
+  Root --> Resolve[pathResolveSecure]
+  Scoped --> Resolve
+```
+
 ## Direct grants
 
 Agents can share permissions with other agents using the `grant_permission` tool.
