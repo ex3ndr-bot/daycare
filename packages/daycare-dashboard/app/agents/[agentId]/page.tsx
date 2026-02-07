@@ -180,44 +180,44 @@ export default function AgentDetailPage({ params }: AgentDetailPageProps) {
         </>
       }
     >
-      <div className="flex flex-1 flex-col gap-6 px-4 py-6 lg:px-6">
-        <div className="grid gap-4 md:grid-cols-4">
-          <Card className="bg-gradient-to-br from-primary/10 via-card to-card/80">
+      <div className="flex flex-1 flex-col gap-6 overflow-hidden px-4 py-6 lg:px-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card className="overflow-hidden bg-gradient-to-br from-primary/10 via-card to-card/80">
             <CardHeader className="flex flex-row items-center justify-between">
-              <div>
+              <div className="min-w-0 flex-1">
                 <CardDescription>Agent id</CardDescription>
-                <CardTitle className="text-xl">{summary?.agentId ?? agentId}</CardTitle>
+                <CardTitle className="truncate text-xl" title={summary?.agentId ?? agentId}>{summary?.agentId ?? agentId}</CardTitle>
               </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                 <MessageSquare className="h-5 w-5" />
               </div>
             </CardHeader>
-            <CardContent className="text-xs text-muted-foreground">
+            <CardContent className="truncate text-xs text-muted-foreground" title={summary ? formatAgentDescriptor(summary.descriptor) : "Unknown"}>
               Descriptor: {summary ? formatAgentDescriptor(summary.descriptor) : "Unknown"}
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-accent/10 via-card to-card/80">
+          <Card className="overflow-hidden bg-gradient-to-br from-accent/10 via-card to-card/80">
             <CardHeader>
               <CardDescription>Agent type</CardDescription>
               <CardTitle className="text-xl">{agentType ? formatAgentTypeLabel(agentType) : "Unknown"}</CardTitle>
             </CardHeader>
             <CardContent className="text-[11px] text-muted-foreground">
-              <span className="font-mono">{agentType ? formatAgentTypeObject(agentType) : "No context"}</span>
+              <span className="block truncate font-mono" title={agentType ? formatAgentTypeObject(agentType) : "No context"}>{agentType ? formatAgentTypeObject(agentType) : "No context"}</span>
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-slate-100/60 via-card to-card/80">
+          <Card className="overflow-hidden bg-gradient-to-br from-slate-100/60 via-card to-card/80">
             <CardHeader>
               <CardDescription>Updated</CardDescription>
-              <CardTitle className="text-xl">{summary ? formatDateTime(summary.updatedAt) : "Unknown"}</CardTitle>
+              <CardTitle className="truncate text-xl">{summary ? formatDateTime(summary.updatedAt) : "Unknown"}</CardTitle>
             </CardHeader>
             <CardContent className="text-xs text-muted-foreground">
               {summary ? `Lifecycle: ${summary.lifecycle}` : "Waiting for agent data"}
             </CardContent>
           </Card>
-          <Card className="bg-gradient-to-br from-secondary/30 via-card to-card/80">
+          <Card className="overflow-hidden bg-gradient-to-br from-secondary/30 via-card to-card/80">
             <CardHeader>
               <CardDescription>Last activity</CardDescription>
-              <CardTitle className="text-xl">{lastActivity}</CardTitle>
+              <CardTitle className="truncate text-xl">{lastActivity}</CardTitle>
             </CardHeader>
             <CardContent className="text-xs text-muted-foreground">
               {orderedRecords.length ? "Recent history recorded" : "Waiting for new activity"}
@@ -254,23 +254,21 @@ export default function AgentDetailPage({ params }: AgentDetailPageProps) {
                 {orderedRecords.map((record, index) => (
                   <div
                     key={`${record.type}-${recordTimestamp(record)}-${index}`}
-                    className={`rounded-lg border bg-background p-4 shadow-sm ${recordAccent(record)}`}
+                    className={`overflow-hidden rounded-lg border bg-background p-4 shadow-sm ${recordAccent(record)}`}
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="flex flex-wrap items-center gap-3">
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <Clock className="h-3 w-3" />
-                          <span>{formatDateTime(recordTimestamp(record))}</span>
-                        </div>
-                        <Badge variant="outline" className={recordBadge(record)}>
-                          {formatRecordType(record)}
-                        </Badge>
+                    <div className="flex items-center gap-3">
+                      <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3 shrink-0" />
+                        <span className="whitespace-nowrap">{formatDateTime(recordTimestamp(record))}</span>
                       </div>
-                      <div className="max-w-xl text-xs text-muted-foreground">
+                      <Badge variant="outline" className={`shrink-0 ${recordBadge(record)}`}>
+                        {formatRecordType(record)}
+                      </Badge>
+                      <span className="min-w-0 truncate text-xs text-muted-foreground">
                         {formatRecordSummary(record)}
-                      </div>
+                      </span>
                     </div>
-                    <div className="mt-4 grid gap-3">
+                    <div className="mt-3 grid gap-3">
                       {renderRecordDetails(record)}
                     </div>
                   </div>
@@ -356,7 +354,7 @@ function renderRecordDetails(record: AgentHistoryRecord) {
         <>
           <RecordSection title="Message">
             {record.text ? (
-              <p className="whitespace-pre-wrap text-sm text-foreground">{record.text}</p>
+              <p className="whitespace-pre-wrap break-words text-sm text-foreground">{record.text}</p>
             ) : (
               <p className="text-sm text-muted-foreground">No text provided.</p>
             )}
@@ -369,7 +367,7 @@ function renderRecordDetails(record: AgentHistoryRecord) {
         <>
           <RecordSection title="Response">
             {record.text ? (
-              <p className="whitespace-pre-wrap text-sm text-foreground">{record.text}</p>
+              <p className="whitespace-pre-wrap break-words text-sm text-foreground">{record.text}</p>
             ) : (
               <p className="text-sm text-muted-foreground">No assistant text captured.</p>
             )}
@@ -415,7 +413,7 @@ function renderFilesSection(files: Array<{ name: string; path: string; mimeType:
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-muted-foreground">
               <span>{file.mimeType}</span>
-              <span className="font-mono">{file.path}</span>
+              <span className="truncate font-mono" title={file.path}>{file.path}</span>
             </div>
           </div>
         ))}
@@ -439,7 +437,7 @@ function renderToolCallsSection(toolCalls: Record<string, unknown>[]) {
                 <Badge variant="secondary" className="font-mono">
                   {meta.name ?? "unknown"}
                 </Badge>
-                {meta.id ? <span className="text-muted-foreground">id: {meta.id}</span> : null}
+                {meta.id ? <span className="truncate text-muted-foreground">id: {meta.id}</span> : null}
                 {meta.type ? <span className="text-muted-foreground">type: {meta.type}</span> : null}
               </div>
               <div className="mt-2">
@@ -485,9 +483,9 @@ function parseToolMessage(message: Record<string, unknown>) {
 
 function RecordSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="rounded-md border border-dashed bg-muted/30 p-3">
+    <section className="min-w-0 overflow-hidden rounded-md border border-dashed bg-muted/30 p-3">
       <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</div>
-      <div className="mt-2 text-sm text-foreground">{children}</div>
+      <div className="mt-2 min-w-0 text-sm text-foreground">{children}</div>
     </section>
   );
 }
@@ -499,9 +497,9 @@ function KeyValueList({ items, emptyLabel }: { items: Array<{ label: string; val
   return (
     <dl className="grid gap-2 text-sm md:grid-cols-2">
       {items.map((item) => (
-        <div key={item.label} className="space-y-1">
+        <div key={item.label} className="min-w-0 space-y-1">
           <dt className="text-[11px] uppercase text-muted-foreground">{item.label}</dt>
-          <dd className="font-medium text-foreground">{item.value}</dd>
+          <dd className="truncate font-medium text-foreground" title={typeof item.value === "string" ? item.value : undefined}>{item.value}</dd>
         </div>
       ))}
     </dl>
@@ -510,7 +508,7 @@ function KeyValueList({ items, emptyLabel }: { items: Array<{ label: string; val
 
 function JsonBlock({ value }: { value: unknown }) {
   return (
-    <pre className="max-h-80 overflow-auto rounded-md bg-muted px-3 py-2 text-xs leading-relaxed text-foreground">
+    <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted px-3 py-2 text-xs leading-relaxed text-foreground">
       {formatJson(value)}
     </pre>
   );
