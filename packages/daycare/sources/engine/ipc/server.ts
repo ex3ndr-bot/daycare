@@ -66,6 +66,10 @@ const signalGenerateSchema = z.object({
     .optional(),
   data: z.unknown().optional()
 });
+const engineEventSchema = z.object({
+  type: z.string().min(1),
+  payload: z.unknown().optional()
+});
 
 export async function startEngineServer(
   options: EngineServerOptions
@@ -373,6 +377,17 @@ export async function startEngineServer(
       return;
     }
     reply.send({ ok: true });
+  });
+
+  app.post("/v1/engine/events", async (request, reply) => {
+    logger.debug("POST /v1/engine/events");
+    const payload = parseBody(engineEventSchema, request.body, reply);
+    if (!payload) {
+      return;
+    }
+    options.eventBus.emit(payload.type, payload.payload ?? null);
+    logger.info({ eventType: payload.type }, "Engine event emitted via API");
+    return reply.send({ ok: true });
   });
 
   app.get("/v1/engine/events", async (request, reply) => {

@@ -9,6 +9,7 @@ import { removeCommand } from "./commands/remove.js";
 import { setDefaultProviderCommand } from "./commands/providers.js";
 import { doctorCommand } from "./commands/doctor.js";
 import { DEFAULT_SETTINGS_PATH } from "./settings.js";
+import { eventCommand } from "./commands/event.js";
 
 const program = new Command();
 
@@ -100,6 +101,13 @@ program
     DEFAULT_SETTINGS_PATH
   )
   .action(doctorCommand);
+
+program
+  .command("event")
+  .description("Send an engine event over the local socket")
+  .argument("<type>", "Event type")
+  .argument("[payload]", "JSON payload")
+  .action(eventCommand);
 
 if (process.argv.length <= 2) {
   program.outputHelp();

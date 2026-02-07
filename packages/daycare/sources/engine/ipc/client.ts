@@ -107,3 +107,21 @@ export async function reloadEngine(socketPathOverride?: string): Promise<void> {
     throw new Error(response.body || "Engine reload failed.");
   }
 }
+
+export async function sendEngineEvent(
+  type: string,
+  payload?: unknown,
+  socketPathOverride?: string
+): Promise<void> {
+  const socketPath = resolveEngineSocketPath(socketPathOverride);
+  const response = await requestSocket({
+    socketPath,
+    path: "/v1/engine/events",
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type, payload })
+  });
+  if (response.statusCode < 200 || response.statusCode >= 300) {
+    throw new Error(response.body || "Engine event send failed.");
+  }
+}

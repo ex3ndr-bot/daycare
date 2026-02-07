@@ -23,6 +23,7 @@ Current endpoints:
 - `POST /v1/engine/plugins/load`
 - `POST /v1/engine/plugins/unload`
 - `POST /v1/engine/auth`
+- `POST /v1/engine/events`
 - `GET /v1/engine/events` (SSE)
 
 Note: `/v1/engine/agents/background` is derived from persisted agent state and does not
@@ -31,6 +32,7 @@ include live inbox status.
 Plugin mutations accept:
 - `POST /v1/engine/plugins/load` payload `{ "pluginId": "...", "instanceId": "...", "settings": { ... } }`
 - `POST /v1/engine/plugins/unload` payload `{ "instanceId": "..." }`
+- `POST /v1/engine/events` payload `{ "type": "event.type", "payload": { ... } }`
 
 ## Status payload (named entities)
 The status response returns display names alongside ids for use in the dashboard.
@@ -104,6 +106,18 @@ sequenceDiagram
   Engine-->>Client: ok
   Client->>Engine: GET /v1/engine/events
   Engine-->>Client: stream events
+```
+
+```mermaid
+sequenceDiagram
+  participant CLI
+  participant EngineSocket
+  participant EventBus
+  participant SSE
+  CLI->>EngineSocket: POST /v1/engine/events
+  EngineSocket->>EventBus: emit(type, payload)
+  EventBus-->>SSE: broadcast event
+  EngineSocket-->>CLI: { ok: true }
 ```
 
 ## Permission requests

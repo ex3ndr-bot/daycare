@@ -10,6 +10,7 @@ The CLI is implemented with Commander in `sources/main.ts`. It always initialize
 - `plugins unload <instanceId>` - unloads a plugin instance.
 - `auth set <id> <key> <value>` - stores an auth credential.
 - `doctor` - runs basic inference checks for configured providers.
+- `event <type> [payload]` - sends a custom engine event with optional JSON payload over the local socket.
 
 ## Development
 - `yarn dev` runs the CLI directly via `tsx`.
@@ -22,6 +23,7 @@ flowchart TD
   main --> plugins[plugins]
   main --> auth[auth]
   main --> doctor[doctor]
+  main --> event[event]
 ```
 
 ## start command flow
@@ -38,4 +40,18 @@ sequenceDiagram
   CLI->>Auth: read .daycare/auth.json
   CLI->>Plugins: load enabled plugins
   CLI->>Engine: start local socket + SSE
+```
+
+## event command flow
+```mermaid
+sequenceDiagram
+  participant User
+  participant CLI
+  participant Socket
+  participant EventBus
+  User->>CLI: daycare event custom.type {"ok":true}
+  CLI->>Socket: POST /v1/engine/events
+  Socket->>EventBus: emit(custom.type, payload)
+  EventBus-->>Socket: event published
+  Socket-->>CLI: { ok: true }
 ```
