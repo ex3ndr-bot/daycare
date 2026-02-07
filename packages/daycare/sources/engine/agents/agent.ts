@@ -904,6 +904,8 @@ export class Agent {
     const systemTemplate = await agentPromptBundledRead("SYSTEM.md");
     logger.debug("buildSystemPrompt reading permissions template");
     const permissionsTemplate = (await agentPromptBundledRead("PERMISSIONS.md")).trim();
+    logger.debug("buildSystemPrompt reading agentic template");
+    const agenticTemplate = (await agentPromptBundledRead("AGENTIC.md")).trim();
     const additionalWriteDirs = resolveAdditionalWriteDirs(
       context.writeDirs ?? [],
       context.workspace ?? "",
@@ -954,12 +956,16 @@ export class Agent {
     logger.debug("buildSystemPrompt compiling permissions template");
     const permissions = Handlebars.compile(permissionsTemplate)(templateContext);
 
+    logger.debug("buildSystemPrompt compiling agentic template");
+    const agentic = Handlebars.compile(agenticTemplate)(templateContext);
+
     logger.debug("buildSystemPrompt compiling main template");
     const template = Handlebars.compile(systemTemplate);
     logger.debug("buildSystemPrompt rendering template");
     const rendered = template({
       ...templateContext,
-      permissions
+      permissions,
+      agentic
     });
 
     return rendered.trim();
