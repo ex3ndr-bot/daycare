@@ -666,6 +666,28 @@
   resolved "https://registry.yarnpkg.com/@electric-sql/pglite/-/pglite-0.3.15.tgz#073409dc9a6b0c2af2626d02af8c226293c6b059"
   integrity sha512-Cj++n1Mekf9ETfdc16TlDi+cDDQF0W7EcbyRHYOAeZdsAe8M/FJg18itDTSwyHfar2WIezawM9o0EKaRGVKygQ==
 
+"@emnapi/core@^1.7.1":
+  version "1.8.1"
+  resolved "https://registry.yarnpkg.com/@emnapi/core/-/core-1.8.1.tgz#fd9efe721a616288345ffee17a1f26ac5dd01349"
+  integrity sha512-AvT9QFpxK0Zd8J0jopedNm+w/2fIzvtPKPjqyw9jwvBaReTTqPBk9Hixaz7KbjimP+QNz605/XnjFcDAL2pqBg==
+  dependencies:
+    "@emnapi/wasi-threads" "1.1.0"
+    tslib "^2.4.0"
+
+"@emnapi/runtime@^1.7.1":
+  version "1.8.1"
+  resolved "https://registry.yarnpkg.com/@emnapi/runtime/-/runtime-1.8.1.tgz#550fa7e3c0d49c5fb175a116e8cd70614f9a22a5"
+  integrity sha512-mehfKSMWjjNol8659Z8KxEMrdSJDDot5SXMq00dM8BN4o+CLNXQ0xH2V7EchNHV4RmbZLmmPdEaXZc5H2FXmDg==
+  dependencies:
+    tslib "^2.4.0"
+
+"@emnapi/wasi-threads@1.1.0":
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/@emnapi/wasi-threads/-/wasi-threads-1.1.0.tgz#60b2102fddc9ccb78607e4a3cf8403ea69be41bf"
+  integrity sha512-WI0DdZ8xFSbgMjR1sFsKABJ/C5OnRrjT06JXbZKexJGrDuPTzZdDYfFlsgcCXCyf+suG5QU2e/y1Wo2V/OapLQ==
+  dependencies:
+    tslib "^2.4.0"
+
 "@esbuild/aix-ppc64@0.21.5":
   version "0.21.5"
   resolved "https://registry.yarnpkg.com/@esbuild/aix-ppc64/-/aix-ppc64-0.21.5.tgz#c7184a326533fcdf1b8ee0733e21c713b975575f"
@@ -1083,6 +1105,15 @@
     zod "^3.20.0"
     zod-to-json-schema "^3.24.1"
 
+"@napi-rs/wasm-runtime@^1.1.1":
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/@napi-rs/wasm-runtime/-/wasm-runtime-1.1.1.tgz#c3705ab549d176b8dc5172723d6156c3dc426af2"
+  integrity sha512-p64ah1M1ld8xjWv3qbvFwHiFVWrq1yFvV4f7w+mzaqiR4IlSgkqhcRdHwsGgomwzBH51sRY4NEowLxnaBjcW/A==
+  dependencies:
+    "@emnapi/core" "^1.7.1"
+    "@emnapi/runtime" "^1.7.1"
+    "@tybys/wasm-util" "^0.10.1"
+
 "@next/env@14.2.35":
   version "14.2.35"
   resolved "https://registry.yarnpkg.com/@next/env/-/env-14.2.35.tgz#e979016d0ca8500a47d41ffd02625fe29b8df35a"
@@ -1233,6 +1264,44 @@
   version "1.1.0"
   resolved "https://registry.yarnpkg.com/@protobufjs/utf8/-/utf8-1.1.0.tgz#a777360b5b39a1a2e5106f8e858f2fd2d060c570"
   integrity sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==
+
+"@pydantic/monty-darwin-arm64@0.0.3":
+  version "0.0.3"
+  resolved "https://registry.yarnpkg.com/@pydantic/monty-darwin-arm64/-/monty-darwin-arm64-0.0.3.tgz#ebe9474e12527baf7938ecda365843856cb4be08"
+  integrity sha512-MDq/EM3QvabtzNVJ671UaP5q2jMa9b7N2kFmAFhg2X2UyQrnJES9zx3fIVxCdoKWuZr6ZDc9zZLMvNmvsvoMeQ==
+
+"@pydantic/monty-darwin-x64@0.0.3":
+  version "0.0.3"
+  resolved "https://registry.yarnpkg.com/@pydantic/monty-darwin-x64/-/monty-darwin-x64-0.0.3.tgz#8f4c73d20d403c6b4b142bd7ed261f7f740e214b"
+  integrity sha512-OptZHIIq8Jpm4pQCSaR+MZncYoSNPtWURWUGxLu0ToZo103bleDIMHSx779rQTPUCmtV2EwLLlQj9BS23WHIXg==
+
+"@pydantic/monty-linux-x64-gnu@0.0.3":
+  version "0.0.3"
+  resolved "https://registry.yarnpkg.com/@pydantic/monty-linux-x64-gnu/-/monty-linux-x64-gnu-0.0.3.tgz#39e1d8ce9380d45d94be6f7896b00af5c85046fa"
+  integrity sha512-FI9pZzKq7PTo2OwqI35vl9RHLR/zNiOfTEDt9sOQLyQugOtbO6hcHuJozY818ZXNcrq5ctGn9XPBQKUFnLKvsw==
+
+"@pydantic/monty-wasm32-wasi@0.0.3":
+  version "0.0.3"
+  resolved "https://registry.yarnpkg.com/@pydantic/monty-wasm32-wasi/-/monty-wasm32-wasi-0.0.3.tgz#575db584ca09cb25cc7417f39632f61740653cac"
+  integrity sha512-e680lVxdsvO5H5/00Ki6YdLeQlg2uR2BBG1lfMbu5KeXRhiqQUvqmvJ7/4fjZK8AZ7F1KUedwWa8VcR3yIri5Q==
+  dependencies:
+    "@napi-rs/wasm-runtime" "^1.1.1"
+
+"@pydantic/monty-win32-x64-msvc@0.0.3":
+  version "0.0.3"
+  resolved "https://registry.yarnpkg.com/@pydantic/monty-win32-x64-msvc/-/monty-win32-x64-msvc-0.0.3.tgz#0b1894810e85083cd2bd028edf2ac534d976f4d7"
+  integrity sha512-c6vjZs8LmHMRd2JFk8Zz9104Dts15aqDqx6HDTuIy6arGquJ6V7X8ZXhBGda3zEnY2T/Lg28cd1+uoVNEXF1ew==
+
+"@pydantic/monty@^0.0.3":
+  version "0.0.3"
+  resolved "https://registry.yarnpkg.com/@pydantic/monty/-/monty-0.0.3.tgz#88e9bf8108d93cabd39531978c193222ab28d26d"
+  integrity sha512-VsidNCYfVVw9XLpan/bteP9LAynDQQpcKwW71mQrfY3Nrs4XUWNXaAdlBGn6rTXfBVHl7D9xCP5WqlYKez2nYQ==
+  optionalDependencies:
+    "@pydantic/monty-darwin-arm64" "0.0.3"
+    "@pydantic/monty-darwin-x64" "0.0.3"
+    "@pydantic/monty-linux-x64-gnu" "0.0.3"
+    "@pydantic/monty-wasm32-wasi" "0.0.3"
+    "@pydantic/monty-win32-x64-msvc" "0.0.3"
 
 "@radix-ui/number@1.1.1":
   version "1.1.1"
@@ -2227,6 +2296,13 @@
   version "0.23.0"
   resolved "https://registry.yarnpkg.com/@tootallnate/quickjs-emscripten/-/quickjs-emscripten-0.23.0.tgz#db4ecfd499a9765ab24002c3b696d02e6d32a12c"
   integrity sha512-C5Mc6rdnsaJDjO3UpGW/CQTHtCKaYlScZTly4JIu97Jxo/odCiH0ITnDXSJPTOrEKk/ycSZ0AOgTmkDtkOsvIA==
+
+"@tybys/wasm-util@^0.10.1":
+  version "0.10.1"
+  resolved "https://registry.yarnpkg.com/@tybys/wasm-util/-/wasm-util-0.10.1.tgz#ecddd3205cf1e2d5274649ff0eedd2991ed7f414"
+  integrity sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg==
+  dependencies:
+    tslib "^2.4.0"
 
 "@types/caseless@*":
   version "0.12.5"

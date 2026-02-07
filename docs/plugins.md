@@ -166,11 +166,28 @@ flowchart TD
   NanoBanana["nano-banana-pro"] --> GoogleKey
 ```
 
+## Monty Python plugin
+`monty-python` adds a `python` tool that executes sandboxed Python snippets using
+`@pydantic/monty`. The tool accepts inline code, optional JSON-like inputs, and
+optional resource limits.
+
+```mermaid
+sequenceDiagram
+  participant Agent
+  participant Tool as python tool
+  participant Monty as @pydantic/monty
+  Agent->>Tool: tool call { code, inputs?, limits? }
+  Tool->>Monty: parse + execute
+  Monty-->>Tool: output or exception
+  Tool-->>Agent: toolResult text
+```
+
 ## Built-in plugins
 - `telegram` (connector)
 - `brave-search` (tool)
 - `memory` (tool + storage)
 - `shell` (tools: read/write/edit/exec)
+- `monty-python` (tool: python)
 
 ## Providers
 Providers are built-in modules (not plugins). They register inference and/or image

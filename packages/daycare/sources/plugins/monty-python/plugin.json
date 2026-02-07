@@ -1,0 +1,6 @@
+{
+  "id": "monty-python",
+  "name": "Monty Python",
+  "description": "Sandboxed Python execution using @pydantic/monty.",
+  "entry": "./plugin.js"
+}

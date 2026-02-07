@@ -589,6 +589,7 @@ export const plugin = definePlugin({
 | `memory` | Tool + Storage | Structured entity storage as Markdown |
 | `database` | Tool + Storage | PGlite SQL database |
 | `shell` | Tools | File system operations (read/write/edit/exec) |
+| `monty-python` | Tool | Sandboxed Python snippets via Monty |
 | `nano-banana-pro` | Image Provider | Image generation |
 
 ---

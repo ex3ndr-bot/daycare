@@ -77,6 +77,7 @@ Daycare uses two configuration files in `.daycare/`:
 | memory | System | Structured entity storage as Markdown |
 | database | System | Local PGlite (Postgres) with schema docs |
 | shell | Tool | File read/write/edit and command execution |
+| monty-python | Tool | Sandboxed Python snippets via Monty |
 
 ## Tools
 
@@ -93,6 +94,7 @@ Built-in tools available to the agent:
 Plugin-provided tools:
 
 - `read` / `write` / `edit` / `exec` - File system and shell (shell plugin)
+- `python` - Sandboxed Python execution (monty-python plugin)
 - `memory_create_entity` / `memory_upsert_record` / `memory_list_entities` - Entity memory (memory plugin)
 - Web search / fetch tools from search and fetch plugins
 

@@ -7,6 +7,7 @@ This folder documents the current Daycare CLI, plugins, agents, and runtime.
 - `cli.md` - CLI commands and runtime behavior
 - `connectors.md` - connector abstraction and telegram connector
 - `plugins.md` - plugin system and built-in plugins
+- `monty-python-tool.md` - Monty-backed sandboxed Python tool
 - `dashboard.md` - daycare-dashboard app and pages
 - `dashboard-history.md` - dashboard conversation history view
 - `agent-list-tools.md` - tools for listing agent/session ids and metadata
