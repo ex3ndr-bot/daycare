@@ -9,6 +9,7 @@ This folder documents the current Daycare CLI, plugins, agents, and runtime.
 - `plugins.md` - plugin system and built-in plugins
 - `dashboard.md` - daycare-dashboard app and pages
 - `dashboard-history.md` - dashboard conversation history view
+- `session-history-tool.md` - cross-session history tool behavior and summary mode
 - `memory.md` - memory plugin and entities
 - `cron.md` - cron scheduler tasks and actions
 - `heartbeat.md` - heartbeat scheduler and storage

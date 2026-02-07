@@ -1,0 +1,76 @@
+import { describe, expect, it } from "vitest";
+
+import { agentHistorySummaryBuild } from "./agentHistorySummaryBuild.js";
+import type { AgentHistoryRecord } from "@/types";
+
+function buildRecord(record: AgentHistoryRecord): AgentHistoryRecord {
+  return record;
+}
+
+describe("agentHistorySummaryBuild", () => {
+  it("returns zeroed summary for empty history", () => {
+    const summary = agentHistorySummaryBuild([]);
+
+    expect(summary.recordCount).toBe(0);
+    expect(summary.firstAt).toBeNull();
+    expect(summary.lastAt).toBeNull();
+    expect(summary.counts).toEqual({
+      start: 0,
+      reset: 0,
+      user_message: 0,
+      assistant_message: 0,
+      tool_result: 0,
+      note: 0
+    });
+  });
+
+  it("tracks counts, time range, and latest text snapshots", () => {
+    const records: AgentHistoryRecord[] = [
+      buildRecord({ type: "start", at: 100 }),
+      buildRecord({ type: "user_message", at: 110, text: "hi", files: [] }),
+      buildRecord({
+        type: "assistant_message",
+        at: 120,
+        text: "hello",
+        files: [],
+        toolCalls: [],
+        tokens: null
+      }),
+      buildRecord({
+        type: "tool_result",
+        at: 130,
+        toolCallId: "tool-1",
+        output: {
+          toolMessage: {
+            role: "toolResult",
+            toolCallId: "tool-1",
+            toolName: "send_agent_message",
+            content: [{ type: "text", text: "sent" }],
+            isError: false,
+            timestamp: 130
+          },
+          files: []
+        }
+      }),
+      buildRecord({ type: "note", at: 140, text: "done" })
+    ];
+
+    const summary = agentHistorySummaryBuild(records);
+
+    expect(summary.recordCount).toBe(5);
+    expect(summary.firstAt).toBe(100);
+    expect(summary.lastAt).toBe(140);
+    expect(summary.counts).toEqual({
+      start: 1,
+      reset: 0,
+      user_message: 1,
+      assistant_message: 1,
+      tool_result: 1,
+      note: 1
+    });
+    expect(summary.lastUserMessage).toBe("hi");
+    expect(summary.lastAssistantMessage).toBe("hello");
+    expect(summary.lastNote).toBe("done");
+    expect(summary.lastToolName).toBe("send_agent_message");
+  });
+});
