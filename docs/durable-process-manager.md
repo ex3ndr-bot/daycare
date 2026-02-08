@@ -75,7 +75,7 @@ flowchart TD
 
 - Keep-alive is opt-in per process via `process_start.keepAlive`.
 - `process_start.permissions` is optional:
-  - Omitted: process gets zero permissions (`network=false`, no read/write grants).
+  - Omitted: process gets zero additional permissions (`network=false`, no write grants; read follows sandbox defaults).
   - Provided: tags are validated against caller permissions, then only requested tags are applied.
 - Reboot safety uses system boot time comparison; boot mismatch clears persisted pids.
 - Keep-alive restarts use exponential backoff (2s base, doubling to 60s max) for crash loops.

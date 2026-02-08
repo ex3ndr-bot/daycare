@@ -4,10 +4,14 @@ The `exec` tool can optionally allow outbound network access for specific domain
 The list is explicit: exact domains are allowed, and subdomain wildcards like
 `*.example.com` are supported. A global wildcard (`*`) is not allowed.
 
-`exec` now runs with **zero permissions by default**. To allow network or filesystem
-writes, the call must include explicit `permissions` tags (for example `@network`,
-`@write:/absolute/path`), and each tag is validated as a subset of the caller's
-existing permissions.
+`exec` now runs with **zero additional permissions by default**:
+- no network access
+- no write grants
+- read follows sandbox defaults (all paths except protected deny-list paths)
+
+To allow network or filesystem writes, the call must include explicit `permissions`
+tags (for example `@network`, `@write:/absolute/path`), and each tag is validated
+as a subset of the caller's existing permissions.
 
 `exec` and exec gates also support typed language ecosystem presets:
 - `dart` -> `pub.dev`, `storage.googleapis.com`

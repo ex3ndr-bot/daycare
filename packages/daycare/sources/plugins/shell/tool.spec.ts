@@ -131,6 +131,31 @@ describe("exec tool allowedDomains", () => {
     ).rejects.toThrow("Network permission is required");
   });
 
+  it("allows reading outside workspace by default", async () => {
+    const tool = buildExecTool();
+    const context = createContext(workingDir, false);
+    const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "exec-tool-outside-"));
+    const outsideFile = path.join(outsideDir, "outside.txt");
+    await fs.writeFile(outsideFile, "outside-content", "utf8");
+    try {
+      const result = await tool.execute(
+        {
+          command: `cat \"${outsideFile}\"`
+        },
+        context,
+        execToolCall
+      );
+      const text = result.toolMessage.content
+        .filter((item) => item.type === "text")
+        .map((item) => item.text)
+        .join("\n");
+      expect(result.toolMessage.isError).toBe(false);
+      expect(text).toContain("outside-content");
+    } finally {
+      await fs.rm(outsideDir, { recursive: true, force: true });
+    }
+  });
+
   it("only allows exact domain unless wildcard subdomain is listed", async () => {
     const tool = buildExecTool();
     const context = createContext(workingDir, true);

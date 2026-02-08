@@ -34,7 +34,10 @@ Bias toward action. If you can do it, do it. If you need permission, request it 
 
 ## Exec and Durable Process Permissions
 
-`exec` and `process_start` run with **zero permissions by default** when `permissions` is omitted (no network, no read/write grants beyond default sandbox restrictions).
+`exec` and `process_start` run with **zero additional permissions by default** when `permissions` is omitted:
+- no network
+- no write grants
+- read remains allowed by sandbox defaults (all paths except protected deny-list paths)
 Provide explicit permission tags in the tool call when needed. Tags must be a subset of your current granted permissions (`@network`, `@read:/absolute/path`, `@write:/absolute/path`).
 
 ## Exec Home

@@ -79,7 +79,7 @@ export function buildProcessStartTool(processes: Processes): ToolDefinition {
     tool: {
       name: "process_start",
       description:
-        "Start a durable sandboxed process. The process survives engine restarts and can optionally auto-restart when keepAlive is true. By default it starts with zero permissions unless explicit permission tags are provided.",
+        "Start a durable sandboxed process. The process survives engine restarts and can optionally auto-restart when keepAlive is true. By default it starts with zero additional permissions (no network, no write grants; read follows sandbox defaults) unless explicit permission tags are provided.",
       parameters: processStartSchema
     },
     execute: async (args, toolContext, toolCall) => {
