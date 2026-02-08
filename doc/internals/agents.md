@@ -14,6 +14,20 @@ sequenceDiagram
   Agent-->>AgentInbox: done
 ```
 
+## Incoming message batching
+Connector messages are debounced for `100ms` at engine ingress. Messages for the same descriptor are merged into one inbox message, and `AgentInbox` also merges queued message items so agents process one combined request instead of multiple single-message runs.
+
+```mermaid
+flowchart LR
+  Connector[Connector message events] --> Debounce[IncomingMessages 100ms debounce]
+  Debounce --> Group[Group by descriptor]
+  Group --> MergeIngress[Merge texts/files/context]
+  MergeIngress --> AgentSystem[AgentSystem.post(message)]
+  AgentSystem --> Inbox[AgentInbox queue]
+  Inbox --> MergeInbox[Merge queued message items]
+  MergeInbox --> Agent[Single handleMessage run]
+```
+
 ## Agent identity rules
 - Agent ids are cuid2 values mapped to user descriptors (`connector + channelId + userId`), cron task uid, or system-agent tags (for example `heartbeat`).
 - Connectors provide user descriptors for mapping; `MessageContext` only carries message-level metadata.

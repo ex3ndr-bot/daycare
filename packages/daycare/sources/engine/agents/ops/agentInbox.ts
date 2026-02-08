@@ -1,6 +1,11 @@
 import { createId } from "@paralleldrive/cuid2";
 
-import type { AgentInboxCompletion, AgentInboxEntry, AgentInboxItem } from "./agentTypes.js";
+import type {
+  AgentInboxCompletion,
+  AgentInboxEntry,
+  AgentInboxItem,
+  AgentInboxMessage
+} from "./agentTypes.js";
 
 /**
  * AgentInbox is a single-consumer queue for agent work items.
@@ -31,6 +36,12 @@ export class AgentInbox {
     item: AgentInboxItem,
     completion: AgentInboxCompletion | null = null
   ): AgentInboxEntry {
+    if (item.type === "message") {
+      const merged = this.mergePendingMessage(item, completion);
+      if (merged) {
+        return merged;
+      }
+    }
     const entry: AgentInboxEntry = {
       id: createId(),
       postedAt: Date.now(),
@@ -44,6 +55,19 @@ export class AgentInbox {
     }
     this.items.push(entry);
     return entry;
+  }
+
+  private mergePendingMessage(
+    item: AgentInboxMessage,
+    completion: AgentInboxCompletion | null
+  ): AgentInboxEntry | null {
+    const lastEntry = this.items[this.items.length - 1];
+    if (!lastEntry || lastEntry.item.type !== "message") {
+      return null;
+    }
+    lastEntry.item = messageItemMerge(lastEntry.item, item);
+    lastEntry.completion = completionMerge(lastEntry.completion, completion);
+    return lastEntry;
   }
 
   async next(): Promise<AgentInboxEntry> {
@@ -63,4 +87,74 @@ export class AgentInbox {
   listPending(): AgentInboxEntry[] {
     return [...this.items];
   }
+}
+
+function messageItemMerge(left: AgentInboxMessage, right: AgentInboxMessage): AgentInboxMessage {
+  const files = [...(left.message.files ?? []), ...(right.message.files ?? [])];
+  const rawText = textMerge(left.message.rawText ?? left.message.text, right.message.rawText ?? right.message.text);
+  return {
+    type: "message",
+    message: {
+      text: textMerge(left.message.text, right.message.text),
+      ...(rawText !== null ? { rawText } : {}),
+      ...(files.length > 0 ? { files } : {}),
+      ...(right.message.replyToMessageId ?? left.message.replyToMessageId
+        ? { replyToMessageId: right.message.replyToMessageId ?? left.message.replyToMessageId }
+        : {})
+    },
+    context: messageContextMerge(left.context, right.context)
+  };
+}
+
+function messageContextMerge(
+  left: AgentInboxMessage["context"],
+  right: AgentInboxMessage["context"]
+): AgentInboxMessage["context"] {
+  const permissionTags = permissionTagsMerge(left.permissionTags, right.permissionTags);
+  const messageId = right.messageId ?? left.messageId;
+  return {
+    ...(messageId ? { messageId } : {}),
+    ...(permissionTags.length > 0 ? { permissionTags } : {})
+  };
+}
+
+function permissionTagsMerge(left: string[] | undefined, right: string[] | undefined): string[] {
+  const deduped = new Set<string>();
+  for (const tag of left ?? []) {
+    deduped.add(tag);
+  }
+  for (const tag of right ?? []) {
+    deduped.add(tag);
+  }
+  return Array.from(deduped);
+}
+
+function completionMerge(
+  left: AgentInboxCompletion | null,
+  right: AgentInboxCompletion | null
+): AgentInboxCompletion | null {
+  if (!left) {
+    return right;
+  }
+  if (!right) {
+    return left;
+  }
+  return {
+    resolve: (result) => {
+      left.resolve(result);
+      right.resolve(result);
+    },
+    reject: (error) => {
+      left.reject(error);
+      right.reject(error);
+    }
+  };
+}
+
+function textMerge(left: string | null | undefined, right: string | null | undefined): string | null {
+  const parts = [left, right].filter((value): value is string => value !== null && value !== undefined);
+  if (parts.length === 0) {
+    return null;
+  }
+  return parts.join("\n");
 }

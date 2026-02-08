@@ -1,8 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { AgentInbox } from "./agentInbox.js";
 
 const buildReset = () => ({ type: "reset" as const });
+const buildMessage = (text: string, messageId: string, tags: string[] = []) => ({
+  type: "message" as const,
+  message: { text },
+  context: {
+    messageId,
+    ...(tags.length > 0 ? { permissionTags: tags } : {})
+  }
+});
 
 describe("AgentInbox", () => {
   it("delivers queued entries in order", async () => {
@@ -31,5 +39,48 @@ describe("AgentInbox", () => {
     inbox.attach();
     inbox.detach();
     expect(() => inbox.attach()).not.toThrow();
+  });
+
+  it("combines queued message items into one inbox entry", async () => {
+    const inbox = new AgentInbox("agent-4");
+    inbox.post(buildMessage("first", "1", ["@read:/tmp"]));
+    const second = inbox.post(buildMessage("second", "2", ["@write:/tmp", "@read:/tmp"]));
+
+    expect(inbox.size()).toBe(1);
+    const entry = await inbox.next();
+    expect(entry.id).toBe(second.id);
+    expect(entry.item.type).toBe("message");
+    if (entry.item.type !== "message") {
+      throw new Error("Expected merged message entry");
+    }
+    expect(entry.item.message.text).toBe("first\nsecond");
+    expect(entry.item.context).toEqual({
+      messageId: "2",
+      permissionTags: ["@read:/tmp", "@write:/tmp"]
+    });
+  });
+
+  it("resolves completion handlers for all merged messages", async () => {
+    const inbox = new AgentInbox("agent-5");
+    const resolveFirst = vi.fn();
+    const resolveSecond = vi.fn();
+    const rejectFirst = vi.fn();
+    const rejectSecond = vi.fn();
+    inbox.post(buildMessage("one", "1"), {
+      resolve: resolveFirst,
+      reject: rejectFirst
+    });
+    inbox.post(buildMessage("two", "2"), {
+      resolve: resolveSecond,
+      reject: rejectSecond
+    });
+
+    const entry = await inbox.next();
+    entry.completion?.resolve({ type: "message", responseText: "ok" });
+
+    expect(resolveFirst).toHaveBeenCalledWith({ type: "message", responseText: "ok" });
+    expect(resolveSecond).toHaveBeenCalledWith({ type: "message", responseText: "ok" });
+    expect(rejectFirst).not.toHaveBeenCalled();
+    expect(rejectSecond).not.toHaveBeenCalled();
   });
 });

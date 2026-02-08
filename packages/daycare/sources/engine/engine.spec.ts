@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { AgentDescriptor, Connector, MessageContext } from "@/types";
+import type { AgentDescriptor, Connector, ConnectorMessage, MessageContext } from "@/types";
 import { configResolve } from "../config/configResolve.js";
 import { Engine } from "./engine.js";
 import { EngineEventBus } from "./ipc/events.js";
@@ -120,6 +120,73 @@ describe("Engine stop command", () => {
       await engine.modules.connectors.unregisterAll("test");
       await engine.shutdown();
     } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("Engine message batching", () => {
+  it("debounces and combines connector messages per descriptor", async () => {
+    vi.useFakeTimers();
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
+    try {
+      const config = configResolve(
+        { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
+        path.join(dir, "settings.json")
+      );
+      const engine = new Engine({ config, eventBus: new EngineEventBus() });
+      const postSpy = vi.spyOn(engine.agentSystem, "post").mockResolvedValue(undefined);
+      const messageState: {
+        handler?: (
+          message: ConnectorMessage,
+          context: MessageContext,
+          descriptor: AgentDescriptor
+        ) => void | Promise<void>;
+      } = {};
+
+      const connector: Connector = {
+        capabilities: { sendText: true },
+        onMessage: (handler) => {
+          messageState.handler = handler;
+          return () => undefined;
+        },
+        sendMessage: async () => undefined
+      };
+
+      const registerResult = engine.modules.connectors.register("telegram", connector);
+      expect(registerResult).toEqual({ ok: true, status: "loaded" });
+      const handler = messageState.handler;
+      if (!handler) {
+        throw new Error("Expected message handler to be registered");
+      }
+
+      const descriptor: AgentDescriptor = {
+        type: "user",
+        connector: "telegram",
+        channelId: "123",
+        userId: "123"
+      };
+      await handler({ text: "first" }, { messageId: "1" }, descriptor);
+      await vi.advanceTimersByTimeAsync(50);
+      await handler({ text: "second" }, { messageId: "2" }, descriptor);
+      await vi.advanceTimersByTimeAsync(99);
+      expect(postSpy).not.toHaveBeenCalled();
+
+      await vi.advanceTimersByTimeAsync(1);
+      expect(postSpy).toHaveBeenCalledTimes(1);
+      expect(postSpy).toHaveBeenCalledWith(
+        { descriptor },
+        {
+          type: "message",
+          message: { text: "first\nsecond", rawText: "first\nsecond" },
+          context: { messageId: "2" }
+        }
+      );
+
+      await engine.modules.connectors.unregisterAll("test");
+      await engine.shutdown();
+    } finally {
+      vi.useRealTimers();
       await rm(dir, { recursive: true, force: true });
     }
   });

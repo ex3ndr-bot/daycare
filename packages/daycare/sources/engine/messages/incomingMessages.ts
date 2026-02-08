@@ -1,0 +1,158 @@
+import type { AgentDescriptor, ConnectorMessage, MessageContext } from "@/types";
+import { agentPathForDescriptor } from "../agents/ops/agentPathForDescriptor.js";
+
+export type IncomingMessageInput = {
+  descriptor: AgentDescriptor;
+  message: ConnectorMessage;
+  context: MessageContext;
+};
+
+export type IncomingMessageBatch = IncomingMessageInput & {
+  count: number;
+};
+
+export type IncomingMessagesOptions = {
+  delayMs: number;
+  onFlush: (items: IncomingMessageBatch[]) => Promise<void>;
+};
+
+/**
+ * Debounces and coalesces connector messages before agent dispatch.
+ * Expects: callers post connector-originated message items only.
+ */
+export class IncomingMessages {
+  private readonly delayMs: number;
+  private readonly onFlush: (items: IncomingMessageBatch[]) => Promise<void>;
+  private pending: IncomingMessageInput[] = [];
+  private timer: ReturnType<typeof setTimeout> | null = null;
+  private flushing: Promise<void> | null = null;
+
+  constructor(options: IncomingMessagesOptions) {
+    this.delayMs = options.delayMs;
+    this.onFlush = options.onFlush;
+  }
+
+  post(input: IncomingMessageInput): void {
+    this.pending.push(input);
+    this.schedule();
+  }
+
+  async flush(): Promise<void> {
+    this.cancelTimer();
+    for (;;) {
+      if (this.flushing) {
+        await this.flushing;
+        continue;
+      }
+      if (this.pending.length === 0) {
+        return;
+      }
+      await this.flushOnce();
+    }
+  }
+
+  private schedule(): void {
+    this.cancelTimer();
+    this.timer = setTimeout(() => {
+      this.timer = null;
+      void this.flushOnce();
+    }, this.delayMs);
+  }
+
+  private async flushOnce(): Promise<void> {
+    if (this.flushing || this.pending.length === 0) {
+      return;
+    }
+    const batch = batchBuild(this.pending);
+    this.pending = [];
+    this.flushing = this.onFlush(batch).finally(() => {
+      this.flushing = null;
+      if (this.pending.length > 0) {
+        this.schedule();
+      }
+    });
+    await this.flushing;
+  }
+
+  private cancelTimer(): void {
+    if (!this.timer) {
+      return;
+    }
+    clearTimeout(this.timer);
+    this.timer = null;
+  }
+}
+
+function batchBuild(inputs: IncomingMessageInput[]): IncomingMessageBatch[] {
+  const grouped = new Map<string, IncomingMessageBatch>();
+  const keys: string[] = [];
+  for (const input of inputs) {
+    const key = batchKeyBuild(input.descriptor);
+    const existing = grouped.get(key);
+    if (!existing) {
+      grouped.set(key, { ...input, count: 1 });
+      keys.push(key);
+      continue;
+    }
+    existing.message = connectorMessageMerge(existing.message, input.message);
+    existing.context = messageContextMerge(existing.context, input.context);
+    existing.count += 1;
+  }
+  return keys
+    .map((key) => grouped.get(key))
+    .filter((item): item is IncomingMessageBatch => !!item);
+}
+
+function batchKeyBuild(descriptor: AgentDescriptor): string {
+  const path = agentPathForDescriptor(descriptor);
+  if (path) {
+    return path;
+  }
+  if (descriptor.type === "subagent") {
+    return `/subagent/${descriptor.id}`;
+  }
+  if (descriptor.type === "permanent") {
+    return `/permanent/${descriptor.id}`;
+  }
+  return JSON.stringify(descriptor);
+}
+
+function connectorMessageMerge(left: ConnectorMessage, right: ConnectorMessage): ConnectorMessage {
+  const files = [...(left.files ?? []), ...(right.files ?? [])];
+  const replyToMessageId = right.replyToMessageId ?? left.replyToMessageId;
+  const rawText = textMerge(left.rawText ?? left.text, right.rawText ?? right.text);
+  return {
+    text: textMerge(left.text, right.text),
+    ...(rawText !== null ? { rawText } : {}),
+    ...(files.length > 0 ? { files } : {}),
+    ...(replyToMessageId ? { replyToMessageId } : {})
+  };
+}
+
+function messageContextMerge(left: MessageContext, right: MessageContext): MessageContext {
+  const permissionTags = permissionTagsMerge(left.permissionTags, right.permissionTags);
+  const messageId = right.messageId ?? left.messageId;
+  return {
+    ...(messageId ? { messageId } : {}),
+    ...(permissionTags.length > 0 ? { permissionTags } : {})
+  };
+}
+
+function permissionTagsMerge(left: string[] | undefined, right: string[] | undefined): string[] {
+  const deduped = new Set<string>();
+  for (const tag of left ?? []) {
+    deduped.add(tag);
+  }
+  for (const tag of right ?? []) {
+    deduped.add(tag);
+  }
+  return Array.from(deduped);
+}
+
+function textMerge(left: string | null | undefined, right: string | null | undefined): string | null {
+  const parts = [left, right].filter((value): value is string => value !== null && value !== undefined);
+  if (parts.length === 0) {
+    return null;
+  }
+  return parts.join("\n");
+}

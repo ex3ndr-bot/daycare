@@ -50,8 +50,10 @@ import { ConfigModule } from "./config/configModule.js";
 import { Signals } from "./signals/signals.js";
 import { DelayedSignals } from "./signals/delayedSignals.js";
 import { Processes } from "./processes/processes.js";
+import { IncomingMessages } from "./messages/incomingMessages.js";
 
 const logger = getLogger("engine.runtime");
+const INCOMING_MESSAGES_DEBOUNCE_MS = 100;
 
 export type EngineOptions = {
   config: Config;
@@ -75,6 +77,7 @@ export class Engine {
   readonly inferenceRouter: InferenceRouter;
   readonly eventBus: EngineEventBus;
   private readonly reloadSync: InvalidateSync;
+  private readonly incomingMessages: IncomingMessages;
 
   constructor(options: EngineOptions) {
     logger.debug(`Engine constructor starting, dataDir=${options.config.dataDir}`);
@@ -98,19 +101,29 @@ export class Engine {
     this.authStore = new AuthStore(this.config.current);
     this.fileStore = new FileStore(this.config.current);
     this.processes = new Processes(this.config.current.dataDir, getLogger("engine.processes"));
+    this.incomingMessages = new IncomingMessages({
+      delayMs: INCOMING_MESSAGES_DEBOUNCE_MS,
+      onFlush: async (items) => {
+        await this.runConnectorCallback("message", async () => {
+          for (const item of items) {
+            const connector = item.descriptor.type === "user" ? item.descriptor.connector : "unknown";
+            logger.debug(
+              `Connector message received: connector=${connector} type=${item.descriptor.type} merged=${item.count} text=${item.message.text?.length ?? 0}chars files=${item.message.files?.length ?? 0}`
+            );
+            await this.agentSystem.post(
+              { descriptor: item.descriptor },
+              { type: "message", message: item.message, context: item.context }
+            );
+          }
+        });
+      }
+    });
     logger.debug(`AuthStore and FileStore initialized`);
 
     this.modules = new ModuleRegistry({
-      onMessage: async (message, context, descriptor) => this.runConnectorCallback("message", async () => {
-        const connector = descriptor.type === "user" ? descriptor.connector : "unknown";
-        logger.debug(
-          `Connector message received: connector=${connector} type=${descriptor.type} text=${message.text?.length ?? 0}chars files=${message.files?.length ?? 0}`
-        );
-        await this.agentSystem.post(
-          { descriptor },
-          { type: "message", message, context }
-        );
-      }),
+      onMessage: async (message, context, descriptor) => {
+        this.incomingMessages.post({ descriptor, message, context });
+      },
       onCommand: async (command, context, descriptor) => this.runConnectorCallback("command", async () => {
         const connector = descriptor.type === "user" ? descriptor.connector : "unknown";
         const parsed = parseCommand(command);
@@ -321,6 +334,7 @@ export class Engine {
   async shutdown(): Promise<void> {
     this.reloadSync.stop();
     await this.modules.connectors.unregisterAll("shutdown");
+    await this.incomingMessages.flush();
     this.crons.stop();
     this.heartbeats.stop();
     this.delayedSignals.stop();
