@@ -8,7 +8,7 @@ import type { SandboxRuntimeConfig } from "@anthropic-ai/sandbox-runtime";
 import type { Logger } from "pino";
 
 import type { SessionPermissions, SandboxPackageManager } from "@/types";
-import { resolveWorkspacePath } from "../../engine/permissions.js";
+import { resolveWorkspacePath } from "../permissions.js";
 import { sandboxAllowedDomainsResolve } from "../../sandbox/sandboxAllowedDomainsResolve.js";
 import { sandboxAllowedDomainsValidate } from "../../sandbox/sandboxAllowedDomainsValidate.js";
 import { sandboxCanWrite } from "../../sandbox/sandboxCanWrite.js";
@@ -145,7 +145,7 @@ export class Processes {
     if (!this.monitorHandle) {
       return;
     }
-    // Interval cleanup is required to avoid keeping timers alive after plugin unload.
+    // Interval cleanup is required to avoid keeping timers alive after runtime shutdown.
     clearInterval(this.monitorHandle);
     this.monitorHandle = null;
   }

@@ -5,6 +5,7 @@ import path from "node:path";
 
 import { PluginModuleLoader } from "./loader.js";
 import { getLogger } from "../../log.js";
+import { Processes } from "../processes/processes.js";
 
 const tempRoots: string[] = [];
 
@@ -70,6 +71,7 @@ export const plugin = {
           throw new Error("Inference not available in test.");
         }
       },
+      processes: new Processes(dir, getLogger("test.processes.loader")),
       mode: "runtime",
       events: { emit: () => {} }
     });

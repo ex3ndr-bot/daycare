@@ -2,7 +2,7 @@ import { Type, type Static } from "@sinclair/typebox";
 import type { ToolResultMessage } from "@mariozechner/pi-ai";
 
 import type { ToolDefinition } from "@/types";
-import { Processes } from "./processes.js";
+import type { Processes } from "../../engine/processes/processes.js";
 
 const envSchema = Type.Record(
   Type.String({ minLength: 1 }),

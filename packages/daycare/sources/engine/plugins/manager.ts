@@ -20,6 +20,7 @@ import type { InferenceRouter } from "../modules/inference/router.js";
 import { PluginInferenceService } from "./inference.js";
 import { valueDeepEqual } from "../../util/valueDeepEqual.js";
 import type { ConfigModule } from "../config/configModule.js";
+import type { Processes } from "../processes/processes.js";
 
 export type PluginManagerOptions = {
   config: ConfigModule;
@@ -28,6 +29,7 @@ export type PluginManagerOptions = {
   fileStore: FileStore;
   pluginCatalog: Map<string, PluginDefinition>;
   inferenceRouter: InferenceRouter;
+  processes: Processes;
   mode?: "runtime" | "validate";
   engineEvents?: EngineEventBus;
   onEvent?: (event: PluginEvent) => void;
@@ -52,6 +54,7 @@ export class PluginManager {
   private engineEvents?: EngineEventBus;
   private onEvent: ((event: PluginEvent) => void) | null;
   private inference: PluginInferenceService;
+  private processes: Processes;
   private loaded = new Map<string, LoadedPlugin>();
   private logger = getLogger("plugins.manager");
 
@@ -64,6 +67,7 @@ export class PluginManager {
     this.mode = options.mode ?? "runtime";
     this.engineEvents = options.engineEvents;
     this.onEvent = options.onEvent ?? null;
+    this.processes = options.processes;
     this.inference = new PluginInferenceService({
       router: options.inferenceRouter,
       config: this.config
@@ -260,6 +264,7 @@ export class PluginManager {
       registrar,
       fileStore: this.fileStore,
       inference: this.inference.createClient(instanceId),
+      processes: this.processes,
       mode: this.mode,
       engineEvents: this.engineEvents,
       events: {

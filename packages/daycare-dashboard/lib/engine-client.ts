@@ -51,6 +51,24 @@ export type BackgroundAgentState = {
   updatedAt: number;
 };
 
+export type ManagedProcess = {
+  id: string;
+  name: string;
+  command: string;
+  cwd: string;
+  home: string | null;
+  pid: number | null;
+  keepAlive: boolean;
+  desiredState: "running" | "stopped";
+  status: "running" | "stopped" | "exited";
+  restartCount: number;
+  createdAt: number;
+  updatedAt: number;
+  lastStartedAt: number | null;
+  lastExitedAt: number | null;
+  logPath: string;
+};
+
 export type SignalSource =
   | { type: "system" }
   | { type: "agent"; id: string }
@@ -140,6 +158,14 @@ type HeartbeatResponse = {
   tasks?: HeartbeatTask[];
 };
 
+type ProcessesResponse = {
+  processes?: ManagedProcess[];
+};
+
+type ProcessResponse = {
+  process?: ManagedProcess;
+};
+
 export type SignalSubscription = {
   agentId: string;
   pattern: string;
@@ -201,6 +227,17 @@ export async function fetchCronTasks() {
 export async function fetchHeartbeatTasks() {
   const data = await fetchJSON<HeartbeatResponse>("/api/v1/engine/heartbeat/tasks");
   return data.tasks ?? [];
+}
+
+export async function fetchProcesses() {
+  const data = await fetchJSON<ProcessesResponse>("/api/v1/engine/processes");
+  return data.processes ?? [];
+}
+
+export async function fetchProcess(processId: string) {
+  const encoded = encodeURIComponent(processId);
+  const data = await fetchJSON<ProcessResponse>(`/api/v1/engine/processes/${encoded}`);
+  return data.process ?? null;
 }
 
 export async function generateSignal(input: SignalGenerateInput): Promise<SignalEvent> {

@@ -9,6 +9,7 @@ import { AuthStore } from "../../auth/store.js";
 import type { PluginApi } from "@/types";
 import type { PluginRegistrar } from "./registry.js";
 import { configResolve } from "../../config/configResolve.js";
+import { Processes } from "../processes/processes.js";
 
 import { plugin as braveSearch } from "../../plugins/brave-search/plugin.js";
 import { plugin as memory } from "../../plugins/memory/plugin.js";
@@ -60,6 +61,7 @@ async function createApi<TSettings>(
     registrar,
     fileStore,
     inference,
+    processes: new Processes(dir, getLogger(`test.processes.${instanceId}`)),
     mode: "runtime",
     events: { emit: vi.fn() }
   };

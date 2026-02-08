@@ -13,6 +13,8 @@ import { AuthStore } from "../../auth/store.js";
 import type { PluginInstanceSettings } from "../../settings.js";
 import { configResolve } from "../../config/configResolve.js";
 import { ConfigModule } from "../config/configModule.js";
+import { Processes } from "../processes/processes.js";
+import { getLogger } from "../../log.js";
 
 const tempRoots: string[] = [];
 
@@ -71,6 +73,7 @@ function createManager(
       fileStore,
       pluginCatalog: catalog,
       inferenceRouter,
+      processes: new Processes(rootDir, getLogger("test.processes")),
       onEvent
     })
   };

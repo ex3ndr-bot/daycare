@@ -12,6 +12,7 @@ import { PluginRegistry } from "../../../engine/plugins/registry.js";
 import { Agent } from "../../../engine/agents/agent.js";
 import { AgentInbox } from "../../../engine/agents/ops/agentInbox.js";
 import { agentDescriptorBuild } from "../../../engine/agents/ops/agentDescriptorBuild.js";
+import { Processes } from "../../../engine/processes/processes.js";
 import type { AgentState, SessionPermissions } from "@/types";
 import { getLogger } from "../../../log.js";
 import { plugin } from "../plugin.js";
@@ -73,6 +74,7 @@ describe("database plugin", () => {
           throw new Error("Inference not available in test.");
         }
       },
+      processes: new Processes(baseDir, getLogger("test.processes.database")),
       mode: "runtime" as const,
       events: { emit: () => undefined }
     };

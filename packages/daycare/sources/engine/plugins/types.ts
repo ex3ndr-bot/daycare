@@ -8,6 +8,7 @@ import type { PluginEventInput } from "./events.js";
 import type { PluginRegistrar } from "./registry.js";
 import type { EngineEventBus } from "../ipc/events.js";
 import type { PluginInference } from "./inference.js";
+import type { Processes } from "../processes/processes.js";
 
 export type PluginApi<TSettings = unknown> = {
   instance: PluginInstanceSettings;
@@ -19,6 +20,7 @@ export type PluginApi<TSettings = unknown> = {
   registrar: PluginRegistrar;
   fileStore: FileStore;
   inference: PluginInference;
+  processes: Processes;
   mode: "runtime" | "validate";
   engineEvents?: EngineEventBus;
   events: {

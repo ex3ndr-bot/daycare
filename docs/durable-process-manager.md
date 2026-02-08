@@ -9,10 +9,11 @@ Daycare now includes durable shell process tools that behave like a lightweight 
 - Rehydrate managed process state after engine restart.
 - Allow explicit stop operations (`process_stop`, `process_stop_all`).
 - Expose absolute process log filenames via `process_list` and `process_get`.
+- Provide engine API endpoints for dashboard monitoring.
 
 ## Storage Model
 
-Managed process state is stored per process in plugin data:
+Managed process state is stored per process in engine data:
 
 - `processes/<id>/record.json`
 - `processes/<id>/sandbox.json`
@@ -31,26 +32,37 @@ Managed process state is stored per process in plugin data:
 
 ```mermaid
 flowchart TD
-  A[process_start] --> B[Persist record.json + sandbox.json]
-  B --> C[Spawn detached sandbox runtime process]
-  C --> D[Append stdout/stderr to process.log]
-  C --> E[Update pid/status in record.json]
-  F[Engine restart] --> G[Plugin load]
-  G --> H[Read process records from disk]
-  H --> I{bootTime matches record?}
-  I -- no --> J[Clear persisted pid as stale]
-  I -- yes --> K{pid running?}
-  K -- yes --> L[Adopt running process]
-  K -- no --> M{desired=running and keepAlive=true}
-  M -- yes --> N[Schedule exponential backoff]
-  N --> O{backoff elapsed?}
-  O -- yes --> P[Restart process]
-  O -- no --> Q[Wait for next monitor tick]
-  M -- no --> R[Mark exited/stopped]
-  S[process_stop/process_stop_all] --> T[Set desired=stopped]
-  T --> U[Kill process group]
-  U --> V[Persist stopped status]
+  A[shell plugin tools] --> B[Engine Processes facade]
+  B --> C[Persist record.json + sandbox.json]
+  C --> D[Spawn detached sandbox runtime process]
+  D --> E[Append stdout/stderr to process.log]
+  D --> F[Update pid/status in record.json]
+  G[Engine restart] --> H[Engine Processes load]
+  H --> I[Read process records from disk]
+  I --> J{bootTime matches record?}
+  J -- no --> K[Clear persisted pid as stale]
+  J -- yes --> L{pid running?}
+  L -- yes --> M[Adopt running process]
+  L -- no --> N{desired=running and keepAlive=true}
+  N -- yes --> O[Schedule exponential backoff]
+  O --> P{backoff elapsed?}
+  P -- yes --> Q[Restart process]
+  P -- no --> R[Wait for next monitor tick]
+  N -- no --> S[Mark exited/stopped]
+  T[process_stop/process_stop_all] --> U[Set desired=stopped]
+  U --> V[Kill process group]
+  V --> W[Persist stopped status]
+  X[Dashboard] --> Y[/v1/engine/processes]
+  Y --> B
+  X --> Z[/v1/engine/processes/:processId]
+  Z --> B
 ```
+
+## Dashboard API
+
+- `GET /v1/engine/processes`: list all managed durable processes.
+- `GET /v1/engine/processes/:processId`: get one process by id.
+- Responses include `logPath` so the dashboard can surface the full log filename.
 
 ## Notes
 

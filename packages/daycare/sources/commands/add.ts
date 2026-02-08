@@ -30,6 +30,7 @@ import { configLoad } from "../config/configLoad.js";
 import type { Config } from "@/types";
 import { engineReloadRequest } from "./engineReloadRequest.js";
 import { ConfigModule } from "../engine/config/configModule.js";
+import { Processes } from "../engine/processes/processes.js";
 
 export type AddOptions = {
   settings?: string;
@@ -281,6 +282,7 @@ async function validatePluginLoad(
     fileStore,
     pluginCatalog: buildPluginCatalog(),
     inferenceRouter,
+    processes: new Processes(config.dataDir, getLogger("processes.validate")),
     mode: "validate"
   });
 

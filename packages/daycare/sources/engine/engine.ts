@@ -49,6 +49,7 @@ import { configLoad } from "../config/configLoad.js";
 import { ConfigModule } from "./config/configModule.js";
 import { Signals } from "./signals/signals.js";
 import { DelayedSignals } from "./signals/delayedSignals.js";
+import { Processes } from "./processes/processes.js";
 
 const logger = getLogger("engine.runtime");
 
@@ -70,6 +71,7 @@ export class Engine {
   readonly heartbeats: Heartbeats;
   readonly signals: Signals;
   readonly delayedSignals: DelayedSignals;
+  readonly processes: Processes;
   readonly inferenceRouter: InferenceRouter;
   readonly eventBus: EngineEventBus;
   private readonly reloadSync: InvalidateSync;
@@ -95,6 +97,7 @@ export class Engine {
     });
     this.authStore = new AuthStore(this.config.current);
     this.fileStore = new FileStore(this.config.current);
+    this.processes = new Processes(this.config.current.dataDir, getLogger("engine.processes"));
     logger.debug(`AuthStore and FileStore initialized`);
 
     this.modules = new ModuleRegistry({
@@ -204,6 +207,7 @@ export class Engine {
       fileStore: this.fileStore,
       pluginCatalog: buildPluginCatalog(),
       inferenceRouter: this.inferenceRouter,
+      processes: this.processes,
       engineEvents: this.eventBus,
       onEvent: (event) => {
         this.agentSystem.eventBus.emit("plugin.event", event);
@@ -261,6 +265,9 @@ export class Engine {
     logger.debug("Reloading provider manager with current config");
     await this.providerManager.reload();
     logger.debug("Provider manager reload complete");
+    logger.debug("Loading durable process manager");
+    await this.processes.load();
+    logger.debug("Durable process manager loaded");
     logger.debug("Reloading plugins with current config");
     await this.pluginManager.reload();
     logger.debug("Plugin reload complete");
@@ -317,6 +324,7 @@ export class Engine {
     this.crons.stop();
     this.heartbeats.stop();
     this.delayedSignals.stop();
+    this.processes.unload();
     await this.pluginManager.unloadAll();
   }
 

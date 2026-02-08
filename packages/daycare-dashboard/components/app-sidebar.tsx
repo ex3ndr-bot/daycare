@@ -8,6 +8,7 @@ import {
   Database,
   LayoutDashboard,
   MessageSquare,
+  Monitor,
   Plug,
   Radio,
   Settings,
@@ -70,6 +71,11 @@ const data = {
       title: "Signals",
       url: "/signals",
       icon: Radio
+    },
+    {
+      title: "Processes",
+      url: "/processes",
+      icon: Monitor
     },
     {
       title: "Telemetry",

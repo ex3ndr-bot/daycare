@@ -13,6 +13,7 @@ import type { ImageGenerationProvider } from "@/types";
 import { getLogger } from "../../../log.js";
 import { plugin as nanoBananaPro } from "../plugin.js";
 import { configResolve } from "../../../config/configResolve.js";
+import { Processes } from "../../../engine/processes/processes.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, "..", "..", "..", "..", "..", "..");
@@ -81,6 +82,7 @@ describeIf("nano-banana-pro image generation", () => {
       registrar,
       fileStore,
       inference,
+      processes: new Processes(dir, getLogger("test.processes.nano-banana-pro")),
       mode: "runtime",
       events: { emit: () => undefined }
     };

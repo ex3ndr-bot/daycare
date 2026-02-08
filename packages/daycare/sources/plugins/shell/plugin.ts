@@ -14,17 +14,15 @@ import {
   buildProcessStopAllTool,
   buildProcessStopTool
 } from "./processTools.js";
-import { Processes } from "./processes.js";
 
 const settingsSchema = z.object({}).passthrough();
 
 export const plugin = definePlugin({
   settingsSchema,
   create: (api) => {
-    const processes = new Processes(api.dataDir, api.logger);
+    const processes = api.processes;
     return {
       load: async () => {
-        await processes.load();
         api.registrar.registerTool(buildWorkspaceReadTool());
         api.registrar.registerTool(buildWorkspaceWriteTool());
         api.registrar.registerTool(buildWorkspaceEditTool());
@@ -45,7 +43,6 @@ export const plugin = definePlugin({
         api.registrar.unregisterTool("process_get");
         api.registrar.unregisterTool("process_stop");
         api.registrar.unregisterTool("process_stop_all");
-        processes.unload();
       }
     };
   }

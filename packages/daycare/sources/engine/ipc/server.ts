@@ -110,6 +110,28 @@ export async function startEngineServer(
     return reply.send({ ok: true, tasks });
   });
 
+  app.get("/v1/engine/processes", async (_request, reply) => {
+    logger.debug("GET /v1/engine/processes");
+    const processes = await options.runtime.processes.list();
+    logger.debug(`Processes retrieved count=${processes.length}`);
+    return reply.send({ ok: true, processes });
+  });
+
+  app.get("/v1/engine/processes/:processId", async (request, reply) => {
+    const processId = (request.params as { processId: string }).processId;
+    logger.debug(`GET /v1/engine/processes/:processId processId=${processId}`);
+    try {
+      const processInfo = await options.runtime.processes.get(processId);
+      return reply.send({ ok: true, process: processInfo });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Process lookup failed";
+      if (message.startsWith("Unknown process id:")) {
+        return reply.status(404).send({ ok: false, error: message });
+      }
+      return reply.status(500).send({ ok: false, error: message });
+    }
+  });
+
   app.get("/v1/engine/signals/events", async (request, reply) => {
     logger.debug("GET /v1/engine/signals/events");
     const parsed = signalEventsQuerySchema.safeParse(request.query);
