@@ -11,7 +11,7 @@ Current runnable recipe:
 RLM recipe behavior:
 - prompts user input with Enquirer
 - resolves Anthropic OAuth credentials from `~/.dev/auth.json` via recipe utils
-- refreshes OAuth via `getOAuthApiKey(...)` and persists updated credentials
+- resolves API key via existing `apiKey` or `getOAuthApiKey(...)`
 - sends turns via `@mariozechner/pi-ai` with `tools: []`
 
 ```mermaid

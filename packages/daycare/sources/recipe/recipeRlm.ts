@@ -10,7 +10,7 @@ const DEFAULT_MODEL = "claude-sonnet-4-5";
 
 /**
  * Runs a dead-simple recipe loop (rlm) with Enquirer prompts and Anthropic replies.
- * Expects: Anthropic OAuth credentials available in ~/.dev/auth.json.
+ * Expects: Anthropic auth entry available in ~/.dev/auth.json.
  */
 export async function main(args: string[]): Promise<void> {
   const modelId = args[0]?.trim() || process.env.DAYCARE_RECIPE_MODEL?.trim() || DEFAULT_MODEL;
