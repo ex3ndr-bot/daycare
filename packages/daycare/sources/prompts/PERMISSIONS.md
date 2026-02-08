@@ -32,6 +32,11 @@ Bias toward action. If you can do it, do it. If you need permission, request it 
 
 `exec` requires `allowedDomains` for outbound HTTP. `packageManagers` language presets (`dart`, `dotnet`, `go`, `java`, `node`, `php`, `python`, `ruby`, `rust`) can auto-add ecosystem hosts. `node` covers npm/pnpm/yarn/bun. Needs `@network` permission first. No global wildcard (`*`). No raw TCP or local port binding.
 
+## Exec and Durable Process Permissions
+
+`exec` and `process_start` run with **zero permissions by default** when `permissions` is omitted (no network, no read/write grants beyond default sandbox restrictions).
+Provide explicit permission tags in the tool call when needed. Tags must be a subset of your current granted permissions (`@network`, `@read:/absolute/path`, `@write:/absolute/path`).
+
 ## Exec Home
 
 `exec.home` and `gate.home` are absolute paths used to remap HOME-related env vars (`HOME`, `USERPROFILE`, `XDG_*`, temp/cache vars) for that process. Use this for isolated package-manager state. Keep it inside writable dirs (typically under `{{workspace}}`).
