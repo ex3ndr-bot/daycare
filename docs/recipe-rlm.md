@@ -8,6 +8,9 @@ Adds a runnable recipe system with:
 Current runnable recipe:
 - `sources/recipe/recipeRlm.ts` (`id: rlm`)
 
+Run from repo root:
+- `yarn recipe rlm`
+
 RLM recipe behavior:
 - prompts user input with Enquirer
 - resolves Anthropic OAuth credentials from `~/.dev/auth.json` via recipe utils
