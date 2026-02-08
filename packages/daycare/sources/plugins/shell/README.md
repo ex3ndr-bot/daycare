@@ -22,5 +22,6 @@ Each managed process gets a folder under `<plugin-data-dir>/processes/<process-i
 
 - Processes are spawned detached, so they survive engine restarts.
 - On plugin load, records are rehydrated from disk and running pids are picked up.
+- On plugin load, persisted pids are cleared when the current host boot time differs from the recorded boot time.
 - If `keepAlive` is true and desired state is `running`, exited processes are restarted by a monitor loop with exponential backoff.
 - `process_stop` and `process_stop_all` set desired state to `stopped` and terminate process groups.

@@ -17,6 +17,7 @@ import { envNormalize } from "../../util/envNormalize.js";
 import { AsyncLock } from "../../util/lock.js";
 import { sandboxHomeRedefine } from "../../sandbox/sandboxHomeRedefine.js";
 import { atomicWrite } from "../../util/atomicWrite.js";
+import { processBootTimeRead } from "./processBootTimeRead.js";
 
 const RECORD_VERSION = 2;
 const MONITOR_INTERVAL_MS = 2_000;
@@ -78,6 +79,7 @@ type ProcessRecord = {
   desiredState: "running" | "stopped";
   status: "running" | "stopped" | "exited";
   pid: number | null;
+  bootTimeMs: number | null;
   restartCount: number;
   restartFailureCount: number;
   nextRestartAt: number | null;
@@ -98,18 +100,28 @@ export class Processes {
   private readonly recordsDir: string;
   private readonly lock = new AsyncLock();
   private readonly logger: Logger;
+  private readonly bootTimeProvider: () => Promise<number | null>;
   private readonly records = new Map<string, ProcessRecord>();
   private readonly children = new Map<string, ChildProcess>();
+  private currentBootTimeMs: number | null = null;
+  private currentBootTimeKnown = false;
   private monitorHandle: NodeJS.Timeout | null = null;
 
-  constructor(baseDir: string, logger: Logger) {
+  constructor(
+    baseDir: string,
+    logger: Logger,
+    options: { bootTimeProvider?: () => Promise<number | null> } = {}
+  ) {
     this.baseDir = path.resolve(baseDir);
     this.recordsDir = path.join(this.baseDir, "processes");
     this.logger = logger;
+    this.bootTimeProvider = options.bootTimeProvider ?? processBootTimeRead;
   }
 
   async load(): Promise<void> {
     await fs.mkdir(this.recordsDir, { recursive: true });
+    this.currentBootTimeMs = await this.bootTimeProvider();
+    this.currentBootTimeKnown = true;
     await this.lock.inLock(async () => {
       this.records.clear();
       const entries = await fs.readdir(this.recordsDir, { withFileTypes: true });
@@ -122,6 +134,7 @@ export class Processes {
         if (!record) {
           continue;
         }
+        this.clearStalePidForBootMismatch(record);
         this.records.set(record.id, record);
       }
       await this.refreshRecordStatusLocked();
@@ -185,6 +198,7 @@ export class Processes {
       const recordDir = this.processDir(id);
       const settingsPath = path.join(recordDir, "sandbox.json");
       const logPath = path.join(recordDir, "process.log");
+      const bootTimeMs = await this.resolveCurrentBootTimeMsLocked();
       await fs.mkdir(recordDir, { recursive: true });
 
       const record: ProcessRecord = {
@@ -202,6 +216,7 @@ export class Processes {
         desiredState: "running",
         status: "stopped",
         pid: null,
+        bootTimeMs,
         restartCount: 0,
         restartFailureCount: 0,
         nextRestartAt: null,
@@ -421,6 +436,7 @@ export class Processes {
     this.attachChildListeners(record.id, child);
 
     const now = Date.now();
+    record.bootTimeMs = await this.resolveCurrentBootTimeMsLocked();
     record.pid = pid;
     record.status = "running";
     record.lastStartedAt = now;
@@ -497,6 +513,47 @@ export class Processes {
 
   private recordPath(processId: string): string {
     return path.join(this.processDir(processId), "record.json");
+  }
+
+  private async resolveCurrentBootTimeMsLocked(): Promise<number | null> {
+    if (this.currentBootTimeKnown) {
+      return this.currentBootTimeMs;
+    }
+    this.currentBootTimeMs = await this.bootTimeProvider();
+    this.currentBootTimeKnown = true;
+    return this.currentBootTimeMs;
+  }
+
+  private clearStalePidForBootMismatch(record: ProcessRecord): void {
+    if (
+      record.pid === null ||
+      record.bootTimeMs === null ||
+      this.currentBootTimeMs === null ||
+      record.bootTimeMs === this.currentBootTimeMs
+    ) {
+      if (record.bootTimeMs === null && this.currentBootTimeMs !== null) {
+        record.bootTimeMs = this.currentBootTimeMs;
+      }
+      return;
+    }
+
+    this.logger.info(
+      {
+        processId: record.id,
+        pid: record.pid,
+        recordBootTimeMs: record.bootTimeMs,
+        currentBootTimeMs: this.currentBootTimeMs
+      },
+      "Process pid cleared after boot mismatch detection"
+    );
+    record.pid = null;
+    record.bootTimeMs = this.currentBootTimeMs;
+    // Force refresh loop to persist a normalized terminal status.
+    record.status = "running";
+    record.lastExitedAt = Date.now();
+    record.updatedAt = Date.now();
+    record.nextRestartAt = null;
+    this.children.delete(record.id);
   }
 }
 
@@ -591,6 +648,7 @@ async function readRecord(recordPath: string): Promise<ProcessRecord | null> {
       desiredState,
       status,
       pid: typeof parsed.pid === "number" ? parsed.pid : null,
+      bootTimeMs: typeof parsed.bootTimeMs === "number" ? parsed.bootTimeMs : null,
       restartCount: typeof parsed.restartCount === "number" ? parsed.restartCount : 0,
       restartFailureCount:
         typeof parsed.restartFailureCount === "number" ? parsed.restartFailureCount : 0,

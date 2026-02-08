@@ -21,6 +21,7 @@ Managed process state is stored per process in plugin data:
 `record.json` is the source of truth for durable state, including:
 
 - runtime pid (`pid`)
+- boot identity (`bootTimeMs`) to detect stale pids after host reboot
 - desired state (`running` or `stopped`)
 - observed status (`running`, `stopped`, `exited`)
 - keep-alive flag and restart count
@@ -36,14 +37,16 @@ flowchart TD
   C --> E[Update pid/status in record.json]
   F[Engine restart] --> G[Plugin load]
   G --> H[Read process records from disk]
-  H --> I{pid running?}
-  I -- yes --> J[Adopt running process]
-  I -- no --> K{desired=running and keepAlive=true}
-  K -- yes --> L[Schedule exponential backoff]
-  L --> M{backoff elapsed?}
-  M -- yes --> N[Restart process]
-  M -- no --> O[Wait for next monitor tick]
-  K -- no --> P[Mark exited/stopped]
+  H --> I{bootTime matches record?}
+  I -- no --> J[Clear persisted pid as stale]
+  I -- yes --> K{pid running?}
+  K -- yes --> L[Adopt running process]
+  K -- no --> M{desired=running and keepAlive=true}
+  M -- yes --> N[Schedule exponential backoff]
+  N --> O{backoff elapsed?}
+  O -- yes --> P[Restart process]
+  O -- no --> Q[Wait for next monitor tick]
+  M -- no --> R[Mark exited/stopped]
   S[process_stop/process_stop_all] --> T[Set desired=stopped]
   T --> U[Kill process group]
   U --> V[Persist stopped status]
@@ -52,6 +55,7 @@ flowchart TD
 ## Notes
 
 - Keep-alive is opt-in per process via `process_start.keepAlive`.
+- Reboot safety uses system boot time comparison; boot mismatch clears persisted pids.
 - Keep-alive restarts use exponential backoff (2s base, doubling to 60s max) for crash loops.
 - Stop operations apply to the full process group to terminate child processes.
 - Log access reads tail bytes and returns content without requiring direct file access.

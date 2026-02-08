@@ -158,8 +158,77 @@ describe("Processes", () => {
     TEST_TIMEOUT_MS
   );
 
-  async function createManager(dir: string): Promise<Processes> {
-    const manager = new Processes(dir, getLogger("test.processes"));
+  it(
+    "clears persisted pid when boot time changes across manager restarts",
+    async () => {
+      const processId = "persisted-boot-test";
+      const processDir = path.join(baseDir, "processes", processId);
+      const now = Date.now();
+      const recordPath = path.join(processDir, "record.json");
+      await fs.mkdir(processDir, { recursive: true });
+      await fs.writeFile(
+        recordPath,
+        JSON.stringify(
+          {
+            version: 2,
+            id: processId,
+            name: "persisted-boot-test",
+            command: `node -e "setInterval(() => {}, 1000)"`,
+            cwd: workspaceDir,
+            home: null,
+            env: {},
+            packageManagers: [],
+            allowedDomains: [],
+            permissions,
+            keepAlive: false,
+            desiredState: "running",
+            status: "running",
+            pid: 123_456,
+            bootTimeMs: 1_000,
+            restartCount: 0,
+            restartFailureCount: 0,
+            nextRestartAt: null,
+            createdAt: now,
+            updatedAt: now,
+            lastStartedAt: now,
+            lastExitedAt: null,
+            settingsPath: path.join(processDir, "sandbox.json"),
+            logPath: path.join(processDir, "process.log")
+          },
+          null,
+          2
+        ),
+        "utf8"
+      );
+
+      const manager = await createManager(baseDir, 2_000);
+      const listed = await manager.list();
+      const item = listed.find((entry) => entry.id === processId);
+
+      expect(item).toBeTruthy();
+      expect(item?.pid).toBeNull();
+      expect(item?.status).toBe("exited");
+
+      const persisted = JSON.parse(await fs.readFile(recordPath, "utf8")) as {
+        pid: number | null;
+        bootTimeMs: number | null;
+        status: string;
+      };
+      expect(persisted.pid).toBeNull();
+      expect(persisted.bootTimeMs).toBe(2_000);
+      expect(persisted.status).toBe("exited");
+    },
+    TEST_TIMEOUT_MS
+  );
+
+  async function createManager(
+    dir: string,
+    bootTimeMs?: number | null
+  ): Promise<Processes> {
+    const manager = new Processes(dir, getLogger("test.processes"), {
+      bootTimeProvider:
+        bootTimeMs === undefined ? undefined : async () => bootTimeMs
+    });
     managers.push(manager);
     await manager.load();
     return manager;
