@@ -57,7 +57,7 @@ const processStopAllSchema = Type.Object(
   { additionalProperties: false }
 );
 
-const processLogsSchema = Type.Object(
+const processGetSchema = Type.Object(
   {
     processId: Type.String({ minLength: 1 })
   },
@@ -67,7 +67,7 @@ const processLogsSchema = Type.Object(
 type ProcessStartArgs = Static<typeof processStartSchema>;
 type ProcessStopArgs = Static<typeof processStopSchema>;
 type ProcessStopAllArgs = Static<typeof processStopAllSchema>;
-type ProcessLogsArgs = Static<typeof processLogsSchema>;
+type ProcessGetArgs = Static<typeof processGetSchema>;
 
 export function buildProcessStartTool(processes: Processes): ToolDefinition {
   return {
@@ -135,6 +135,43 @@ export function buildProcessListTool(processes: Processes): ToolDefinition {
   };
 }
 
+export function buildProcessGetTool(processes: Processes): ToolDefinition {
+  return {
+    tool: {
+      name: "process_get",
+      description: "Get one durable managed process by id.",
+      parameters: processGetSchema
+    },
+    execute: async (args, _toolContext, toolCall) => {
+      const payload = args as ProcessGetArgs;
+      const item = await processes.get(payload.processId);
+      const text = JSON.stringify(
+        {
+          id: item.id,
+          name: item.name,
+          pid: item.pid,
+          status: item.status,
+          keepAlive: item.keepAlive,
+          restartCount: item.restartCount,
+          logPath: item.logPath,
+          command: item.command
+        },
+        null,
+        2
+      );
+      return {
+        toolMessage: buildToolMessage(toolCall, text, false, {
+          processId: item.id,
+          pid: item.pid,
+          status: item.status,
+          path: item.logPath
+        }),
+        files: []
+      };
+    }
+  };
+}
+
 export function buildProcessStopTool(processes: Processes): ToolDefinition {
   return {
     tool: {
@@ -180,32 +217,6 @@ export function buildProcessStopAllTool(processes: Processes): ToolDefinition {
         toolMessage: buildToolMessage(toolCall, text, false, {
           count: stopped.length,
           signal
-        }),
-        files: []
-      };
-    }
-  };
-}
-
-export function buildProcessLogsTool(processes: Processes): ToolDefinition {
-  return {
-    tool: {
-      name: "process_logs",
-      description:
-        "Return the absolute log file path for a managed process. Use the read tool to inspect contents.",
-      parameters: processLogsSchema
-    },
-    execute: async (args, _toolContext, toolCall) => {
-      const payload = args as ProcessLogsArgs;
-      const log = await processes.logs(payload.processId);
-      const text = [
-        `Log file: ${log.path}`,
-        "Use the read tool with this full file path to inspect logs."
-      ].join("\n");
-      return {
-        toolMessage: buildToolMessage(toolCall, text, false, {
-          processId: payload.processId,
-          path: log.path
         }),
         files: []
       };

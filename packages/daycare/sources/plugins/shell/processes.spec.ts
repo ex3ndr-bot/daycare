@@ -105,7 +105,7 @@ describe("Processes", () => {
   );
 
   it(
-    "writes logs to file that can be read separately",
+    "returns log file path via process get",
     async () => {
       const manager = await createManager(baseDir);
       const created = await manager.create(
@@ -118,11 +118,11 @@ describe("Processes", () => {
       );
 
       await sleep(1_500);
-      const log = await manager.logs(created.id);
-      expect(path.isAbsolute(log.path)).toBe(true);
-      expect(log.path.endsWith(path.join(created.id, "process.log"))).toBe(true);
+      const item = await manager.get(created.id);
+      expect(path.isAbsolute(item.logPath)).toBe(true);
+      expect(item.logPath.endsWith(path.join(created.id, "process.log"))).toBe(true);
 
-      const content = await fs.readFile(log.path, "utf8");
+      const content = await fs.readFile(item.logPath, "utf8");
       expect(content).toContain("hello-durable-log");
     },
     TEST_TIMEOUT_MS

@@ -243,6 +243,17 @@ export class Processes {
     });
   }
 
+  async get(processId: string): Promise<ProcessInfo> {
+    return this.lock.inLock(async () => {
+      await this.refreshRecordStatusLocked();
+      const record = this.records.get(processId);
+      if (!record) {
+        throw new Error(`Unknown process id: ${processId}`);
+      }
+      return toProcessInfo(record);
+    });
+  }
+
   async stop(processId: string, signal: ProcessSignal = "SIGTERM"): Promise<ProcessInfo> {
     return this.lock.inLock(async () => {
       const record = this.records.get(processId);
@@ -266,18 +277,6 @@ export class Processes {
         results.push(toProcessInfo(record));
       }
       return results;
-    });
-  }
-
-  async logs(processId: string): Promise<{ path: string }> {
-    return this.lock.inLock(async () => {
-      const record = this.records.get(processId);
-      if (!record) {
-        throw new Error(`Unknown process id: ${processId}`);
-      }
-      return {
-        path: record.logPath
-      };
     });
   }
 

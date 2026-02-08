@@ -8,7 +8,7 @@ Daycare now includes durable shell process tools that behave like a lightweight 
 - Persist process state (pid, desired state, restart policy) on disk.
 - Rehydrate managed process state after engine restart.
 - Allow explicit stop operations (`process_stop`, `process_stop_all`).
-- Persist process logs for later inspection (`process_logs`).
+- Expose absolute process log filenames via `process_list` and `process_get`.
 
 ## Storage Model
 
@@ -58,4 +58,4 @@ flowchart TD
 - Reboot safety uses system boot time comparison; boot mismatch clears persisted pids.
 - Keep-alive restarts use exponential backoff (2s base, doubling to 60s max) for crash loops.
 - Stop operations apply to the full process group to terminate child processes.
-- `process_logs` returns the full absolute log filename; read file contents via the `read` tool.
+- `process_list` and `process_get` return the full absolute log filename; read file contents via the `read` tool.

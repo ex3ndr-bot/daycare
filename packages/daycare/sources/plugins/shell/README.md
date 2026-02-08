@@ -6,9 +6,9 @@ The shell plugin provides workspace file tools (`read`, `write`, `edit`), one-sh
 
 - `process_start`: starts a sandboxed detached process and persists metadata under plugin data dir.
 - `process_list`: shows current process status (`running`, `stopped`, `exited`) and metadata.
+- `process_get`: returns one process record by id, including absolute `logPath`.
 - `process_stop`: stops one managed process by id.
 - `process_stop_all`: stops all managed processes.
-- `process_logs`: returns the absolute process log filename for use with `read`.
 
 ## Persistence Layout
 

@@ -8,8 +8,8 @@ import {
   buildWorkspaceWriteTool
 } from "./tool.js";
 import {
+  buildProcessGetTool,
   buildProcessListTool,
-  buildProcessLogsTool,
   buildProcessStartTool,
   buildProcessStopAllTool,
   buildProcessStopTool
@@ -31,9 +31,9 @@ export const plugin = definePlugin({
         api.registrar.registerTool(buildExecTool());
         api.registrar.registerTool(buildProcessStartTool(processes));
         api.registrar.registerTool(buildProcessListTool(processes));
+        api.registrar.registerTool(buildProcessGetTool(processes));
         api.registrar.registerTool(buildProcessStopTool(processes));
         api.registrar.registerTool(buildProcessStopAllTool(processes));
-        api.registrar.registerTool(buildProcessLogsTool(processes));
       },
       unload: async () => {
         api.registrar.unregisterTool("read");
@@ -42,9 +42,9 @@ export const plugin = definePlugin({
         api.registrar.unregisterTool("exec");
         api.registrar.unregisterTool("process_start");
         api.registrar.unregisterTool("process_list");
+        api.registrar.unregisterTool("process_get");
         api.registrar.unregisterTool("process_stop");
         api.registrar.unregisterTool("process_stop_all");
-        api.registrar.unregisterTool("process_logs");
         processes.unload();
       }
     };
