@@ -13,6 +13,11 @@ export type RecipeAnthropicReply = {
   message: AssistantMessage;
 };
 
+export type RecipeAnthropicReplyOptions = {
+  sessionId?: string;
+  systemPrompt?: string;
+};
+
 /**
  * Calls Anthropic with current recipe messages and returns assistant text + message.
  * Expects: messages contain valid chat turns and apiKey is authorized.
@@ -20,12 +25,17 @@ export type RecipeAnthropicReply = {
 export async function recipeAnthropicReplyGet(
   messages: Context["messages"],
   apiKey: string,
-  model: Model<Api>
+  model: Model<Api>,
+  options?: RecipeAnthropicReplyOptions
 ): Promise<RecipeAnthropicReply> {
-  const response = await complete(model, { messages, tools: [] }, {
+  const response = await complete(
+    model,
+    { messages, tools: [], systemPrompt: options?.systemPrompt },
+    {
     apiKey,
-    sessionId: "recipe-rlm"
-  });
+      sessionId: options?.sessionId ?? "recipe"
+    }
+  );
 
   if (response.stopReason === "error" || response.stopReason === "aborted") {
     throw new Error(response.errorMessage ?? `Inference failed with stopReason=${response.stopReason}`);

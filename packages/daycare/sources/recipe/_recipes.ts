@@ -1,4 +1,5 @@
 import { main as recipeRlmMain } from "./recipeRlm.js";
+import { main as recipePyreplMain } from "./recipePyrepl.js";
 
 export type RecipeMain = (args: string[]) => Promise<void>;
 
@@ -19,5 +20,11 @@ export const RECIPE_FILES: readonly RecipeFile[] = [
     path: "sources/recipe/recipeRlm.ts",
     description: "Dead-simple Anthropic recipe loop with prompts and pi-ai inference.",
     main: recipeRlmMain
+  },
+  {
+    id: "pyrepl",
+    path: "sources/recipe/recipePyrepl.ts",
+    description: "Sequential inference loop with JSON actions and persistent Python execution.",
+    main: recipePyreplMain
   }
 ];
