@@ -1,11 +1,9 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { createInterface } from "node:readline/promises";
-import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { releaseVersionIsValid } from "./releaseVersionIsValid.js";
+import { releaseVersionPatchIncrement } from "./releaseVersionPatchIncrement.js";
 
 type PackageManifest = {
   version?: string;
@@ -25,7 +23,7 @@ export async function releaseRun(): Promise<void> {
   assertWorkingTreeIsClean();
 
   const currentVersion = packageVersionRead();
-  const nextVersion = await releaseVersionPrompt(currentVersion);
+  const nextVersion = releaseVersionPatchIncrement(currentVersion);
   const tagName = `daycare-cli@${nextVersion}`;
   const commitMessage = `chore(release): daycare-cli ${nextVersion}`;
 
@@ -72,30 +70,6 @@ function assertTagMissing(tagName: string): void {
 
   if (output.split("\n").some((line) => line.trim() === tagName)) {
     throw new Error(`Tag ${tagName} already exists.`);
-  }
-}
-
-async function releaseVersionPrompt(currentVersion: string): Promise<string> {
-  const reader = createInterface({ input: process.stdin, output: process.stdout });
-  try {
-    const value = await reader.question(
-      `Current version is ${currentVersion}. Enter new version: `
-    );
-    const version = value.trim();
-
-    if (!version) {
-      throw new Error("Version is required.");
-    }
-    if (!releaseVersionIsValid(version)) {
-      throw new Error(`Invalid semantic version: ${version}`);
-    }
-    if (version === currentVersion) {
-      throw new Error("New version must differ from current version.");
-    }
-
-    return version;
-  } finally {
-    reader.close();
   }
 }
 
