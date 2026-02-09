@@ -29,6 +29,7 @@ export async function releaseRun(): Promise<void> {
 
   assertTagMissing(tagName);
 
+  commandRun("yarn", ["install", "--frozen-lockfile"], repositoryDirectory);
   commandRun("npm", ["version", nextVersion, "--no-git-tag-version"], packageDirectory);
   commandRun("git", ["add", packageManifestRelativePath], repositoryDirectory);
   commandRun("git", ["commit", "-m", commitMessage], repositoryDirectory);
