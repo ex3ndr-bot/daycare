@@ -2,6 +2,7 @@ import { Type, type Static } from "@sinclair/typebox";
 import type { ToolResultMessage } from "@mariozechner/pi-ai";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import os from "node:os";
 import type { ExecException } from "node:child_process";
 
 import type { ToolDefinition, ToolExecutionResult } from "@/types";
@@ -22,9 +23,12 @@ import {
   openSecure
 } from "../../engine/permissions/pathResolveSecure.js";
 
-const MAX_READ_BYTES = 200_000;
+const READ_MAX_LINES = 2000;
+const READ_MAX_BYTES = 50 * 1024;
 const MAX_EXEC_BUFFER = 1_000_000;
 const DEFAULT_EXEC_TIMEOUT = 30_000;
+const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g;
+const NARROW_NO_BREAK_SPACE = "\u202F";
 
 const editItemSchema = Type.Object(
   {
@@ -37,7 +41,9 @@ const editItemSchema = Type.Object(
 
 const readSchema = Type.Object(
   {
-    path: Type.String({ minLength: 1 })
+    path: Type.String({ minLength: 1 }),
+    offset: Type.Optional(Type.Number({ minimum: 1 })),
+    limit: Type.Optional(Type.Number({ minimum: 1 }))
   },
   { additionalProperties: false }
 );
@@ -107,7 +113,7 @@ export function buildWorkspaceReadTool(): ToolDefinition {
     tool: {
       name: "read",
       description:
-        "Read a UTF-8 text file by absolute path. If read directories are configured, the path must be within the allowed read set; otherwise any absolute path is allowed. Large files are truncated.",
+        `Read file contents (text or images). Supports relative and absolute paths, offset/limit pagination, and truncates text output at ${READ_MAX_LINES} lines or ${Math.floor(READ_MAX_BYTES / 1024)}KB (whichever comes first).`,
       parameters: readSchema
     },
     execute: async (args, toolContext, toolCall) => {
@@ -116,9 +122,16 @@ export function buildWorkspaceReadTool(): ToolDefinition {
       if (!workingDir) {
         throw new Error("Workspace is not configured.");
       }
-      ensureAbsolutePath(payload.path);
-      const resolved = await resolveReadPathSecure(toolContext.permissions, payload.path);
-      return handleReadSecure(resolved, workingDir, toolCall);
+      const targetPath = await resolveReadInputPath(payload.path, workingDir);
+      const resolved = await resolveReadPathSecure(toolContext.permissions, targetPath);
+      return handleReadSecure(
+        resolved,
+        payload.path,
+        payload.offset,
+        payload.limit,
+        workingDir,
+        toolCall
+      );
     }
   };
 }
@@ -260,6 +273,9 @@ export function buildExecTool(): ToolDefinition {
  */
 async function handleReadSecure(
   resolvedPath: string,
+  requestedPath: string,
+  offset: number | undefined,
+  limit: number | undefined,
   workingDir: string,
   toolCall: { id: string; name: string }
 ): Promise<ToolExecutionResult> {
@@ -272,38 +288,75 @@ async function handleReadSecure(
     throw new Error("Path is not a file.");
   }
 
-  let content = "";
-  let truncated = false;
+  const displayPath = formatDisplayPath(workingDir, resolvedPath);
+  const mimeType = await detectSupportedImageMimeTypeFromFile(resolvedPath);
 
-  // Use openSecure to prevent TOCTOU race between stat and read
-  const handle = await openSecure(resolvedPath, "r");
-  try {
-    const handleStats = await handle.stat();
-    if (handleStats.size > MAX_READ_BYTES) {
-      const buffer = Buffer.alloc(MAX_READ_BYTES);
-      await handle.read(buffer, 0, MAX_READ_BYTES, 0);
-      content = buffer.toString("utf8");
-      truncated = true;
-    } else {
-      content = await handle.readFile("utf8");
-    }
-  } finally {
-    await handle.close();
+  if (mimeType) {
+    const imageBuffer = await readBinaryFileSecure(resolvedPath);
+    const text = `Read image file: ${displayPath} [${mimeType}]`;
+    const toolMessage = buildToolMessage(toolCall, text, false, {
+      action: "read",
+      path: displayPath,
+      bytes: stats.size,
+      mimeType
+    });
+    toolMessage.content = [
+      { type: "text", text },
+      { type: "image", data: imageBuffer.toString("base64"), mimeType }
+    ];
+    return { toolMessage, files: [] };
   }
 
-  const displayPath = formatDisplayPath(workingDir, resolvedPath);
-  const suffix = truncated
-    ? `\n[truncated to ${MAX_READ_BYTES} bytes from ${stats.size}]`
-    : "";
-  const text = `File: ${displayPath}\n${content}${suffix}`;
+  const textContent = await readTextFileSecure(resolvedPath);
+  const allLines = textContent.split("\n");
+  const totalFileLines = allLines.length;
+  const startLine = offset ? Math.max(0, offset - 1) : 0;
+  const startLineDisplay = startLine + 1;
+  if (startLine >= allLines.length) {
+    throw new Error(`Offset ${offset} is beyond end of file (${allLines.length} lines total)`);
+  }
 
-  const toolMessage = buildToolMessage(toolCall, text, false, {
+  let selectedContent: string;
+  let userLimitedLines: number | undefined;
+  if (limit !== undefined) {
+    const endLine = Math.min(startLine + limit, allLines.length);
+    selectedContent = allLines.slice(startLine, endLine).join("\n");
+    userLimitedLines = endLine - startLine;
+  } else {
+    selectedContent = allLines.slice(startLine).join("\n");
+  }
+
+  const truncation = truncateHead(selectedContent);
+  let outputText: string;
+  if (truncation.firstLineExceedsLimit) {
+    const firstLineSize = formatSize(Buffer.byteLength(allLines[startLine] ?? "", "utf8"));
+    outputText = `[Line ${startLineDisplay} is ${firstLineSize}, exceeds ${formatSize(READ_MAX_BYTES)} limit. Use bash: sed -n '${startLineDisplay}p' ${requestedPath} | head -c ${READ_MAX_BYTES}]`;
+  } else if (truncation.truncated) {
+    const endLineDisplay = startLineDisplay + truncation.outputLines - 1;
+    const nextOffset = endLineDisplay + 1;
+    outputText = truncation.content;
+    if (truncation.truncatedBy === "lines") {
+      outputText += `\n\n[Showing lines ${startLineDisplay}-${endLineDisplay} of ${totalFileLines}. Use offset=${nextOffset} to continue.]`;
+    } else {
+      outputText += `\n\n[Showing lines ${startLineDisplay}-${endLineDisplay} of ${totalFileLines} (${formatSize(READ_MAX_BYTES)} limit). Use offset=${nextOffset} to continue.]`;
+    }
+  } else if (userLimitedLines !== undefined && startLine + userLimitedLines < allLines.length) {
+    const remaining = allLines.length - (startLine + userLimitedLines);
+    const nextOffset = startLine + userLimitedLines + 1;
+    outputText = `${truncation.content}\n\n[${remaining} more lines in file. Use offset=${nextOffset} to continue.]`;
+  } else {
+    outputText = truncation.content;
+  }
+
+  const toolMessage = buildToolMessage(toolCall, outputText, false, {
     action: "read",
     path: displayPath,
     bytes: stats.size,
-    truncated
+    truncated: truncation.truncated,
+    truncatedBy: truncation.truncatedBy,
+    offset: offset ?? null,
+    limit: limit ?? null
   });
-
   return { toolMessage, files: [] };
 }
 
@@ -461,6 +514,226 @@ function formatExecOutput(stdout: string, stderr: string, failed: boolean): stri
     return failed ? "Command failed with no output." : "Command completed with no output.";
   }
   return parts.join("\n\n");
+}
+
+type TruncationResult = {
+  content: string;
+  truncated: boolean;
+  truncatedBy: "lines" | "bytes" | null;
+  totalLines: number;
+  totalBytes: number;
+  outputLines: number;
+  outputBytes: number;
+  lastLinePartial: boolean;
+  firstLineExceedsLimit: boolean;
+};
+
+async function readTextFileSecure(resolvedPath: string): Promise<string> {
+  const handle = await openSecure(resolvedPath, "r");
+  try {
+    return await handle.readFile("utf8");
+  } finally {
+    await handle.close();
+  }
+}
+
+async function readBinaryFileSecure(resolvedPath: string): Promise<Buffer> {
+  const handle = await openSecure(resolvedPath, "r");
+  try {
+    return await handle.readFile();
+  } finally {
+    await handle.close();
+  }
+}
+
+async function detectSupportedImageMimeTypeFromFile(resolvedPath: string): Promise<string | null> {
+  const handle = await openSecure(resolvedPath, "r");
+  try {
+    const header = Buffer.alloc(16);
+    const { bytesRead } = await handle.read(header, 0, header.length, 0);
+    if (bytesRead === 0) {
+      return null;
+    }
+    return detectSupportedImageMimeTypeFromHeader(header.subarray(0, bytesRead));
+  } finally {
+    await handle.close();
+  }
+}
+
+function detectSupportedImageMimeTypeFromHeader(header: Buffer): string | null {
+  if (header.length >= 3 && header[0] === 0xff && header[1] === 0xd8 && header[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (
+    header.length >= 8 &&
+    header[0] === 0x89 &&
+    header[1] === 0x50 &&
+    header[2] === 0x4e &&
+    header[3] === 0x47 &&
+    header[4] === 0x0d &&
+    header[5] === 0x0a &&
+    header[6] === 0x1a &&
+    header[7] === 0x0a
+  ) {
+    return "image/png";
+  }
+  if (header.length >= 6) {
+    const signature = header.subarray(0, 6).toString("ascii");
+    if (signature === "GIF87a" || signature === "GIF89a") {
+      return "image/gif";
+    }
+  }
+  if (
+    header.length >= 12 &&
+    header.subarray(0, 4).toString("ascii") === "RIFF" &&
+    header.subarray(8, 12).toString("ascii") === "WEBP"
+  ) {
+    return "image/webp";
+  }
+  return null;
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) {
+    return `${bytes}B`;
+  }
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)}KB`;
+  }
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function truncateHead(content: string): TruncationResult {
+  const totalBytes = Buffer.byteLength(content, "utf8");
+  const lines = content.split("\n");
+  const totalLines = lines.length;
+
+  if (totalLines <= READ_MAX_LINES && totalBytes <= READ_MAX_BYTES) {
+    return {
+      content,
+      truncated: false,
+      truncatedBy: null,
+      totalLines,
+      totalBytes,
+      outputLines: totalLines,
+      outputBytes: totalBytes,
+      lastLinePartial: false,
+      firstLineExceedsLimit: false
+    };
+  }
+
+  const firstLineBytes = Buffer.byteLength(lines[0] ?? "", "utf8");
+  if (firstLineBytes > READ_MAX_BYTES) {
+    return {
+      content: "",
+      truncated: true,
+      truncatedBy: "bytes",
+      totalLines,
+      totalBytes,
+      outputLines: 0,
+      outputBytes: 0,
+      lastLinePartial: false,
+      firstLineExceedsLimit: true
+    };
+  }
+
+  const outputLines: string[] = [];
+  let outputBytes = 0;
+  let truncatedBy: "lines" | "bytes" = "lines";
+  for (let index = 0; index < lines.length && index < READ_MAX_LINES; index++) {
+    const line = lines[index] ?? "";
+    const lineBytes = Buffer.byteLength(line, "utf8") + (index > 0 ? 1 : 0);
+    if (outputBytes + lineBytes > READ_MAX_BYTES) {
+      truncatedBy = "bytes";
+      break;
+    }
+    outputLines.push(line);
+    outputBytes += lineBytes;
+  }
+  if (outputLines.length >= READ_MAX_LINES && outputBytes <= READ_MAX_BYTES) {
+    truncatedBy = "lines";
+  }
+
+  const outputContent = outputLines.join("\n");
+  return {
+    content: outputContent,
+    truncated: true,
+    truncatedBy,
+    totalLines,
+    totalBytes,
+    outputLines: outputLines.length,
+    outputBytes: Buffer.byteLength(outputContent, "utf8"),
+    lastLinePartial: false,
+    firstLineExceedsLimit: false
+  };
+}
+
+function normalizeReadPathUnicodeSpaces(value: string): string {
+  return value.replace(UNICODE_SPACES, " ");
+}
+
+function normalizeReadPathAtPrefix(value: string): string {
+  return value.startsWith("@") ? value.slice(1) : value;
+}
+
+function normalizeReadPathInput(rawPath: string): string {
+  const normalized = normalizeReadPathUnicodeSpaces(normalizeReadPathAtPrefix(rawPath));
+  if (normalized === "~") {
+    return os.homedir();
+  }
+  if (normalized.startsWith("~/")) {
+    return os.homedir() + normalized.slice(1);
+  }
+  return normalized;
+}
+
+async function pathExists(target: string): Promise<boolean> {
+  try {
+    await fs.access(target);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readPathTryMacOSScreenshotVariant(target: string): string {
+  return target.replace(/ (AM|PM)\./g, `${NARROW_NO_BREAK_SPACE}$1.`);
+}
+
+function readPathTryNfdVariant(target: string): string {
+  return target.normalize("NFD");
+}
+
+function readPathTryCurlyQuoteVariant(target: string): string {
+  return target.replace(/'/g, "\u2019");
+}
+
+/**
+ * Resolves a read path with compatibility fallbacks for common macOS screenshot naming variants.
+ */
+async function resolveReadInputPath(rawPath: string, workingDir: string): Promise<string> {
+  const normalized = normalizeReadPathInput(rawPath);
+  const resolved = path.isAbsolute(normalized) ? normalized : path.resolve(workingDir, normalized);
+  if (await pathExists(resolved)) {
+    return resolved;
+  }
+  const amPmVariant = readPathTryMacOSScreenshotVariant(resolved);
+  if (amPmVariant !== resolved && (await pathExists(amPmVariant))) {
+    return amPmVariant;
+  }
+  const nfdVariant = readPathTryNfdVariant(resolved);
+  if (nfdVariant !== resolved && (await pathExists(nfdVariant))) {
+    return nfdVariant;
+  }
+  const curlyVariant = readPathTryCurlyQuoteVariant(resolved);
+  if (curlyVariant !== resolved && (await pathExists(curlyVariant))) {
+    return curlyVariant;
+  }
+  const nfdCurlyVariant = readPathTryCurlyQuoteVariant(nfdVariant);
+  if (nfdCurlyVariant !== resolved && (await pathExists(nfdCurlyVariant))) {
+    return nfdCurlyVariant;
+  }
+  return resolved;
 }
 
 function ensureAbsolutePath(target: string): void {

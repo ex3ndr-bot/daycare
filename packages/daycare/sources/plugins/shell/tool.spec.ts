@@ -12,17 +12,21 @@ import { createId } from "@paralleldrive/cuid2";
 
 const execToolCall = { id: "tool-call-1", name: "exec" };
 const readToolCall = { id: "tool-call-2", name: "read" };
+const READ_LIMIT_TEST_BYTES = 51 * 1024;
 
 describe("read tool allowed paths", () => {
   let workingDir: string;
   let outsideDir: string;
   let outsideFile: string;
+  let insideFile: string;
 
   beforeEach(async () => {
     workingDir = await fs.mkdtemp(path.join(os.tmpdir(), "read-tool-workspace-"));
     outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "read-tool-outside-"));
     outsideFile = path.join(outsideDir, "outside.txt");
+    insideFile = path.join(workingDir, "inside.txt");
     await fs.writeFile(outsideFile, "outside-content", "utf8");
+    await fs.writeFile(insideFile, "line-1\nline-2\nline-3", "utf8");
   });
 
   afterEach(async () => {
@@ -70,6 +74,86 @@ describe("read tool allowed paths", () => {
 
     expect(result.toolMessage.isError).toBe(false);
     expect(text).toContain("outside-content");
+  });
+
+  it("supports relative read paths from workspace", async () => {
+    const tool = buildWorkspaceReadTool();
+    const context = createContext(workingDir, false);
+
+    const result = await tool.execute({ path: "inside.txt" }, context, readToolCall);
+    const text = result.toolMessage.content
+      .filter((item) => item.type === "text")
+      .map((item) => item.text)
+      .join("\n");
+
+    expect(result.toolMessage.isError).toBe(false);
+    expect(text).toContain("line-1");
+    expect(text).toContain("line-3");
+  });
+
+  it("supports line pagination with limit and offset", async () => {
+    const tool = buildWorkspaceReadTool();
+    const context = createContext(workingDir, false);
+
+    const firstResult = await tool.execute(
+      { path: insideFile, limit: 2 },
+      context,
+      readToolCall
+    );
+    const firstText = firstResult.toolMessage.content
+      .filter((item) => item.type === "text")
+      .map((item) => item.text)
+      .join("\n");
+    expect(firstText).toContain("line-1\nline-2");
+    expect(firstText).toContain("Use offset=3 to continue.");
+
+    const secondResult = await tool.execute(
+      { path: insideFile, offset: 3, limit: 1 },
+      context,
+      readToolCall
+    );
+    const secondText = secondResult.toolMessage.content
+      .filter((item) => item.type === "text")
+      .map((item) => item.text)
+      .join("\n");
+    expect(secondText).toContain("line-3");
+    expect(secondText).not.toContain("line-1");
+  });
+
+  it("returns actionable message when first line exceeds byte limit", async () => {
+    const tool = buildWorkspaceReadTool();
+    const context = createContext(workingDir, false);
+    const largeLinePath = path.join(workingDir, "large-line.txt");
+    await fs.writeFile(largeLinePath, `${"x".repeat(READ_LIMIT_TEST_BYTES)}\nline-2`, "utf8");
+
+    const result = await tool.execute({ path: largeLinePath }, context, readToolCall);
+    const text = result.toolMessage.content
+      .filter((item) => item.type === "text")
+      .map((item) => item.text)
+      .join("\n");
+
+    expect(result.toolMessage.isError).toBe(false);
+    expect(text).toContain("exceeds 50.0KB limit");
+    expect(text).toContain("Use bash: sed -n '1p'");
+  });
+
+  it("returns image content for supported image files", async () => {
+    const tool = buildWorkspaceReadTool();
+    const context = createContext(workingDir, false);
+    const pngPath = path.join(workingDir, "image.png");
+    const oneByOnePngBase64 =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO5L5f8AAAAASUVORK5CYII=";
+    await fs.writeFile(pngPath, Buffer.from(oneByOnePngBase64, "base64"));
+
+    const result = await tool.execute({ path: pngPath }, context, readToolCall);
+    expect(result.toolMessage.isError).toBe(false);
+    expect(result.toolMessage.content.some((item) => item.type === "image")).toBe(true);
+    const text = result.toolMessage.content
+      .filter((item) => item.type === "text")
+      .map((item) => item.text)
+      .join("\n");
+    expect(text).toContain("Read image file:");
+    expect(text).toContain("[image/png]");
   });
 });
 

@@ -2,6 +2,13 @@
 
 The shell plugin provides workspace file tools (`read`, `write`, `edit`), one-shot command execution (`exec`), and durable process management tools.
 
+## Read Tool Notes
+
+- `read` accepts relative and absolute paths.
+- Text output supports `offset` (1-indexed line start) and `limit` (line count) for pagination.
+- Text output is truncated to `2000` lines or `50KB` (whichever is hit first), with continuation hints.
+- Supported image files (`jpg`, `png`, `gif`, `webp`) are returned as image content blocks.
+
 ## Durable Process Tools
 
 - `process_start`: starts a sandboxed detached process and persists metadata under engine data dir.

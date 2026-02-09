@@ -21,6 +21,7 @@ This folder documents the current Daycare CLI, plugins, agents, and runtime.
 - `permissions.md` - permission system and resolution
 - `agent-creation-permissions.md` - creation-time permission pre-grants for subagents and permanent agents
 - `read-write-permission-alignment.md` - sandbox read/write permission path resolution
+- `read-tool-robustness.md` - robust read behavior (pagination, truncation, image handling)
 - `skills.md` - agent skills and loading workflow
 - `agents.md` - agent queueing and sequencing
 - `agent-types.md` - agent descriptors and resolution
