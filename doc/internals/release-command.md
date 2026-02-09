@@ -9,11 +9,11 @@
 3. Resolve next version from the selected mode.
 4. Run `yarn install --frozen-lockfile` in the monorepo root.
 5. Verify npm auth with `npm whoami --registry https://registry.npmjs.org/`.
-6. Run `npm version <version> --no-git-tag-version --registry https://registry.npmjs.org/` in `packages/daycare`.
+6. Run `npm version <version> --no-git-tag-version --registry https://registry.npmjs.org/ --no-package-lock` in `packages/daycare`.
 7. Commit `packages/daycare/package.json`.
 8. Run `yarn test` and `yarn build`.
 9. Create tag `daycare-cli@<version>`.
-10. Run `npm publish --access public --registry https://registry.npmjs.org/` from `packages/daycare`.
+10. Run `npm publish --access public --registry https://registry.npmjs.org/ --no-package-lock` from `packages/daycare`.
 11. Push branch and tag to `origin`.
 12. If release fails after commit, delete created tag and create a revert commit.
 
@@ -33,12 +33,12 @@ sequenceDiagram
   CLI->>CLI: Resolve target version
   CLI->>CLI: yarn install --frozen-lockfile
   CLI->>NPM: npm whoami --registry npmjs
-  CLI->>NPM: npm version --no-git-tag-version --registry npmjs
+  CLI->>NPM: npm version --no-git-tag-version --registry npmjs --no-package-lock
   CLI->>Git: commit package.json
   CLI->>CLI: yarn test
   CLI->>CLI: yarn build
   CLI->>Git: tag daycare-cli@<version>
-  CLI->>NPM: npm publish --access public --registry npmjs
+  CLI->>NPM: npm publish --access public --registry npmjs --no-package-lock
   CLI->>Git: push HEAD + tag
   CLI-->>Git: revert commit + delete tag on failure
 ```

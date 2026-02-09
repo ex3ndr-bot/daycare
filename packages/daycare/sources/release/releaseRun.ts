@@ -34,10 +34,16 @@ export async function releaseRun(): Promise<void> {
 
   try {
     commandRun("yarn", ["install", "--frozen-lockfile"], repositoryDirectory);
-    commandRun("npm", ["whoami", "--registry", npmRegistry], packageDirectory);
-    commandRun(
-      "npm",
-      ["version", nextVersion, "--no-git-tag-version", "--registry", npmRegistry],
+    commandRunNpm(["whoami", "--registry", npmRegistry], packageDirectory);
+    commandRunNpm(
+      [
+        "version",
+        nextVersion,
+        "--no-git-tag-version",
+        "--registry",
+        npmRegistry,
+        "--no-package-lock"
+      ],
       packageDirectory
     );
     commandRun("git", ["add", packageManifestRelativePath], repositoryDirectory);
@@ -50,9 +56,8 @@ export async function releaseRun(): Promise<void> {
     commandRun("git", ["tag", tagName], repositoryDirectory);
     tagCreated = true;
 
-    commandRun(
-      "npm",
-      ["publish", "--access", "public", "--registry", npmRegistry],
+    commandRunNpm(
+      ["publish", "--access", "public", "--registry", npmRegistry, "--no-package-lock"],
       packageDirectory
     );
   } catch (error) {
@@ -98,10 +103,19 @@ function assertTagMissing(tagName: string): void {
   }
 }
 
-function commandRun(command: string, args: string[], cwd: string): void {
+function commandRun(
+  command: string,
+  args: string[],
+  cwd: string,
+  envOverrides: Record<string, string | undefined> = {}
+): void {
   execFileSync(command, args, {
     cwd,
-    stdio: "inherit"
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      ...envOverrides
+    }
   });
 }
 
@@ -111,6 +125,13 @@ function commandOutput(command: string, args: string[], cwd: string): string {
     stdio: ["ignore", "pipe", "inherit"],
     encoding: "utf8"
   }).trim();
+}
+
+function commandRunNpm(args: string[], cwd: string): void {
+  commandRun("npm", args, cwd, {
+    npm_config_package_lock: "false",
+    NPM_CONFIG_PACKAGE_LOCK: "false"
+  });
 }
 
 function releaseRollback(
