@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { releaseVersionPatchIncrement } from "./releaseVersionPatchIncrement.js";
+import { releaseVersionPrompt } from "./releaseVersionPrompt.js";
 
 type PackageManifest = {
   version?: string;
@@ -23,7 +23,7 @@ export async function releaseRun(): Promise<void> {
   assertWorkingTreeIsClean();
 
   const currentVersion = packageVersionRead();
-  const nextVersion = releaseVersionPatchIncrement(currentVersion);
+  const nextVersion = await releaseVersionPrompt(currentVersion);
   const tagName = `daycare-cli@${nextVersion}`;
   const commitMessage = `chore(release): daycare-cli ${nextVersion}`;
 
