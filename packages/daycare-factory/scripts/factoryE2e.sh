@@ -51,8 +51,12 @@ if [[ ! -f "${TASK_DIR}/out/result.txt" ]]; then
   echo "[e2e] missing output: ${TASK_DIR}/out/result.txt"
   exit 1
 fi
-if [[ ! -f "${TASK_DIR}/out/TASK.copy.md" ]]; then
-  echo "[e2e] missing output: ${TASK_DIR}/out/TASK.copy.md"
+if [[ ! -f "${TASK_DIR}/out/TASK.md" ]]; then
+  echo "[e2e] missing output: ${TASK_DIR}/out/TASK.md"
+  exit 1
+fi
+if [[ ! -f "${TASK_DIR}/out/AGENTS.md" ]]; then
+  echo "[e2e] missing output: ${TASK_DIR}/out/AGENTS.md"
   exit 1
 fi
 if [[ ! -f "${TASK_DIR}/out/guess-number.sh" ]]; then
@@ -63,10 +67,17 @@ if [[ ! -f "${TASK_DIR}/out/test-result.txt" ]]; then
   echo "[e2e] missing output: ${TASK_DIR}/out/test-result.txt"
   exit 1
 fi
+if [[ ! -f "${TASK_DIR}/out/build.jsonl" ]]; then
+  echo "[e2e] missing output: ${TASK_DIR}/out/build.jsonl"
+  exit 1
+fi
 
 grep -q "build complete" "${TASK_DIR}/out/result.txt"
-grep -q "# Guess Number Task (1-10)" "${TASK_DIR}/out/TASK.copy.md"
+grep -q "# Guess Number Task (1-10)" "${TASK_DIR}/out/TASK.md"
+grep -q "# e2e environment instructions" "${TASK_DIR}/out/AGENTS.md"
 grep -q "tests passed" "${TASK_DIR}/out/test-result.txt"
+grep -q '"type":"pi.event"' "${TASK_DIR}/out/build.jsonl"
+grep -q '"type":"command.test"' "${TASK_DIR}/out/build.jsonl"
 
 echo "[e2e] success"
 echo "[e2e] output directory: ${TASK_DIR}/out"

@@ -1,6 +1,7 @@
 import Docker from "dockerode";
 import {
   FACTORY_BUILD_COMMAND_ENV,
+  FACTORY_TEST_MAX_ATTEMPTS_ENV,
   FACTORY_TEST_COMMAND_ENV
 } from "../constants.js";
 import { factoryContainerBindsBuild } from "./factoryContainerBindsBuild.js";
@@ -34,6 +35,7 @@ export async function dockerContainerRunFactory(
   if (input.config.testCommand) {
     envMap.set(FACTORY_TEST_COMMAND_ENV, JSON.stringify(input.config.testCommand));
   }
+  envMap.set(FACTORY_TEST_MAX_ATTEMPTS_ENV, String(input.config.testMaxAttempts));
 
   const hostPiDirectory = await factoryPiDirectoryResolve();
   const binds = [

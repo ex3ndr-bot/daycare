@@ -2,6 +2,7 @@
 
 `daycare-factory` runs a build task inside Docker by mounting:
 - `TASK.md` from your task folder (read-only)
+- `AGENTS.md` from your task folder (read-only)
 - `out/` from your task folder (read-write)
 - host `~/.pi` auth directory into container `/root/.pi` (read-only)
 
@@ -15,11 +16,14 @@ programmatic SDK (`createAgentSession`) with `SessionManager.inMemory()`.
 ```text
 task-folder/
   TASK.md
+  AGENTS.md
   daycare-factory.yaml
   out/
 ```
 
 `out/` is deleted and recreated before each run unless `--keep-out` is provided.
+Before running `buildCommand`, the internal runner copies `TASK.md` and
+`AGENTS.md` into `out/` with the same filenames.
 
 ## Config file
 
@@ -32,7 +36,8 @@ buildCommand:
   - -lc
   - |
     set -eu
-    cp "$DAYCARE_FACTORY_TASK" "$DAYCARE_FACTORY_OUT/TASK.md"
+    test -f "$DAYCARE_FACTORY_OUT/TASK.md"
+    test -f "$DAYCARE_FACTORY_OUT/AGENTS.md"
     echo "build complete" > "$DAYCARE_FACTORY_OUT/result.txt"
 testCommand:
   - sh
@@ -40,6 +45,7 @@ testCommand:
   - |
     set -eu
     test -f "$DAYCARE_FACTORY_OUT/result.txt"
+testMaxAttempts: 5
 containerName: daycare-factory-build
 workingDirectory: /workspace
 taskMountPath: /workspace/TASK.md
@@ -56,6 +62,7 @@ Required fields:
 
 Optional fields:
 - `testCommand` (array command executed after `buildCommand` to validate outputs)
+- `testMaxAttempts` (max build+test correction attempts when `testCommand` fails; default `5`)
 - `containerName`
 - `command`
 - `workingDirectory`
@@ -99,3 +106,11 @@ without writing session files to disk.
 
 If Pi authentication fails inside Docker, the build fails immediately. There is
 no fallback mode.
+
+## Build history
+
+Each build writes structured session/command history to:
+- `out/build.jsonl`
+
+This file includes Pi session events and build/test command results for each
+attempt.

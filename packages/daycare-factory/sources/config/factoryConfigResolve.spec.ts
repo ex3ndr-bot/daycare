@@ -13,6 +13,7 @@ describe("factoryConfigResolve", () => {
     expect(result.outMountPath).toBe("/workspace/out");
     expect(result.buildCommand).toEqual(["npm", "run", "build"]);
     expect(result.testCommand).toBeUndefined();
+    expect(result.testMaxAttempts).toBe(5);
     expect(result.command).toEqual([
       "daycare-factory",
       FACTORY_INTERNAL_COMMAND,
@@ -51,6 +52,16 @@ describe("factoryConfigResolve", () => {
     });
 
     expect(result.testCommand).toEqual(["pnpm", "test"]);
+  });
+
+  it("keeps optional test max attempts", () => {
+    const result = factoryConfigResolve({
+      image: "daycare/factory:latest",
+      buildCommand: ["pnpm", "build"],
+      testMaxAttempts: 9
+    });
+
+    expect(result.testMaxAttempts).toBe(9);
   });
 
   it("requires buildCommand in config", () => {

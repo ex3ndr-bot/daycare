@@ -11,6 +11,7 @@ describe("factoryBuildPathsResolve", () => {
 
     expect(result.taskDirectory).toBe("/tmp/task-a");
     expect(result.taskFilePath).toBe("/tmp/task-a/TASK.md");
+    expect(result.agentsFilePath).toBe("/tmp/task-a/AGENTS.md");
     expect(result.configPath).toBe("/tmp/task-a/daycare-factory.yaml");
     expect(result.outDirectory).toBe("/tmp/task-a/out");
   });

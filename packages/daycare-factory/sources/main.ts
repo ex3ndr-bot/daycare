@@ -19,9 +19,12 @@ program.name("daycare-factory").version(pkg.version);
 program
   .command("build")
   .description(
-    "Run daycare-factory inside a Docker container with mounted TASK.md and out"
+    "Run daycare-factory inside Docker with mounted TASK.md, AGENTS.md, and out"
   )
-  .argument("<taskDirectory>", "Folder containing TASK.md and daycare-factory.yaml")
+  .argument(
+    "<taskDirectory>",
+    "Folder containing TASK.md, AGENTS.md, and daycare-factory.yaml"
+  )
   .option("-c, --config <path>", "Config file path", "daycare-factory.yaml")
   .option("-o, --out <path>", "Output directory path", "out")
   .option("--keep-out", "Do not delete the output directory before building")

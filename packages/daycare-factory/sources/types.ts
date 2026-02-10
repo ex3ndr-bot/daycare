@@ -15,6 +15,7 @@ export interface FactoryContainerBuildCliOptions {
 export interface FactoryBuildPaths {
   taskDirectory: string;
   taskFilePath: string;
+  agentsFilePath: string;
   configPath: string;
   outDirectory: string;
 }
@@ -23,6 +24,7 @@ export interface FactoryConfigResolved {
   image: string;
   buildCommand: string[];
   testCommand?: string[];
+  testMaxAttempts: number;
   containerName?: string;
   command: string[];
   workingDirectory: string;

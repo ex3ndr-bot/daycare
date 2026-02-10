@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-guess="$1"
-if [[ "$guess" =~ ^[0-9]+$ ]] && [ "$guess" -ge 1 ] && [ "$guess" -le 10 ] && [ "$guess" -eq 7 ]; then
+WINNING=7
+if [ "$1" = "$WINNING" ]; then
   echo "correct"
 else
   echo "wrong"

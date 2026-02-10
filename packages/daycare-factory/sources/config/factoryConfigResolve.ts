@@ -7,6 +7,7 @@ const factoryConfigSchema = z
     image: z.string().min(1),
     buildCommand: z.array(z.string().min(1)).min(1),
     testCommand: z.array(z.string().min(1)).min(1).optional(),
+    testMaxAttempts: z.number().int().min(1).max(100).optional(),
     containerName: z.string().min(1).optional(),
     command: z.array(z.string().min(1)).min(1).optional(),
     workingDirectory: z.string().min(1).optional(),
@@ -31,6 +32,7 @@ export function factoryConfigResolve(rawConfig: unknown): FactoryConfigResolved 
     image: parsed.image,
     buildCommand: parsed.buildCommand,
     testCommand: parsed.testCommand,
+    testMaxAttempts: parsed.testMaxAttempts ?? 5,
     containerName: parsed.containerName,
     command: parsed.command ?? [
       "daycare-factory",

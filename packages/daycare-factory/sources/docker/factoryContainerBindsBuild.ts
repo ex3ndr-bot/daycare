@@ -1,3 +1,4 @@
+import { dirname, join } from "node:path";
 import type { FactoryBuildPaths, FactoryConfigResolved } from "../types.js";
 
 /**
@@ -8,8 +9,11 @@ export function factoryContainerBindsBuild(
   paths: FactoryBuildPaths,
   config: FactoryConfigResolved
 ): string[] {
+  const agentsMountPath = join(dirname(config.taskMountPath), "AGENTS.md");
+
   return [
     `${paths.taskFilePath}:${config.taskMountPath}:ro`,
+    `${paths.agentsFilePath}:${agentsMountPath}:ro`,
     `${paths.outDirectory}:${config.outMountPath}`
   ];
 }

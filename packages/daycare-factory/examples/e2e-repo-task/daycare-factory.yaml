@@ -1,19 +1,26 @@
 image: daycare-factory:e2e
+testMaxAttempts: 8
 buildCommand:
   - sh
   - -lc
   - |
     set -eu
     test -f "$DAYCARE_FACTORY_OUT/guess-number.sh"
-    cp "$DAYCARE_FACTORY_TASK" "$DAYCARE_FACTORY_OUT/TASK.copy.md"
+    test -f "$DAYCARE_FACTORY_OUT/TASK.md"
+    test -f "$DAYCARE_FACTORY_OUT/AGENTS.md"
     echo "build complete" > "$DAYCARE_FACTORY_OUT/result.txt"
 testCommand:
   - sh
   - -lc
   - |
     set -eu
-    correct_output="$(bash "$DAYCARE_FACTORY_OUT/guess-number.sh" 7)"
-    wrong_output="$(bash "$DAYCARE_FACTORY_OUT/guess-number.sh" 3)"
-    test "$correct_output" = "correct"
-    test "$wrong_output" = "wrong"
+    secret_number=7
+    probe_number=3
+    correct_output="$(bash "$DAYCARE_FACTORY_OUT/guess-number.sh" "$secret_number")"
+    wrong_output="$(bash "$DAYCARE_FACTORY_OUT/guess-number.sh" "$probe_number")"
+    if [ "$correct_output" != "correct" ] || [ "$wrong_output" != "wrong" ]; then
+      echo "validator failed: secret=${secret_number} expected=correct actual=${correct_output}"
+      echo "validator failed: probe=${probe_number} expected=wrong actual=${wrong_output}"
+      exit 1
+    fi
     echo "tests passed" > "$DAYCARE_FACTORY_OUT/test-result.txt"
