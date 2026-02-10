@@ -12,6 +12,7 @@ describe("factoryConfigResolve", () => {
     expect(result.taskMountPath).toBe("/workspace/TASK.md");
     expect(result.outMountPath).toBe("/workspace/out");
     expect(result.buildCommand).toEqual(["npm", "run", "build"]);
+    expect(result.testCommand).toBeUndefined();
     expect(result.command).toEqual([
       "daycare-factory",
       FACTORY_INTERNAL_COMMAND,
@@ -40,6 +41,16 @@ describe("factoryConfigResolve", () => {
       "--out",
       "/custom/out"
     ]);
+  });
+
+  it("keeps optional test command", () => {
+    const result = factoryConfigResolve({
+      image: "daycare/factory:latest",
+      buildCommand: ["pnpm", "build"],
+      testCommand: ["pnpm", "test"]
+    });
+
+    expect(result.testCommand).toEqual(["pnpm", "test"]);
   });
 
   it("requires buildCommand in config", () => {

@@ -1,5 +1,8 @@
 import Docker from "dockerode";
-import { FACTORY_BUILD_COMMAND_ENV } from "../constants.js";
+import {
+  FACTORY_BUILD_COMMAND_ENV,
+  FACTORY_TEST_COMMAND_ENV
+} from "../constants.js";
 import { factoryContainerBindsBuild } from "./factoryContainerBindsBuild.js";
 import { factoryContainerNameBuild } from "./factoryContainerNameBuild.js";
 import { factoryContainerPiBindBuild } from "./factoryContainerPiBindBuild.js";
@@ -28,6 +31,9 @@ export async function dockerContainerRunFactory(
     FACTORY_BUILD_COMMAND_ENV,
     JSON.stringify(input.config.buildCommand)
   );
+  if (input.config.testCommand) {
+    envMap.set(FACTORY_TEST_COMMAND_ENV, JSON.stringify(input.config.testCommand));
+  }
 
   const hostPiDirectory = await factoryPiDirectoryResolve();
   const binds = [

@@ -55,9 +55,18 @@ if [[ ! -f "${TASK_DIR}/out/TASK.copy.md" ]]; then
   echo "[e2e] missing output: ${TASK_DIR}/out/TASK.copy.md"
   exit 1
 fi
+if [[ ! -f "${TASK_DIR}/out/guess-number.sh" ]]; then
+  echo "[e2e] missing output: ${TASK_DIR}/out/guess-number.sh"
+  exit 1
+fi
+if [[ ! -f "${TASK_DIR}/out/test-result.txt" ]]; then
+  echo "[e2e] missing output: ${TASK_DIR}/out/test-result.txt"
+  exit 1
+fi
 
-grep -q "built inside docker" "${TASK_DIR}/out/result.txt"
-grep -q "# E2E Repo Task" "${TASK_DIR}/out/TASK.copy.md"
+grep -q "build complete" "${TASK_DIR}/out/result.txt"
+grep -q "# Guess Number Task (1-10)" "${TASK_DIR}/out/TASK.copy.md"
+grep -q "tests passed" "${TASK_DIR}/out/test-result.txt"
 
 echo "[e2e] success"
 echo "[e2e] output directory: ${TASK_DIR}/out"

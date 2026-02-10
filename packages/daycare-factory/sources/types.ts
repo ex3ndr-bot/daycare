@@ -22,6 +22,7 @@ export interface FactoryBuildPaths {
 export interface FactoryConfigResolved {
   image: string;
   buildCommand: string[];
+  testCommand?: string[];
   containerName?: string;
   command: string[];
   workingDirectory: string;

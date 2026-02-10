@@ -4,7 +4,8 @@ import { access, mkdir, readFile } from "node:fs/promises";
 import {
   FACTORY_BUILD_COMMAND_ENV,
   FACTORY_OUT_ENV,
-  FACTORY_TASK_ENV
+  FACTORY_TASK_ENV,
+  FACTORY_TEST_COMMAND_ENV
 } from "../constants.js";
 import { factoryPiAgentPromptRun } from "./factoryPiAgentPromptRun.js";
 
@@ -45,6 +46,9 @@ export async function factoryContainerBuildCommand(
   const buildCommand = factoryBuildCommandParse(
     process.env[FACTORY_BUILD_COMMAND_ENV]
   );
+  const testCommand = factoryBuildCommandParseOptional(
+    process.env[FACTORY_TEST_COMMAND_ENV]
+  );
   const buildEnv: NodeJS.ProcessEnv = {
     ...process.env,
     [FACTORY_TASK_ENV]: taskPath,
@@ -56,6 +60,15 @@ export async function factoryContainerBuildCommand(
   const exitCode = await buildCommandRun(buildCommand, buildEnv);
   if (exitCode !== 0) {
     throw new Error(`build command exited with code ${exitCode ?? -1}`);
+  }
+
+  if (!testCommand) {
+    return;
+  }
+
+  const testExitCode = await buildCommandRun(testCommand, buildEnv);
+  if (testExitCode !== 0) {
+    throw new Error(`test command exited with code ${testExitCode ?? -1}`);
   }
 }
 
@@ -75,14 +88,22 @@ function factoryBuildCommandParse(raw: string | undefined): string[] {
   if (!raw) {
     throw new Error(`${FACTORY_BUILD_COMMAND_ENV} is required`);
   }
+  return factoryCommandArrayParse(raw, FACTORY_BUILD_COMMAND_ENV);
+}
 
+function factoryBuildCommandParseOptional(raw: string | undefined): string[] | undefined {
+  if (!raw) {
+    return undefined;
+  }
+  return factoryCommandArrayParse(raw, FACTORY_TEST_COMMAND_ENV);
+}
+
+function factoryCommandArrayParse(raw: string, envName: string): string[] {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
   } catch {
-    throw new Error(
-      `${FACTORY_BUILD_COMMAND_ENV} must be valid JSON array of strings`
-    );
+    throw new Error(`${envName} must be valid JSON array of strings`);
   }
 
   if (
@@ -90,9 +111,7 @@ function factoryBuildCommandParse(raw: string | undefined): string[] {
     parsed.length === 0 ||
     parsed.some((item) => typeof item !== "string" || item.length === 0)
   ) {
-    throw new Error(
-      `${FACTORY_BUILD_COMMAND_ENV} must be a non-empty string array`
-    );
+    throw new Error(`${envName} must be a non-empty string array`);
   }
 
   return parsed;

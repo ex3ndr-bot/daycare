@@ -34,6 +34,12 @@ buildCommand:
     set -eu
     cp "$DAYCARE_FACTORY_TASK" "$DAYCARE_FACTORY_OUT/TASK.md"
     echo "build complete" > "$DAYCARE_FACTORY_OUT/result.txt"
+testCommand:
+  - sh
+  - -lc
+  - |
+    set -eu
+    test -f "$DAYCARE_FACTORY_OUT/result.txt"
 containerName: daycare-factory-build
 workingDirectory: /workspace
 taskMountPath: /workspace/TASK.md
@@ -48,7 +54,16 @@ Required fields:
 - `image`
 - `buildCommand` (array command executed inside Docker after Pi task run)
 
-All other fields are optional.
+Optional fields:
+- `testCommand` (array command executed after `buildCommand` to validate outputs)
+- `containerName`
+- `command`
+- `workingDirectory`
+- `taskMountPath`
+- `outMountPath`
+- `removeExistingContainer`
+- `removeContainerOnExit`
+- `env`
 
 ## CLI
 

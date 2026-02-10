@@ -23,11 +23,12 @@ flowchart TD
   J --> K[Create Pi SDK session with SessionManager.inMemory]
   K --> L[Run Pi prompt from TASK.md via createAgentSession]
   L --> M[Execute configured buildCommand]
-  M --> N[Stream logs to host stdout/stderr]
-  N --> O{Exit code == 0?}
-  O -- Yes --> P[Optional container cleanup]
-  P --> Q[Done: outputs available in host out]
-  O -- No --> R[Fail build with container exit code]
+  M --> N[Execute optional testCommand]
+  N --> O[Stream logs to host stdout/stderr]
+  O --> P{Exit code == 0?}
+  P -- Yes --> Q[Optional container cleanup]
+  Q --> R[Done: outputs available in host out]
+  P -- No --> S[Fail build with container exit code]
 ```
 
 Pi prompt/auth failures are treated as hard failures. The flow does not include
@@ -53,6 +54,7 @@ Required field:
 - `buildCommand`: command array executed by the in-container internal runner.
 
 Optional fields:
+- `testCommand`: command array executed after `buildCommand` for validation.
 - `containerName`: stable container name; defaults to `daycare-factory-<task-folder-name>`.
 - `command`: command array executed in the container.
 - `workingDirectory`: container working directory.

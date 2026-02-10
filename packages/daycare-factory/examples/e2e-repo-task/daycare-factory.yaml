@@ -4,5 +4,16 @@ buildCommand:
   - -lc
   - |
     set -eu
+    test -f "$DAYCARE_FACTORY_OUT/guess-number.sh"
     cp "$DAYCARE_FACTORY_TASK" "$DAYCARE_FACTORY_OUT/TASK.copy.md"
-    echo "built inside docker" > "$DAYCARE_FACTORY_OUT/result.txt"
+    echo "build complete" > "$DAYCARE_FACTORY_OUT/result.txt"
+testCommand:
+  - sh
+  - -lc
+  - |
+    set -eu
+    correct_output="$(bash "$DAYCARE_FACTORY_OUT/guess-number.sh" 7)"
+    wrong_output="$(bash "$DAYCARE_FACTORY_OUT/guess-number.sh" 3)"
+    test "$correct_output" = "correct"
+    test "$wrong_output" = "wrong"
+    echo "tests passed" > "$DAYCARE_FACTORY_OUT/test-result.txt"

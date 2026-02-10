@@ -6,6 +6,7 @@ const factoryConfigSchema = z
   .object({
     image: z.string().min(1),
     buildCommand: z.array(z.string().min(1)).min(1),
+    testCommand: z.array(z.string().min(1)).min(1).optional(),
     containerName: z.string().min(1).optional(),
     command: z.array(z.string().min(1)).min(1).optional(),
     workingDirectory: z.string().min(1).optional(),
@@ -29,6 +30,7 @@ export function factoryConfigResolve(rawConfig: unknown): FactoryConfigResolved 
   return {
     image: parsed.image,
     buildCommand: parsed.buildCommand,
+    testCommand: parsed.testCommand,
     containerName: parsed.containerName,
     command: parsed.command ?? [
       "daycare-factory",
