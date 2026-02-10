@@ -14,7 +14,7 @@ testCommand:
   - -lc
   - |
     set -eu
-    secret_number=7
+    secret_number=0
     probe_number=3
     correct_output="$(bash "$DAYCARE_FACTORY_OUT/guess-number.sh" "$secret_number")"
     wrong_output="$(bash "$DAYCARE_FACTORY_OUT/guess-number.sh" "$probe_number")"
