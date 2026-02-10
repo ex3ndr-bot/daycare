@@ -1,7 +1,12 @@
 import { Command } from "commander";
 import { readFileSync } from "node:fs";
 import { factoryBuildCommand } from "./commands/factoryBuildCommand.js";
-import type { FactoryBuildCliOptions } from "./types.js";
+import { factoryContainerBuildCommand } from "./commands/factoryContainerBuildCommand.js";
+import { FACTORY_INTERNAL_COMMAND } from "./constants.js";
+import type {
+  FactoryBuildCliOptions,
+  FactoryContainerBuildCliOptions
+} from "./types.js";
 
 const pkg = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf-8")
@@ -28,6 +33,14 @@ program
   )
   .action(async (taskDirectory: string, options: FactoryBuildCliOptions) => {
     await factoryBuildCommand(taskDirectory, options);
+  });
+
+program
+  .command(FACTORY_INTERNAL_COMMAND, { hidden: true })
+  .requiredOption("--task <path>")
+  .requiredOption("--out <path>")
+  .action(async (options: FactoryContainerBuildCliOptions) => {
+    await factoryContainerBuildCommand(options.task, options.out);
   });
 
 if (process.argv.length <= 2) {

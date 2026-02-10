@@ -23,24 +23,28 @@ Create `daycare-factory.yaml` in the task folder:
 
 ```yaml
 image: daycare/factory:latest
+buildCommand:
+  - sh
+  - -lc
+  - |
+    set -eu
+    cp "$DAYCARE_FACTORY_TASK" "$DAYCARE_FACTORY_OUT/TASK.md"
+    echo "build complete" > "$DAYCARE_FACTORY_OUT/result.txt"
 containerName: daycare-factory-build
 workingDirectory: /workspace
 taskMountPath: /workspace/TASK.md
 outMountPath: /workspace/out
 removeExistingContainer: true
 removeContainerOnExit: true
-command:
-  - daycare-factory
-  - build
-  - --task
-  - /workspace/TASK.md
-  - --out
-  - /workspace/out
 env:
   DAYCARE_FACTORY_MODE: docker
 ```
 
-Only `image` is required. All other fields are optional.
+Required fields:
+- `image`
+- `buildCommand` (array command executed inside Docker)
+
+All other fields are optional.
 
 ## CLI
 
@@ -62,4 +66,5 @@ node dist/main.js build ./task-folder \
 yarn workspace daycare-factory install
 yarn workspace daycare-factory build
 yarn workspace daycare-factory test
+yarn workspace daycare-factory run e2e
 ```

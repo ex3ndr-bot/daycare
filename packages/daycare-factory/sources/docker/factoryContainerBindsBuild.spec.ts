@@ -12,6 +12,7 @@ describe("factoryContainerBindsBuild", () => {
       },
       {
         image: "daycare/factory:latest",
+        buildCommand: ["npm", "run", "build"],
         containerName: "container",
         command: ["daycare-factory"],
         workingDirectory: "/workspace",

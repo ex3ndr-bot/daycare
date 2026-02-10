@@ -7,6 +7,11 @@ export interface FactoryBuildCliOptions {
   removeExisting: boolean;
 }
 
+export interface FactoryContainerBuildCliOptions {
+  task: string;
+  out: string;
+}
+
 export interface FactoryBuildPaths {
   taskDirectory: string;
   taskFilePath: string;
@@ -16,6 +21,7 @@ export interface FactoryBuildPaths {
 
 export interface FactoryConfigResolved {
   image: string;
+  buildCommand: string[];
   containerName?: string;
   command: string[];
   workingDirectory: string;

@@ -1,4 +1,5 @@
 import Docker from "dockerode";
+import { FACTORY_BUILD_COMMAND_ENV } from "../constants.js";
 import { factoryContainerBindsBuild } from "./factoryContainerBindsBuild.js";
 import { factoryContainerNameBuild } from "./factoryContainerNameBuild.js";
 import { dockerContainerRemoveIfExists } from "./dockerContainerRemoveIfExists.js";
@@ -20,13 +21,19 @@ export async function dockerContainerRunFactory(
     await dockerContainerRemoveIfExists(docker, containerName);
   }
 
+  const envMap = new Map(Object.entries(input.config.env));
+  envMap.set(
+    FACTORY_BUILD_COMMAND_ENV,
+    JSON.stringify(input.config.buildCommand)
+  );
+
   const binds = factoryContainerBindsBuild(input.paths, input.config);
   const container = await docker.createContainer({
     name: containerName,
     Image: input.config.image,
     Cmd: input.config.command,
     WorkingDir: input.config.workingDirectory,
-    Env: Object.entries(input.config.env).map(([key, value]) => `${key}=${value}`),
+    Env: Array.from(envMap.entries()).map(([key, value]) => `${key}=${value}`),
     AttachStdout: true,
     AttachStderr: true,
     Tty: false,
@@ -54,7 +61,14 @@ export async function dockerContainerRunFactory(
       throw new Error(`Container ${containerName} exited with code ${statusCode}`);
     }
   } finally {
-    outputStream.end();
+    if (
+      "destroy" in outputStream &&
+      typeof outputStream.destroy === "function"
+    ) {
+      outputStream.destroy();
+    } else if ("end" in outputStream && typeof outputStream.end === "function") {
+      outputStream.end();
+    }
 
     if (input.config.removeContainerOnExit) {
       await container.remove({ force: true }).catch(() => undefined);

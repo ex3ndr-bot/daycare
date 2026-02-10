@@ -17,18 +17,21 @@ flowchart TD
   E --> F[Remove existing container by name if enabled]
   F --> G[Create container from configured image]
   G --> H[Mount TASK.md as read-only and out as read-write]
-  H --> I[Run configured command inside container]
-  I --> J[Stream logs to host stdout/stderr]
-  J --> K{Exit code == 0?}
-  K -- Yes --> L[Optional container cleanup]
-  L --> M[Done: outputs available in host out]
-  K -- No --> N[Fail build with container exit code]
+  H --> I[Run internal daycare-factory command inside container]
+  I --> J[Internal command verifies it is running in Docker]
+  J --> K[Internal command executes configured buildCommand]
+  K --> L[Stream logs to host stdout/stderr]
+  L --> M{Exit code == 0?}
+  M -- Yes --> N[Optional container cleanup]
+  N --> O[Done: outputs available in host out]
+  M -- No --> P[Fail build with container exit code]
 ```
 
 ## Config contract
 
 Required field:
 - `image`: Docker image used to start the build container.
+- `buildCommand`: command array executed by the in-container internal runner.
 
 Optional fields:
 - `containerName`: stable container name; defaults to `daycare-factory-<task-folder-name>`.

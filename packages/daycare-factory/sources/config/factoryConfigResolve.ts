@@ -1,9 +1,11 @@
 import { z } from "zod";
+import { FACTORY_INTERNAL_COMMAND } from "../constants.js";
 import type { FactoryConfigResolved } from "../types.js";
 
 const factoryConfigSchema = z
   .object({
     image: z.string().min(1),
+    buildCommand: z.array(z.string().min(1)).min(1),
     containerName: z.string().min(1).optional(),
     command: z.array(z.string().min(1)).min(1).optional(),
     workingDirectory: z.string().min(1).optional(),
@@ -26,10 +28,11 @@ export function factoryConfigResolve(rawConfig: unknown): FactoryConfigResolved 
 
   return {
     image: parsed.image,
+    buildCommand: parsed.buildCommand,
     containerName: parsed.containerName,
     command: parsed.command ?? [
       "daycare-factory",
-      "build",
+      FACTORY_INTERNAL_COMMAND,
       "--task",
       taskMountPath,
       "--out",

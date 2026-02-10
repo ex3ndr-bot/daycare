@@ -1,15 +1,20 @@
 import { describe, expect, it } from "vitest";
+import { FACTORY_INTERNAL_COMMAND } from "../constants.js";
 import { factoryConfigResolve } from "./factoryConfigResolve.js";
 
 describe("factoryConfigResolve", () => {
   it("applies defaults for mount paths and command", () => {
-    const result = factoryConfigResolve({ image: "daycare/factory:latest" });
+    const result = factoryConfigResolve({
+      image: "daycare/factory:latest",
+      buildCommand: ["npm", "run", "build"]
+    });
 
     expect(result.taskMountPath).toBe("/workspace/TASK.md");
     expect(result.outMountPath).toBe("/workspace/out");
+    expect(result.buildCommand).toEqual(["npm", "run", "build"]);
     expect(result.command).toEqual([
       "daycare-factory",
-      "build",
+      FACTORY_INTERNAL_COMMAND,
       "--task",
       "/workspace/TASK.md",
       "--out",
@@ -22,17 +27,26 @@ describe("factoryConfigResolve", () => {
   it("builds default command from custom mount paths", () => {
     const result = factoryConfigResolve({
       image: "daycare/factory:latest",
+      buildCommand: ["pnpm", "build"],
       taskMountPath: "/custom/TASK.md",
       outMountPath: "/custom/out"
     });
 
     expect(result.command).toEqual([
       "daycare-factory",
-      "build",
+      FACTORY_INTERNAL_COMMAND,
       "--task",
       "/custom/TASK.md",
       "--out",
       "/custom/out"
     ]);
+  });
+
+  it("requires buildCommand in config", () => {
+    expect(() =>
+      factoryConfigResolve({
+        image: "daycare/factory:latest"
+      })
+    ).toThrow();
   });
 });

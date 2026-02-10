@@ -38,4 +38,4 @@ RUN npm install -g /artifacts/daycare-cli-*.tgz /artifacts/daycare-factory-*.tgz
 
 WORKDIR /workspace
 
-CMD ["daycare-factory", "--help"]
+CMD ["daycare-factory"]
