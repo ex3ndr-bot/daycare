@@ -5,6 +5,7 @@ Durable working memory for the assistant.
 Use this file for ongoing context that should persist across sessions but is not:
 - a stable user preference (`USER.md`)
 - an agent registry or signal map (`ACTORS.md`)
+- a workspace operating rule (`AGENTS.md`)
 - tool behavior knowledge (`TOOLS.md`)
 - personality guidance (`SOUL.md`)
 
