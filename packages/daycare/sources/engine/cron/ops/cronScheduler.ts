@@ -66,13 +66,13 @@ export class CronScheduler {
     this.defaultPermissions = options.defaultPermissions;
     this.resolvePermissions = options.resolvePermissions;
     this.gateCheck = options.gateCheck ?? execGateCheck;
-    logger.debug("CronScheduler initialized");
+    logger.debug("cron:debug CronScheduler initialized");
   }
 
   async start(): Promise<void> {
-    logger.debug(`start() called started=${this.started} stopped=${this.stopped}`);
+    logger.debug(`cron:debug start() called started=${this.started} stopped=${this.stopped}`);
     if (this.started || this.stopped) {
-      logger.debug("Already started or stopped, returning");
+      logger.debug("cron:debug Already started or stopped, returning");
       return;
     }
 
@@ -80,11 +80,11 @@ export class CronScheduler {
 
     // Load tasks from disk
     const tasks = await this.store.listTasks();
-    logger.debug(`Loaded tasks from disk taskCount=${tasks.length}`);
+    logger.debug(`cron:debug Loaded tasks from disk taskCount=${tasks.length}`);
 
     for (const task of tasks) {
       if (task.enabled === false) {
-        logger.debug(`Task disabled, skipping taskId=${task.id}`);
+        logger.debug(`cron:debug Task disabled, skipping taskId=${task.id}`);
         continue;
       }
 
@@ -92,18 +92,18 @@ export class CronScheduler {
     }
 
     this.scheduleNextTick();
-    logger.debug("All tasks scheduled");
+    logger.debug("cron:debug All tasks scheduled");
   }
 
   stop(): void {
-    logger.debug(`stop() called stopped=${this.stopped}`);
+    logger.debug(`cron:debug stop() called stopped=${this.stopped}`);
     if (this.stopped) {
-      logger.debug("Already stopped, returning");
+      logger.debug("cron:debug Already stopped, returning");
       return;
     }
 
     this.stopped = true;
-    logger.debug(`Clearing timers taskCount=${this.tasks.size}`);
+    logger.debug(`cron:debug Clearing timers taskCount=${this.tasks.size}`);
 
     if (this.tickTimer) {
       clearTimeout(this.tickTimer);
@@ -111,11 +111,11 @@ export class CronScheduler {
     }
     this.runningTasks.clear();
     this.tasks.clear();
-    logger.debug("CronScheduler stopped");
+    logger.debug("cron:debug CronScheduler stopped");
   }
 
   async reload(): Promise<void> {
-    logger.debug("Reloading tasks from disk");
+    logger.debug("cron:debug Reloading tasks from disk");
 
     this.tasks.clear();
 
@@ -133,7 +133,7 @@ export class CronScheduler {
     }
 
     this.scheduleNextTick();
-    logger.debug(`Tasks reloaded taskCount=${this.tasks.size}`);
+    logger.debug(`cron:debug Tasks reloaded taskCount=${this.tasks.size}`);
   }
 
   listTasks(): CronTaskWithPaths[] {
@@ -194,7 +194,7 @@ export class CronScheduler {
   private scheduleTask(task: CronTaskWithPaths): void {
     const nextRun = cronTimeGetNext(task.schedule);
     if (!nextRun) {
-      logger.warn({ taskId: task.id, schedule: task.schedule }, "Invalid cron schedule");
+      logger.warn({ taskId: task.id, schedule: task.schedule }, "cron:warn Invalid cron schedule");
       void this.reportError(
         new Error(`Invalid cron schedule: ${task.schedule}`),
         task.id
@@ -205,7 +205,7 @@ export class CronScheduler {
       taskId: task.id,
       schedule: task.schedule,
       nextRun: nextRun.toISOString()
-    }, "Scheduling task");
+    }, "cron:debug Scheduling task");
     this.tasks.set(task.id, { task, nextRun, timer: null });
   }
 
@@ -214,10 +214,10 @@ export class CronScheduler {
   }
 
   private async executeTaskUnlocked(task: CronTaskWithPaths): Promise<void> {
-    logger.debug(`executeTask() called taskId=${task.id}`);
+    logger.debug(`cron:debug executeTask() called taskId=${task.id}`);
 
     if (this.stopped) {
-      logger.debug("Scheduler stopped, not executing");
+      logger.debug("cron:debug Scheduler stopped, not executing");
       return;
     }
 
@@ -244,11 +244,11 @@ export class CronScheduler {
     const messageContext: MessageContext = {};
 
     try {
-      logger.info({ taskId: task.id, name: task.name }, "Executing cron task");
+      logger.info({ taskId: task.id, name: task.name }, "cron:info Executing cron task");
       await this.onTask(taskContext, messageContext);
-      logger.debug(`Task execution completed taskId=${task.id}`);
+      logger.debug(`cron:debug Task execution completed taskId=${task.id}`);
     } catch (error) {
-      logger.warn({ taskId: task.id, error }, "Cron task execution failed");
+      logger.warn({ taskId: task.id, error }, "cron:warn Cron task execution failed");
       await this.reportError(error, task.id);
     } finally {
       task.lastRunAt = runAt.toISOString();
@@ -277,7 +277,7 @@ export class CronScheduler {
     if (!permissionCheck.allowed) {
       logger.warn(
         { taskId: task.id, missing: permissionCheck.missing },
-        "Cron gate permissions not satisfied; continuing without gate"
+        "cron:warn Cron gate permissions not satisfied; continuing without gate"
       );
       await this.onGatePermissionSkip?.(task, permissionCheck.missing);
       return { allowed: true };
@@ -292,14 +292,14 @@ export class CronScheduler {
       return { allowed: true };
     }
     if (result.error) {
-      logger.warn({ taskId: task.id, error: result.error }, "Cron gate failed");
+      logger.warn({ taskId: task.id, error: result.error }, "cron:warn Cron gate failed");
       await this.reportError(result.error, task.id);
       return { allowed: false };
     }
     if (!result.shouldRun) {
       logger.debug(
         { taskId: task.id, exitCode: result.exitCode },
-        "Cron gate skipped execution"
+        "cron:debug Cron gate skipped execution"
       );
       return { allowed: false, result };
     }
@@ -312,7 +312,7 @@ export class CronScheduler {
       // independently acquires a read lock in executeTask().
       this.runTickUnlocked();
     } catch (error) {
-      logger.warn({ error }, "Cron tick failed");
+      logger.warn({ error }, "cron:warn Cron tick failed");
     }
   }
 
@@ -329,7 +329,7 @@ export class CronScheduler {
         if (!nextRun) {
           logger.warn(
             { taskId: scheduled.task.id, schedule: scheduled.task.schedule },
-            "Invalid cron schedule"
+            "cron:warn Invalid cron schedule"
           );
           void this.reportError(
             new Error(`Invalid cron schedule: ${scheduled.task.schedule}`),
@@ -358,7 +358,7 @@ export class CronScheduler {
               void this.store.deleteTask(scheduled.task.id).catch((error) => {
                 logger.warn(
                   { taskId: scheduled.task.id, error },
-                  "Failed to delete cron task"
+                  "cron:warn Failed to delete cron task"
                 );
               });
             }

@@ -82,7 +82,7 @@ export class PluginInferenceService {
       }
     ];
     logger.debug(
-      `Plugin inference selection providerId=${provider.id} strategy=${strategy} model=${providersOverride[0]?.model ?? "default"}`
+      `plugins:debug Plugin inference selection providerId=${provider.id} strategy=${strategy} model=${providersOverride[0]?.model ?? "default"}`
     );
     return this.router.complete(context, agentId, {
       providersOverride

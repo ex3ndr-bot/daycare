@@ -56,7 +56,7 @@ export class ConnectorRegistry {
     this.onCommand = options.onCommand;
     this.onPermission = options.onPermission;
     this.onFatal = options.onFatal;
-    this.logger.debug("ConnectorRegistry initialized");
+    this.logger.debug("connectors:debug ConnectorRegistry initialized");
   }
 
   list(): string[] {
@@ -79,13 +79,13 @@ export class ConnectorRegistry {
   }
 
   register(id: string, connector: Connector): ConnectorActionResult {
-    this.logger.debug(`register() called connectorId=${id}`);
+    this.logger.debug(`connectors:debug register() called connectorId=${id}`);
     if (this.connectors.has(id)) {
-      this.logger.debug(`Connector already registered connectorId=${id}`);
+      this.logger.debug(`connectors:debug Connector already registered connectorId=${id}`);
       return { ok: true, status: "already-loaded" };
     }
 
-    this.logger.debug(`Attaching message handler connectorId=${id}`);
+    this.logger.debug(`connectors:debug Attaching message handler connectorId=${id}`);
     const unsubscribe = this.attach(id, connector);
     const commandUnsubscribe = this.attachCommand(id, connector);
     const permissionUnsubscribe = this.attachPermission(id, connector);
@@ -96,43 +96,43 @@ export class ConnectorRegistry {
       permissionUnsubscribe,
       loadedAt: new Date()
     });
-    this.logger.debug(`Connector added to registry connectorId=${id} totalConnectors=${this.connectors.size}`);
-    this.logger.info({ connector: id }, "Connector registered");
+    this.logger.debug(`connectors:debug Connector added to registry connectorId=${id} totalConnectors=${this.connectors.size}`);
+    this.logger.info({ connector: id }, "connectors:info Connector registered");
     return { ok: true, status: "loaded" };
   }
 
   async unregister(id: string, reason = "unload"): Promise<ConnectorActionResult> {
-    this.logger.debug(`unregister() called connectorId=${id} reason=${reason}`);
+    this.logger.debug(`connectors:debug unregister() called connectorId=${id} reason=${reason}`);
     const entry = this.connectors.get(id);
     if (!entry) {
-      this.logger.debug(`Connector not found connectorId=${id}`);
+      this.logger.debug(`connectors:debug Connector not found connectorId=${id}`);
       return { ok: true, status: "not-loaded" };
     }
 
-    this.logger.debug(`Unsubscribing message handler connectorId=${id}`);
+    this.logger.debug(`connectors:debug Unsubscribing message handler connectorId=${id}`);
     entry.unsubscribe?.();
     entry.commandUnsubscribe?.();
     entry.permissionUnsubscribe?.();
     try {
-      this.logger.debug(`Calling connector.shutdown() connectorId=${id} reason=${reason}`);
+      this.logger.debug(`connectors:debug Calling connector.shutdown() connectorId=${id} reason=${reason}`);
       await entry.connector.shutdown?.(reason);
-      this.logger.debug(`Connector shutdown complete connectorId=${id}`);
+      this.logger.debug(`connectors:debug Connector shutdown complete connectorId=${id}`);
     } catch (error) {
-      this.logger.warn({ connector: id, error }, "Connector shutdown failed");
+      this.logger.warn({ connector: id, error }, "connectors:warn Connector shutdown failed");
     }
     this.connectors.delete(id);
-    this.logger.debug(`Connector removed from registry connectorId=${id} remainingConnectors=${this.connectors.size}`);
-    this.logger.info({ connector: id }, "Connector unregistered");
+    this.logger.debug(`connectors:debug Connector removed from registry connectorId=${id} remainingConnectors=${this.connectors.size}`);
+    this.logger.info({ connector: id }, "connectors:info Connector unregistered");
     return { ok: true, status: "unloaded" };
   }
 
   async unregisterAll(reason = "shutdown"): Promise<void> {
     const ids = Array.from(this.connectors.keys());
-    this.logger.debug(`unregisterAll() starting count=${ids.length} ids=${ids.join(",")} reason=${reason}`);
+    this.logger.debug(`connectors:debug unregisterAll() starting count=${ids.length} ids=${ids.join(",")} reason=${reason}`);
     for (const id of ids) {
       await this.unregister(id, reason);
     }
-    this.logger.debug("unregisterAll() complete");
+    this.logger.debug("connectors:debug unregisterAll() complete");
   }
 
   reportFatal(id: string, reason: string, error?: unknown): void {

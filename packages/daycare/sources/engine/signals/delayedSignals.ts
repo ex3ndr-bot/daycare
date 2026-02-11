@@ -242,7 +242,7 @@ export class DelayedSignals {
       retry = await this.config.inReadLock(async () => this.deliverDue());
     } catch (error) {
       retry = true;
-      logger.warn({ error }, "Delayed signal tick failed");
+      logger.warn({ error }, "signal:warn Delayed signal tick failed");
     } finally {
       this.running = false;
       this.scheduleNext(retry ? this.failureRetryMs : 0);
@@ -274,7 +274,7 @@ export class DelayedSignals {
         retryNeeded = true;
         logger.warn(
           { delayedSignalId: delayed.id, type: delayed.type, error },
-          "Delayed signal delivery failed"
+          "signal:warn Delayed signal delivery failed"
         );
         continue;
       }
