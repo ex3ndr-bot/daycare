@@ -1,3 +1,7 @@
+import { getLogger } from "../log.js";
+
+const logger = getLogger("util.time");
+
 export async function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -51,6 +55,6 @@ export function createBackoff(options?: {
 
 export const backoff = createBackoff({
   onError: (error) => {
-    console.warn(error);
+    logger.warn({ error }, "backoff:error");
   }
 });

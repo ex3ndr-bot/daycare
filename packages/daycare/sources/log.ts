@@ -36,6 +36,52 @@ let rootLogger: Logger | null = null;
 
 const MODULE_WIDTH = 20;
 const PLUGIN_MODULE_PREFIX = "plugin.";
+const ANSI_RESET = "\u001b[0m";
+const MODULE_COLORS = [
+  196,
+  202,
+  208,
+  214,
+  220,
+  226,
+  190,
+  154,
+  118,
+  82,
+  48,
+  50,
+  51,
+  45,
+  39,
+  33,
+  27,
+  21,
+  57,
+  93,
+  129,
+  165,
+  201,
+  213,
+  177,
+  141,
+  105,
+  69
+] as const;
+const PRETTY_RESERVED_FIELDS = new Set([
+  "pid",
+  "hostname",
+  "level",
+  "time",
+  "timestamp",
+  "__time",
+  "__level",
+  "lvl",
+  "service",
+  "environment",
+  "module",
+  "msg"
+]);
+const moduleColorCache = new Map<string, string>();
 
 export function initLogging(overrides: Partial<LogConfig> = {}): Logger {
   if (rootLogger) {
@@ -145,7 +191,7 @@ function buildLogger(config: LogConfig): Logger {
   return destination ? pino(options, destination) : pino(options);
 }
 
-function formatPrettyMessage(
+export function formatPrettyMessage(
   log: Record<string, unknown>,
   messageKey: string,
   _levelLabel: string,
@@ -160,6 +206,10 @@ function formatPrettyMessage(
 ): string {
   const colors = extra?.colors;
   const gray = colors?.gray ?? (colors as { grey?: (value: string) => string } | undefined)?.grey;
+  const hasPrettyColors =
+    typeof gray === "function" ||
+    typeof colors?.cyan === "function" ||
+    typeof colors?.yellow === "function";
   const colorTime = typeof gray === "function" ? gray : (value: string) => value;
   const level = resolveLogLevel(log);
   const colorMessage =
@@ -170,14 +220,25 @@ function formatPrettyMessage(
         : (value: string) => value;
   const timeValue = log.time ?? log.timestamp ?? Date.now();
   const time = formatLogTime(timeValue);
-  const module = formatModuleLabel(log.module);
+  const rawModule = normalizeModule(
+    typeof log.module === "string" ? log.module : undefined
+  );
+  const module = formatModuleLabel(rawModule);
+  const moduleLabel =
+    hasPrettyColors && shouldColorizeModule(rawModule)
+      ? `${moduleColor(rawModule)}${module}${ANSI_RESET}`
+      : module;
   const messageValue = log[messageKey];
   const message =
     messageValue === undefined || messageValue === null
       ? ""
       : String(messageValue);
+  const details = formatPrettyDetails(log, messageKey, message);
   const timeLabel = colorTime(`[${time}]`);
-  const content = message.length > 0 ? `${module} ${message}` : module;
+  const content =
+    message.length > 0
+      ? `${moduleLabel} ${message}${details.length > 0 ? ` ${details}` : ""}`
+      : `${moduleLabel}${details.length > 0 ? ` ${details}` : ""}`;
   return `${timeLabel} ${colorMessage(content)}`;
 }
 
@@ -223,6 +284,36 @@ function normalizeModule(moduleName?: string): string {
   return trimmed.length > 0 ? trimmed : "unknown";
 }
 
+function shouldColorizeModule(moduleName: string): boolean {
+  if (process.env.NO_COLOR) {
+    return false;
+  }
+  return moduleName.length > 0;
+}
+
+function moduleColor(moduleName: string): string {
+  const cached = moduleColorCache.get(moduleName);
+  if (cached) {
+    return cached;
+  }
+  const hash = murmurHash3(moduleName);
+  const colorCode = MODULE_COLORS[hash % MODULE_COLORS.length];
+  const color = `\u001b[38;5;${colorCode}m`;
+  moduleColorCache.set(moduleName, color);
+  return color;
+}
+
+function murmurHash3(value: string, seed = 0): number {
+  let hash = seed ^ value.length;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash ^ (hash >>> 16), 0x85ebca6b);
+    hash = Math.imul(hash ^ (hash >>> 13), 0xc2b2ae35);
+    hash ^= hash >>> 16;
+  }
+  return hash >>> 0;
+}
+
 function formatModuleLabel(moduleValue: unknown): string {
   const rawModule = normalizeModule(
     typeof moduleValue === "string" ? moduleValue : undefined
@@ -231,6 +322,127 @@ function formatModuleLabel(moduleValue: unknown): string {
   const baseName = isPlugin ? rawModule.slice(PLUGIN_MODULE_PREFIX.length) : rawModule;
   const normalized = normalizeModuleName(baseName);
   return isPlugin ? `(${normalized})` : `[${normalized}]`;
+}
+
+function formatPrettyDetails(
+  log: Record<string, unknown>,
+  messageKey: string,
+  message: string
+): string {
+  const details: string[] = [];
+  for (const [key, value] of Object.entries(log)) {
+    if (key === messageKey || PRETTY_RESERVED_FIELDS.has(key)) {
+      continue;
+    }
+    if (value === undefined) {
+      continue;
+    }
+    if (messageContainsKey(message, key)) {
+      continue;
+    }
+    const formatted = formatPrettyDetailValue(key, value);
+    if (!formatted) {
+      continue;
+    }
+    details.push(`${key}=${formatted}`);
+  }
+  return details.join(" ");
+}
+
+function messageContainsKey(message: string, key: string): boolean {
+  if (message.length === 0) {
+    return false;
+  }
+  const pattern = new RegExp(`\\b${escapeRegExp(key)}=`);
+  return pattern.test(message);
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function formatPrettyDetailValue(key: string, value: unknown): string | null {
+  if (value === null) {
+    return "null";
+  }
+  if (
+    typeof value === "number" ||
+    typeof value === "boolean" ||
+    typeof value === "bigint"
+  ) {
+    return String(value);
+  }
+  if (typeof value === "string") {
+    return formatPrettyTextValue(value);
+  }
+  if (value instanceof Date) {
+    return value.toISOString();
+  }
+  if (key === "error") {
+    return formatPrettyErrorValue(value);
+  }
+  if (Array.isArray(value)) {
+    return formatPrettyTextValue(value.join(","));
+  }
+  if (value instanceof Error) {
+    return formatPrettyTextValue(value.message);
+  }
+  if (typeof value === "object") {
+    return formatPrettyObjectValue(value);
+  }
+  return formatPrettyTextValue(String(value));
+}
+
+function formatPrettyObjectValue(value: object): string {
+  try {
+    return formatPrettyTextValue(JSON.stringify(value));
+  } catch {
+    return formatPrettyTextValue(String(value));
+  }
+}
+
+function formatPrettyErrorValue(value: unknown): string {
+  if (value instanceof Error) {
+    return formatPrettyTextValue(value.message);
+  }
+  if (typeof value === "object" && value !== null) {
+    const error = value as Record<string, unknown>;
+    const type = typeof error.type === "string" ? error.type : null;
+    const name = typeof error.name === "string" ? error.name : null;
+    const code =
+      typeof error.code === "string" || typeof error.code === "number"
+        ? String(error.code)
+        : null;
+    const message = typeof error.message === "string" ? error.message : null;
+    const parts = [type ?? name, code ? `code:${code}` : null, message].filter(
+      (item): item is string => Boolean(item)
+    );
+    if (parts.length > 0) {
+      return formatPrettyTextValue(parts.join(":"));
+    }
+  }
+  return formatPrettyTextValue(String(value));
+}
+
+function formatPrettyTextValue(value: string): string {
+  const trimmed = value.trim();
+  const raw = trimmed.length > 0 ? value : "";
+  const truncated = truncatePrettyValue(raw);
+  if (truncated.length === 0) {
+    return "\"\"";
+  }
+  if (/[=\s]/.test(truncated)) {
+    return JSON.stringify(truncated);
+  }
+  return truncated;
+}
+
+function truncatePrettyValue(value: string): string {
+  const MAX_LENGTH = 180;
+  if (value.length <= MAX_LENGTH) {
+    return value;
+  }
+  return `${value.slice(0, MAX_LENGTH)}...`;
 }
 
 function normalizeModuleName(value: string): string {

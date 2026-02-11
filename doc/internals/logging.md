@@ -26,7 +26,9 @@ Pretty output uses a fixed-width module label and time-only prefix:
 - Module labels are trimmed/padded to 20 characters.
 - Plugin modules use the `plugin.` prefix and render as `(module     )`.
 - Missing module values render as `unknown`.
+- Structured log fields are projected into message text as `key=value` tokens so each line remains self-contained.
 - Warning messages (level `warn`) are highlighted in yellow.
+- Module labels are colorized deterministically from module name hash (cached per module).
 
 ```mermaid
 flowchart TD
@@ -34,6 +36,18 @@ flowchart TD
   Resolve --> Build[buildLogger]
   Build --> Pretty[pretty transport]
   Build --> Json[json output]
+```
+
+### Structured Field Projection
+
+When callsites use `logger.info({ agentId, ... }, "message")`, pretty formatting keeps visible output self-contained by appending structured fields to the message text.
+
+```mermaid
+flowchart LR
+  Entry[raw log object] --> Filter[drop reserved keys]
+  Filter --> Dedupe[skip keys already in msg]
+  Dedupe --> Format[format value -> key=value]
+  Format --> Append[append to visible message]
 ```
 
 ## Verbose Logging
