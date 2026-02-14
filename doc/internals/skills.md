@@ -15,6 +15,10 @@ path to a `SKILL.md` file.
 Skills can also live in the config folder at `.daycare/skills/`. They are loaded
 fresh each time the system prompt is built.
 
+Daycare also loads shared user-authored skills from `~/.agents/skills/`.
+This source is framework-agnostic so the same skill folder can be reused
+across multiple local agent runtimes.
+
 Each skill is a folder containing a `SKILL.md` file. The folder name becomes
 the skill name shown to the agent. The system prompt includes the **absolute
 path** to each skill so the agent can read it directly.
@@ -25,22 +29,32 @@ The system prompt lists skills in XML tags to make parsing explicit.
 
 Daycare's skills catalog is composed from small helpers that focus on one task
 each, keeping listing and formatting composable. During `Agent.handleMessage`,
-the engine gathers all three sources (core, config, plugin) before formatting
-the prompt.
+the engine gathers all four sources (core, config, user, plugin) before
+formatting the prompt.
 
 ```mermaid
 flowchart TD
   Agent[Agent.handleMessage] --> Core[skillListCore]
   Agent --> Config[skillListConfig(configDir/skills)]
+  Agent --> User[skillListUser(~/.agents/skills)]
   Agent --> Plugin[skillListRegistered]
   Core[skillListCore] --> FromRoot[skillListFromRoot]
   Config --> FromRoot
+  User --> FromRoot
   FromRoot --> Resolve[skillResolve]
   Resolve --> Sort[skillSort]
   Plugin --> Resolve
   Plugin --> Sort
   Sort --> Prompt[skillPromptFormat]
 ```
+
+## Skill ID prefixes
+
+`skillResolve` generates IDs by source:
+- `core:<relative-path>`
+- `config:<relative-path>`
+- `user:<relative-path>`
+- `plugin:<plugin-id>/<relative-path>`
 
 ## SKILL.md format (Agent Skills spec)
 

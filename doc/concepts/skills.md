@@ -7,7 +7,8 @@ Skills are opt-in prompts stored as files on disk. They are **not** loaded into 
 | Location | Purpose |
 |----------|---------|
 | `packages/daycare/sources/skills/` | Core built-in skills |
-| `.daycare/skills/` | User-defined skills |
+| `~/.daycare/skills/` | Config-local skills |
+| `~/.agents/skills/` | Shared home-directory skills |
 | Plugin-registered via `registerSkill(path)` | Plugin-provided skills |
 
 Each skill is a folder containing a `SKILL.md` file. The folder name becomes the skill name shown to the agent.
@@ -41,3 +42,11 @@ Skill content in Markdown...
 3. Skill guidance becomes part of the agent's context
 
 Skills are loaded fresh each time the system prompt is built, so edits take effect immediately.
+
+## Skill IDs
+
+The skill catalog uses stable ID prefixes by source:
+- `core:<relative-path>`
+- `config:<relative-path>`
+- `user:<relative-path>`
+- `plugin:<plugin-id>/<relative-path>`

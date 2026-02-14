@@ -36,6 +36,7 @@ import { permissionTagsApply } from "../permissions/permissionTagsApply.js";
 import { skillListConfig } from "../skills/skillListConfig.js";
 import { skillListCore } from "../skills/skillListCore.js";
 import { skillListRegistered } from "../skills/skillListRegistered.js";
+import { skillListUser } from "../skills/skillListUser.js";
 import { skillPromptFormat } from "../skills/skillPromptFormat.js";
 import { toolListContextBuild } from "../modules/tools/toolListContextBuild.js";
 import { agentPermanentList } from "./ops/agentPermanentList.js";
@@ -359,12 +360,13 @@ export class Agent {
     const pluginPrompt = pluginPrompts.length > 0 ? pluginPrompts.join("\n\n") : "";
     const configSkillsRoot = path.join(this.agentSystem.config.current.configDir, "skills");
     logger.debug(`load: handleMessage loading available skills agentId=${this.id}`);
-    const [coreSkills, configSkills, pluginSkills] = await Promise.all([
+    const [coreSkills, configSkills, userSkills, pluginSkills] = await Promise.all([
       skillListCore(),
       skillListConfig(configSkillsRoot),
+      skillListUser(),
       skillListRegistered(pluginManager.listRegisteredSkills())
     ]);
-    const skills = [...coreSkills, ...configSkills, ...pluginSkills];
+    const skills = [...coreSkills, ...configSkills, ...userSkills, ...pluginSkills];
     const skillsPrompt = skillPromptFormat(skills);
     const permanentAgents = await agentPermanentList(this.agentSystem.config.current);
     const permanentAgentsPrompt = agentPermanentPromptBuild(permanentAgents);

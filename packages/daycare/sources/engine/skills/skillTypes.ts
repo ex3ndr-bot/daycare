@@ -6,7 +6,7 @@ export type AgentSkill = {
   name: string;
   description?: string | null;
   path: string;
-  source: "core" | "config" | "plugin";
+  source: "core" | "config" | "plugin" | "user";
   pluginId?: string;
 };
 
@@ -24,4 +24,5 @@ export type PluginSkillRegistration = {
 export type SkillSource =
   | { source: "core"; root?: string }
   | { source: "config"; root?: string }
+  | { source: "user"; root?: string }
   | { source: "plugin"; pluginId: string };

@@ -215,6 +215,9 @@ function skillIdBuild(filePath: string, source: SkillSource, root?: string): str
   if (source.source === "config") {
     return `config:${normalized}`;
   }
+  if (source.source === "user") {
+    return `user:${normalized}`;
+  }
   return `core:${normalized}`;
 }
 

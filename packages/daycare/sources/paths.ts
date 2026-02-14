@@ -10,6 +10,7 @@ function resolveDaycareRoot(): string {
 }
 
 export const DEFAULT_DAYCARE_DIR = resolveDaycareRoot();
+export const DEFAULT_USER_SKILLS_ROOT = path.join(os.homedir(), ".agents", "skills");
 
 export function resolveDaycarePath(...segments: string[]): string {
   return path.join(DEFAULT_DAYCARE_DIR, ...segments);
