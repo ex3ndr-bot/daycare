@@ -2,12 +2,15 @@ import type { Tool } from "@mariozechner/pi-ai";
 
 import type { ConnectorRegistry } from "../connectorRegistry.js";
 import type { ImageGenerationRegistry } from "../imageGenerationRegistry.js";
+import { RLM_TOOL_NAME } from "../rlm/rlmConstants.js";
+import { rlmToolDescriptionBuild } from "../rlm/rlmToolDescriptionBuild.js";
 
 type ToolListOptions = {
   tools: Tool[];
   source?: string;
   agentKind?: "background" | "foreground";
   allowCronTools?: boolean;
+  rlm?: boolean;
   connectorRegistry: Pick<ConnectorRegistry, "get" | "list">;
   imageRegistry: Pick<ImageGenerationRegistry, "list">;
 };
@@ -22,6 +25,10 @@ const BACKGROUND_TOOL_DENYLIST = new Set([
  * Expects: tool names are unique; connector registry is available for capability checks.
  */
 export function toolListContextBuild(options: ToolListOptions): Tool[] {
+  if (options.rlm) {
+    return toolListRlmBuild(options.tools);
+  }
+
   const source = options.source;
   let tools = options.tools;
   if (source && source !== "cron" && !options.allowCronTools) {
@@ -56,6 +63,20 @@ export function toolListContextBuild(options: ToolListOptions): Tool[] {
     filtered = filtered.filter((tool) => tool.name !== "generate_image");
   }
   return toolListFilterConnectorCapabilities(filtered, supportsFiles, supportsReactions);
+}
+
+function toolListRlmBuild(tools: Tool[]): Tool[] {
+  const runPython = tools.find((tool) => tool.name === RLM_TOOL_NAME);
+  if (!runPython) {
+    return [];
+  }
+
+  return [
+    {
+      ...runPython,
+      description: rlmToolDescriptionBuild(tools)
+    }
+  ];
 }
 
 function toolListFilterConnectorCapabilities<T extends { name: string }>(

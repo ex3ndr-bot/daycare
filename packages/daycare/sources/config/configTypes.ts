@@ -10,6 +10,7 @@ export type Config = {
   authPath: string;
   socketPath: string;
   workspaceDir: string;
+  rlm: boolean;
   settings: ResolvedSettingsConfig;
   defaultPermissions: SessionPermissions;
   verbose: boolean;

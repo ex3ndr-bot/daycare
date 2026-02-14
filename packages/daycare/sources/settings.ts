@@ -44,6 +44,7 @@ export type ResolvedSettingsConfig = Omit<SettingsConfig, "agents"> & {
 };
 
 export type SettingsConfig = {
+  rlm?: boolean;
   engine?: {
     socketPath?: string;
     dataDir?: string;

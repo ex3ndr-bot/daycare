@@ -66,6 +66,27 @@ describe("Engine reset command", () => {
   });
 });
 
+describe("Engine RLM mode", () => {
+  it("exposes only run_python in context tool list when enabled", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
+    try {
+      const config = configResolve(
+        { rlm: true, engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
+        path.join(dir, "settings.json")
+      );
+      const engine = new Engine({ config, eventBus: new EngineEventBus() });
+      await engine.start();
+
+      const status = engine.getStatus();
+      expect(status.tools).toEqual(["run_python"]);
+
+      await engine.shutdown();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("Engine stop command", () => {
   it("aborts active inference for user commands and confirms in channel", async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));

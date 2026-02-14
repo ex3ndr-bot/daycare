@@ -22,4 +22,16 @@ describe("configResolve", () => {
     expect(config.workspaceDir).toBe(path.resolve("/tmp/daycare/workspace"));
     expect(config.filesDir).toBe(path.resolve("/tmp/daycare/workspace/files"));
   });
+
+  it("defaults rlm to false", () => {
+    const configPath = path.join("/tmp/daycare", "settings.json");
+    const config = configResolve({}, configPath);
+    expect(config.rlm).toBe(false);
+  });
+
+  it("resolves rlm from settings", () => {
+    const configPath = path.join("/tmp/daycare", "settings.json");
+    const config = configResolve({ rlm: true }, configPath);
+    expect(config.rlm).toBe(true);
+  });
 });

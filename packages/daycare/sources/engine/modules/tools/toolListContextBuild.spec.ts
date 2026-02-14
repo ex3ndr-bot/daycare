@@ -6,6 +6,7 @@ import { toolListContextBuild } from "./toolListContextBuild.js";
 import type { Tool } from "@mariozechner/pi-ai";
 
 const baseTools = [
+  { name: "run_python", description: "", parameters: {} },
   { name: "cron_read_memory", description: "", parameters: {} },
   { name: "cron_write_memory", description: "", parameters: {} },
   { name: "send_file", description: "", parameters: {} },
@@ -86,5 +87,22 @@ describe("toolListContextBuild", () => {
 
     const names = result.map((tool) => tool.name);
     expect(names).not.toContain("generate_image");
+  });
+
+  it("returns only run_python in rlm mode", () => {
+    const result = toolListContextBuild({
+      tools: baseTools,
+      source: "slack",
+      rlm: true,
+      connectorRegistry: {
+        get: () => null,
+        list: () => []
+      },
+      imageRegistry: { list: () => [] }
+    });
+
+    expect(result.map((tool) => tool.name)).toEqual(["run_python"]);
+    expect(result[0]?.description).toContain("The following functions are available:");
+    expect(result[0]?.description).toContain("async def other() -> str:");
   });
 });

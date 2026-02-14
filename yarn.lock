@@ -1980,43 +1980,43 @@
   resolved "https://registry.yarnpkg.com/@protobufjs/utf8/-/utf8-1.1.0.tgz#a777360b5b39a1a2e5106f8e858f2fd2d060c570"
   integrity sha512-Vvn3zZrhQZkkBE8LSuW3em98c0FwgO4nxzv6OdSxPKJIEKY2bGbHn+mhGIPerzI4twdxaP8/0+06HBpwf345Lw==
 
-"@pydantic/monty-darwin-arm64@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@pydantic/monty-darwin-arm64/-/monty-darwin-arm64-0.0.3.tgz#ebe9474e12527baf7938ecda365843856cb4be08"
-  integrity sha512-MDq/EM3QvabtzNVJ671UaP5q2jMa9b7N2kFmAFhg2X2UyQrnJES9zx3fIVxCdoKWuZr6ZDc9zZLMvNmvsvoMeQ==
+"@pydantic/monty-darwin-arm64@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@pydantic/monty-darwin-arm64/-/monty-darwin-arm64-0.0.4.tgz#1d1b52fe104901cc06417548692270c0a21defa6"
+  integrity sha512-hBCDU4/cGE2eK1Lm1yrXiD6IYVd+1P8x5PrtdujiAp4IIDhhjKK0MUoihAr8iHWo0qp/5c041b8FoE9gzalkZw==
 
-"@pydantic/monty-darwin-x64@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@pydantic/monty-darwin-x64/-/monty-darwin-x64-0.0.3.tgz#8f4c73d20d403c6b4b142bd7ed261f7f740e214b"
-  integrity sha512-OptZHIIq8Jpm4pQCSaR+MZncYoSNPtWURWUGxLu0ToZo103bleDIMHSx779rQTPUCmtV2EwLLlQj9BS23WHIXg==
+"@pydantic/monty-darwin-x64@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@pydantic/monty-darwin-x64/-/monty-darwin-x64-0.0.4.tgz#82471b1574d1ab4f482382e99c598786c35ca2b7"
+  integrity sha512-ZckNOIFzniCZfP4dSL/VkvLzlmD5gM6yNfYKqgqOxoo8ltyWYCyk8PyHTd6Ha7uM1/CUL0ATKaZn5jY2BRH+fQ==
 
-"@pydantic/monty-linux-x64-gnu@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@pydantic/monty-linux-x64-gnu/-/monty-linux-x64-gnu-0.0.3.tgz#39e1d8ce9380d45d94be6f7896b00af5c85046fa"
-  integrity sha512-FI9pZzKq7PTo2OwqI35vl9RHLR/zNiOfTEDt9sOQLyQugOtbO6hcHuJozY818ZXNcrq5ctGn9XPBQKUFnLKvsw==
+"@pydantic/monty-linux-x64-gnu@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@pydantic/monty-linux-x64-gnu/-/monty-linux-x64-gnu-0.0.4.tgz#e4201d09843945c6bdfff451d6cada9550cde4d9"
+  integrity sha512-/D2U9SQ2oaiO+lOqR5VYWIjsXjUpFH+omVcxlSVZeUOY4YzF0wRPQbxdoaEwvMJo2NzgRgTMA3Os2Vz/c1PrgQ==
 
-"@pydantic/monty-wasm32-wasi@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@pydantic/monty-wasm32-wasi/-/monty-wasm32-wasi-0.0.3.tgz#575db584ca09cb25cc7417f39632f61740653cac"
-  integrity sha512-e680lVxdsvO5H5/00Ki6YdLeQlg2uR2BBG1lfMbu5KeXRhiqQUvqmvJ7/4fjZK8AZ7F1KUedwWa8VcR3yIri5Q==
+"@pydantic/monty-wasm32-wasi@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@pydantic/monty-wasm32-wasi/-/monty-wasm32-wasi-0.0.4.tgz#f43c7ff4274217334d3cfde1661e0c2142a4e1ac"
+  integrity sha512-kZ25ER/AbJDY96/edYYAg1Qg/TAmP770oZOV2RlImG/Jd2zpd5w3kURYJTkt6pO60vddvxMJaa5cIdnWeoWX3A==
   dependencies:
     "@napi-rs/wasm-runtime" "^1.1.1"
 
-"@pydantic/monty-win32-x64-msvc@0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@pydantic/monty-win32-x64-msvc/-/monty-win32-x64-msvc-0.0.3.tgz#0b1894810e85083cd2bd028edf2ac534d976f4d7"
-  integrity sha512-c6vjZs8LmHMRd2JFk8Zz9104Dts15aqDqx6HDTuIy6arGquJ6V7X8ZXhBGda3zEnY2T/Lg28cd1+uoVNEXF1ew==
+"@pydantic/monty-win32-x64-msvc@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@pydantic/monty-win32-x64-msvc/-/monty-win32-x64-msvc-0.0.4.tgz#c0297e0c03f728620a9d3dc8bc0b75c3e800339c"
+  integrity sha512-NM8L/jn3nTUTIgaq+FV5poK/pzjsz0Bk5VScAx6CSCBuCacE5xS2tIX8AqzSAzT87Vg1gmomI+ZFjmglTh5JhA==
 
-"@pydantic/monty@^0.0.3":
-  version "0.0.3"
-  resolved "https://registry.yarnpkg.com/@pydantic/monty/-/monty-0.0.3.tgz#88e9bf8108d93cabd39531978c193222ab28d26d"
-  integrity sha512-VsidNCYfVVw9XLpan/bteP9LAynDQQpcKwW71mQrfY3Nrs4XUWNXaAdlBGn6rTXfBVHl7D9xCP5WqlYKez2nYQ==
+"@pydantic/monty@0.0.4":
+  version "0.0.4"
+  resolved "https://registry.yarnpkg.com/@pydantic/monty/-/monty-0.0.4.tgz#927ba5d3a54f158fe3b8b2b5cfbf119d94fe383b"
+  integrity sha512-aDAPL2ySH+n5HIxQzu6ZreOsqyuW09ZKEeHkRDQ0SGUjEYoYPrws2D0vLkn7zvbbKEdnbAHkoi9pLgV+WHLqRg==
   optionalDependencies:
-    "@pydantic/monty-darwin-arm64" "0.0.3"
-    "@pydantic/monty-darwin-x64" "0.0.3"
-    "@pydantic/monty-linux-x64-gnu" "0.0.3"
-    "@pydantic/monty-wasm32-wasi" "0.0.3"
-    "@pydantic/monty-win32-x64-msvc" "0.0.3"
+    "@pydantic/monty-darwin-arm64" "0.0.4"
+    "@pydantic/monty-darwin-x64" "0.0.4"
+    "@pydantic/monty-linux-x64-gnu" "0.0.4"
+    "@pydantic/monty-wasm32-wasi" "0.0.4"
+    "@pydantic/monty-win32-x64-msvc" "0.0.4"
 
 "@radix-ui/number@1.1.1":
   version "1.1.1"

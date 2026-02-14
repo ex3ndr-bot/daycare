@@ -1,0 +1,91 @@
+import { describe, expect, it } from "vitest";
+import type { Tool } from "@mariozechner/pi-ai";
+import { Type } from "@sinclair/typebox";
+
+import type { ToolExecutionResult } from "@/types";
+import { rlmArgsConvert, rlmResultConvert } from "./rlmConvert.js";
+
+describe("rlmArgsConvert", () => {
+  const tool = {
+    name: "write_file",
+    description: "",
+    parameters: Type.Object(
+      {
+        path: Type.String(),
+        content: Type.String(),
+        mode: Type.Optional(Type.String())
+      },
+      { additionalProperties: false }
+    )
+  } as unknown as Tool;
+
+  it("maps positional arguments by schema property order", () => {
+    const converted = rlmArgsConvert(["/tmp/a.txt", "hello"], {}, tool);
+
+    expect(converted).toEqual({
+      path: "/tmp/a.txt",
+      content: "hello"
+    });
+  });
+
+  it("merges kwargs and lets kwargs override positional args", () => {
+    const converted = rlmArgsConvert(["/tmp/a.txt", "hello"], { content: "override" }, tool);
+
+    expect(converted).toEqual({
+      path: "/tmp/a.txt",
+      content: "override"
+    });
+  });
+
+  it("converts nested Monty map and bigint values", () => {
+    const converted = rlmArgsConvert(
+      ["/tmp/a.txt", new Map([["count", BigInt(3)]])],
+      {},
+      tool
+    );
+
+    expect(converted).toEqual({
+      path: "/tmp/a.txt",
+      content: {
+        count: 3
+      }
+    });
+  });
+});
+
+describe("rlmResultConvert", () => {
+  it("returns joined text content", () => {
+    const result: ToolExecutionResult = {
+      toolMessage: {
+        role: "toolResult",
+        toolCallId: "1",
+        toolName: "x",
+        content: [
+          { type: "text", text: "hello" },
+          { type: "text", text: "world" }
+        ],
+        isError: false,
+        timestamp: Date.now()
+      },
+      files: []
+    };
+
+    expect(rlmResultConvert(result)).toBe("hello\nworld");
+  });
+
+  it("returns fallback error text for empty error payloads", () => {
+    const result: ToolExecutionResult = {
+      toolMessage: {
+        role: "toolResult",
+        toolCallId: "1",
+        toolName: "x",
+        content: [],
+        isError: true,
+        timestamp: Date.now()
+      },
+      files: []
+    };
+
+    expect(rlmResultConvert(result)).toBe("Tool execution failed.");
+  });
+});

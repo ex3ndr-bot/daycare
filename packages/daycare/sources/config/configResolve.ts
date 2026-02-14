@@ -30,6 +30,7 @@ export function configResolve(
   const frozenSettings = freezeDeep(structuredClone(resolvedSettings));
   const frozenPermissions = freezeDeep(defaultPermissions);
   const verbose = overrides.verbose ?? false;
+  const rlm = resolvedSettings.rlm ?? false;
 
   return freezeDeep({
     settingsPath: resolvedSettingsPath,
@@ -40,6 +41,7 @@ export function configResolve(
     authPath,
     socketPath,
     workspaceDir,
+    rlm,
     settings: frozenSettings,
     defaultPermissions: frozenPermissions,
     verbose

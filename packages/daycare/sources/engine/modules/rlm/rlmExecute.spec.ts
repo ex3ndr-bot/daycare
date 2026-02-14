@@ -1,0 +1,152 @@
+import { describe, expect, it, vi } from "vitest";
+import { Type } from "@sinclair/typebox";
+
+import type { ToolExecutionContext, ToolExecutionResult } from "@/types";
+import type { ToolResolver } from "../toolResolver.js";
+import { rlmExecute } from "./rlmExecute.js";
+import { rlmPreambleBuild } from "./rlmPreambleBuild.js";
+
+const baseTools = [
+  {
+    name: "echo",
+    description: "Echo back text.",
+    parameters: Type.Object({ text: Type.String() }, { additionalProperties: false })
+  },
+  {
+    name: "fail_tool",
+    description: "Always fails.",
+    parameters: Type.Object({}, { additionalProperties: false })
+  }
+];
+
+describe("rlmExecute", () => {
+  it("executes a tool call and returns final output", async () => {
+    const resolver = createResolver(async (name, args) => {
+      if (name !== "echo") {
+        throw new Error(`Unexpected tool ${name}`);
+      }
+      const payload = args as { text: string };
+      return okResult(name, String(payload.text));
+    });
+
+    const result = await rlmExecute(
+      "value = await echo('hello')\nvalue",
+      rlmPreambleBuild(resolver.listTools()),
+      createContext(),
+      resolver
+    );
+
+    expect(result.output).toBe("hello");
+    expect(result.toolCallCount).toBe(1);
+    expect(result.printOutput).toEqual([]);
+  });
+
+  it("supports chained calls and catches tool errors in python", async () => {
+    const resolver = createResolver(async (name, args) => {
+      if (name === "echo") {
+        const payload = args as { text: string };
+        return okResult(name, `echo:${payload.text}`);
+      }
+      if (name === "fail_tool") {
+        return errorResult(name, "boom");
+      }
+      throw new Error(`Unexpected tool ${name}`);
+    });
+
+    const code = [
+      "first = await echo('one')",
+      "try:",
+      "    await fail_tool()",
+      "except ToolError:",
+      "    pass",
+      "second = await echo(first)",
+      "second"
+    ].join("\n");
+
+    const result = await rlmExecute(
+      code,
+      rlmPreambleBuild(resolver.listTools()),
+      createContext(),
+      resolver
+    );
+
+    expect(result.output).toBe("echo:echo:one");
+    expect(result.toolCallCount).toBe(3);
+  });
+
+  it("captures print output", async () => {
+    const resolver = createResolver(async (name) => {
+      throw new Error(`Unexpected tool ${name}`);
+    });
+
+    const result = await rlmExecute(
+      "print('hello', 'world')\n'done'",
+      rlmPreambleBuild(resolver.listTools()),
+      createContext(),
+      resolver
+    );
+
+    expect(result.output).toBe("done");
+    expect(result.printOutput).toEqual(["hello world"]);
+    expect(result.toolCallCount).toBe(0);
+  });
+});
+
+function createResolver(
+  handler: (name: string, args: unknown) => Promise<ToolExecutionResult>
+): ToolResolver {
+  return {
+    listTools: () => baseTools,
+    execute: vi.fn(async (toolCall) => handler(toolCall.name, toolCall.arguments))
+  } as unknown as ToolResolver;
+}
+
+function createContext(): ToolExecutionContext {
+  return {
+    connectorRegistry: null as unknown as ToolExecutionContext["connectorRegistry"],
+    fileStore: null as unknown as ToolExecutionContext["fileStore"],
+    auth: null as unknown as ToolExecutionContext["auth"],
+    logger: console as unknown as ToolExecutionContext["logger"],
+    assistant: null,
+    permissions: {
+      workingDir: "/tmp",
+      writeDirs: [],
+      readDirs: [],
+      network: false,
+      events: false
+    },
+    agent: null as unknown as ToolExecutionContext["agent"],
+    source: "test",
+    messageContext: {},
+    agentSystem: null as unknown as ToolExecutionContext["agentSystem"],
+    heartbeats: null as unknown as ToolExecutionContext["heartbeats"]
+  };
+}
+
+function okResult(name: string, text: string): ToolExecutionResult {
+  return {
+    toolMessage: {
+      role: "toolResult",
+      toolCallId: "1",
+      toolName: name,
+      content: [{ type: "text", text }],
+      isError: false,
+      timestamp: Date.now()
+    },
+    files: []
+  };
+}
+
+function errorResult(name: string, text: string): ToolExecutionResult {
+  return {
+    toolMessage: {
+      role: "toolResult",
+      toolCallId: "1",
+      toolName: name,
+      content: [{ type: "text", text }],
+      isError: true,
+      timestamp: Date.now()
+    },
+    files: []
+  };
+}

@@ -44,6 +44,7 @@ import { topologyToolBuild } from "./modules/tools/topologyToolBuild.js";
 import { Crons } from "./cron/crons.js";
 import { Heartbeats } from "./heartbeat/heartbeats.js";
 import { toolListContextBuild } from "./modules/tools/toolListContextBuild.js";
+import { rlmToolBuild } from "./modules/rlm/rlmTool.js";
 import { EngineEventBus } from "./ipc/events.js";
 import { ProviderManager } from "../providers/manager.js";
 import { agentDescriptorLabel } from "./agents/ops/agentDescriptorLabel.js";
@@ -344,6 +345,9 @@ export class Engine {
     this.modules.tools.register("core", buildSignalUnsubscribeTool(this.signals));
     this.modules.tools.register("core", buildPermissionRequestTool());
     this.modules.tools.register("core", buildPermissionGrantTool());
+    if (this.config.current.rlm) {
+      this.modules.tools.register("core", rlmToolBuild(this.modules.tools));
+    }
     logger.debug(
       "register: Core tools registered: cron, cron_memory, heartbeat, topology, background, session_history, permanent_agents, channels, image_generation, mermaid_png, reaction, send_file, generate_signal, signal_subscribe, signal_unsubscribe, request_permission, grant_permission"
     );
@@ -417,6 +421,7 @@ export class Engine {
       source,
       agentKind: options?.agentKind,
       allowCronTools: options?.allowCronTools,
+      rlm: this.config.current.rlm,
       connectorRegistry: this.modules.connectors,
       imageRegistry: this.modules.images
     });
