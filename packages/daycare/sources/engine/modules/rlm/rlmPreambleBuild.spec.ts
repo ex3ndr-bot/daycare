@@ -5,7 +5,7 @@ import { Type } from "@sinclair/typebox";
 import { rlmPreambleBuild } from "./rlmPreambleBuild.js";
 
 describe("rlmPreambleBuild", () => {
-  it("generates async stubs with python hints", () => {
+  it("generates sync stubs with python hints", () => {
     const tools = [
       {
         name: "read_file",
@@ -23,7 +23,7 @@ describe("rlmPreambleBuild", () => {
 
     const preamble = rlmPreambleBuild(tools);
 
-    expect(preamble).toContain("async def read_file(path: str, retries: int | None = None, verbose: bool | None = None) -> str:");
+    expect(preamble).toContain("def read_file(path: str, retries: int | None = None, verbose: bool | None = None) -> str:");
     expect(preamble).toContain('"""Read a file from disk."""');
     expect(preamble).toContain("def __daycare_print__(*values: Any) -> None:");
     expect(preamble).toContain("ToolError = RuntimeError");
@@ -50,8 +50,8 @@ describe("rlmPreambleBuild", () => {
 
     const preamble = rlmPreambleBuild(tools);
 
-    expect(preamble).not.toContain("async def run_python");
-    expect(preamble).not.toContain("async def search-v2");
-    expect(preamble).toContain("async def search_v2(query: str) -> str:");
+    expect(preamble).not.toContain("def run_python");
+    expect(preamble).not.toContain("def search-v2");
+    expect(preamble).toContain("def search_v2(query: str) -> str:");
   });
 });

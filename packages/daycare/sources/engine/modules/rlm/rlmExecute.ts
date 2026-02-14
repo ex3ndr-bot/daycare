@@ -34,7 +34,7 @@ export async function rlmExecute(
     .filter((tool) => tool.name !== RLM_TOOL_NAME);
   const toolByName = new Map(availableTools.map((tool) => [tool.name, tool]));
   const externalFunctions = [...toolByName.keys(), RLM_PRINT_FUNCTION_NAME];
-  const rewrittenCode = awaitCallsRewrite(printCallsRewrite(code), externalFunctions);
+  const rewrittenCode = printCallsRewrite(code);
   const script = [preamble.trim(), rewrittenCode].filter((chunk) => chunk.length > 0).join("\n\n");
   const monty = new Monty(script, {
     scriptName: "run_python.py",
@@ -115,20 +115,6 @@ export async function rlmExecute(
 
 function printCallsRewrite(code: string): string {
   return code.replace(/(^|[^A-Za-z0-9_])print\s*\(/gm, `$1${RLM_PRINT_FUNCTION_NAME}(`);
-}
-
-function awaitCallsRewrite(code: string, functionNames: string[]): string {
-  let output = code;
-  for (const name of functionNames) {
-    const escaped = regexEscape(name);
-    const pattern = new RegExp(`\\bawait\\s+${escaped}\\s*\\(`, "g");
-    output = output.replace(pattern, `${name}(`);
-  }
-  return output;
-}
-
-function regexEscape(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function printLineBuild(args: unknown[]): string {

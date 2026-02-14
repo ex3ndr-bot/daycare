@@ -3,13 +3,13 @@ import type { Tool } from "@mariozechner/pi-ai";
 import { RLM_PRINT_FUNCTION_NAME, RLM_TOOL_NAME } from "./rlmConstants.js";
 
 /**
- * Builds a Python preamble containing async tool stubs for the current tool surface.
+ * Builds a Python preamble containing synchronous tool stubs for the current tool surface.
  * Expects: tool names are unique and come from ToolResolver.listTools().
  */
 export function rlmPreambleBuild(tools: Tool[]): string {
   const lines: string[] = [
-    "# You have the following tools available as Python async functions.",
-    "# Call tool functions with `await`.",
+    "# You have the following tools available as Python functions.",
+    "# Call tool functions directly (no await).",
     "# Tool failures raise ToolError (alias of RuntimeError).",
     "# Use print() for debug logs; the last expression is returned.",
     "",
@@ -37,7 +37,7 @@ export function rlmPreambleBuild(tools: Tool[]): string {
     const signature = pythonSignatureBuild(tool);
     const description = pythonDocstringEscape(tool.description?.trim() || "No description.");
 
-    lines.push(`    async def ${tool.name}(${signature}) -> str:`);
+    lines.push(`    def ${tool.name}(${signature}) -> str:`);
     lines.push(`        \"\"\"${description}\"\"\"`);
     lines.push("        ...");
     lines.push("");

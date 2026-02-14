@@ -31,7 +31,7 @@ describe("rlmToolBuild", () => {
     const tool = rlmToolBuild(resolver);
 
     const result = await tool.execute(
-      { code: "print('debug')\nvalue = await echo('hello')\nvalue" },
+      { code: "print('debug')\nvalue = echo('hello')\nvalue" },
       createContext(),
       { id: "tool-call-1", name: "run_python" }
     );

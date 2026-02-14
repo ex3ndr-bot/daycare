@@ -16,7 +16,7 @@ export function rlmToolDescriptionBuild(tools: Tool[]): string {
     preamble,
     "```",
     "",
-    "Use `await` when calling tool functions.",
+    "Call tool functions directly (no `await`).",
     "Use `try/except ToolError` for tool failures.",
     "Use `print()` for debug output.",
     "The value of the final expression is returned."

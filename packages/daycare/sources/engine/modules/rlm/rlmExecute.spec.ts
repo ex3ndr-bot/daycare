@@ -30,7 +30,7 @@ describe("rlmExecute", () => {
     });
 
     const result = await rlmExecute(
-      "value = await echo('hello')\nvalue",
+      "value = echo('hello')\nvalue",
       rlmPreambleBuild(resolver.listTools()),
       createContext(),
       resolver
@@ -54,12 +54,12 @@ describe("rlmExecute", () => {
     });
 
     const code = [
-      "first = await echo('one')",
+      "first = echo('one')",
       "try:",
-      "    await fail_tool()",
+      "    fail_tool()",
       "except ToolError:",
       "    pass",
-      "second = await echo(first)",
+      "second = echo(first)",
       "second"
     ].join("\n");
 

@@ -103,6 +103,6 @@ describe("toolListContextBuild", () => {
 
     expect(result.map((tool) => tool.name)).toEqual(["run_python"]);
     expect(result[0]?.description).toContain("The following functions are available:");
-    expect(result[0]?.description).toContain("async def other() -> str:");
+    expect(result[0]?.description).toContain("def other() -> str:");
   });
 });

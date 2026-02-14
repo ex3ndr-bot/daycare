@@ -1,7 +1,7 @@
 # RLM (run_python)
 
 RLM mode exposes a single `run_python` tool to the model. The model writes Monty-compatible
-Python and calls normal Daycare tools through generated async stubs.
+Python and calls normal Daycare tools through generated sync stubs.
 
 ## Enable
 
@@ -17,7 +17,7 @@ When enabled:
 Each stub is rendered as:
 
 ```python
-async def tool_name(arg1: type, arg2: type) -> str:
+def tool_name(arg1: type, arg2: type) -> str:
     """Tool description"""
     ...
 ```
