@@ -19,8 +19,32 @@ describe("rlmArgsConvert", () => {
     )
   } as unknown as Tool;
 
-  it("maps positional arguments by schema property order", () => {
+  it("maps positional arguments by generated stub parameter order", () => {
     const converted = rlmArgsConvert(["/tmp/a.txt", "hello"], {}, tool);
+
+    expect(converted).toEqual({
+      path: "/tmp/a.txt",
+      content: "hello"
+    });
+  });
+
+  it("maps positional arguments required-first when optional keys appear first", () => {
+    const reorderedTool = {
+      name: "write_file",
+      description: "",
+      parameters: {
+        type: "object",
+        properties: {
+          mode: { type: "string" },
+          path: { type: "string" },
+          content: { type: "string" }
+        },
+        required: ["path", "content"],
+        additionalProperties: false
+      }
+    } as unknown as Tool;
+
+    const converted = rlmArgsConvert(["/tmp/a.txt", "hello"], {}, reorderedTool);
 
     expect(converted).toEqual({
       path: "/tmp/a.txt",

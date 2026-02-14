@@ -1,6 +1,7 @@
 import type { Tool } from "@mariozechner/pi-ai";
 
 import { RLM_PRINT_FUNCTION_NAME, RLM_TOOL_NAME } from "./rlmConstants.js";
+import { rlmParameterEntriesBuild } from "./rlmParameterEntriesBuild.js";
 
 /**
  * Builds a Python preamble containing synchronous tool stubs for the current tool surface.
@@ -51,55 +52,19 @@ export function rlmPreambleBuild(tools: Tool[]): string {
 }
 
 function pythonSignatureBuild(tool: Tool): string {
-  const parameters = parametersSchemaResolve(tool);
-  const properties = propertiesSchemaResolve(parameters.properties);
-  const required = new Set(requiredListResolve(parameters.required));
+  const parameterEntries = rlmParameterEntriesBuild(tool);
+  const signatureEntries: string[] = [];
 
-  const requiredEntries: string[] = [];
-  const optionalEntries: string[] = [];
-  for (const [name, schema] of Object.entries(properties)) {
-    if (!pythonIdentifierIs(name)) {
-      continue;
-    }
+  for (const { name, schema, required } of parameterEntries) {
     const typeHint = pythonTypeFromSchema(schema);
-    if (required.has(name)) {
-      requiredEntries.push(`${name}: ${typeHint}`);
+    if (required) {
+      signatureEntries.push(`${name}: ${typeHint}`);
       continue;
     }
-    optionalEntries.push(`${name}: ${typeHint} | None = None`);
+    signatureEntries.push(`${name}: ${typeHint} | None = None`);
   }
 
-  const entries = [...requiredEntries, ...optionalEntries];
-  return entries.join(", ");
-}
-
-function parametersSchemaResolve(tool: Tool): {
-  properties?: Record<string, unknown>;
-  required?: unknown;
-} {
-  const schema = tool.parameters as unknown;
-  if (!recordIs(schema)) {
-    return {};
-  }
-
-  return {
-    properties: recordIs(schema.properties) ? schema.properties : undefined,
-    required: schema.required
-  };
-}
-
-function propertiesSchemaResolve(value: unknown): Record<string, unknown> {
-  if (!recordIs(value)) {
-    return {};
-  }
-  return value;
-}
-
-function requiredListResolve(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter((entry): entry is string => typeof entry === "string");
+  return signatureEntries.join(", ");
 }
 
 function pythonTypeFromSchema(schema: unknown): string {

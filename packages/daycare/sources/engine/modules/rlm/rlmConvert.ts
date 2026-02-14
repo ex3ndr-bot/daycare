@@ -2,17 +2,18 @@ import type { JsMontyObject } from "@pydantic/monty";
 import type { Tool } from "@mariozechner/pi-ai";
 
 import type { ToolExecutionResult } from "@/types";
+import { rlmParameterEntriesBuild } from "./rlmParameterEntriesBuild.js";
 
 /**
  * Converts Monty positional/keyword arguments into the JSON object expected by tool execution.
- * Expects: positional argument order matches tool parameter property order.
+ * Expects: positional argument order matches generated Python stub parameter order.
  */
 export function rlmArgsConvert(
   args: JsMontyObject[],
   kwargs: Record<string, JsMontyObject>,
   toolSchema: Tool
 ): unknown {
-  const propertyNames = toolParameterNamesResolve(toolSchema);
+  const propertyNames = rlmParameterEntriesBuild(toolSchema).map((entry) => entry.name);
   const output: Record<string, unknown> = {};
 
   for (let index = 0; index < args.length; index += 1) {
@@ -54,19 +55,6 @@ export function rlmResultConvert(toolResult: ToolExecutionResult): JsMontyObject
   }
 
   return "";
-}
-
-function toolParameterNamesResolve(tool: Tool): string[] {
-  if (!recordIs(tool.parameters)) {
-    return [];
-  }
-
-  const properties = tool.parameters.properties;
-  if (!recordIs(properties)) {
-    return [];
-  }
-
-  return Object.keys(properties);
 }
 
 function montyValueConvert(value: unknown): unknown {
