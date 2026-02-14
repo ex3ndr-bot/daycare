@@ -25,16 +25,15 @@ import { buildSendFileTool } from "./modules/tools/send-file.js";
 import { buildSignalGenerateTool } from "./modules/tools/signal.js";
 import { buildSignalSubscribeTool } from "./modules/tools/signalSubscribeToolBuild.js";
 import { buildSignalUnsubscribeTool } from "./modules/tools/signalUnsubscribeToolBuild.js";
-import { agentListToolBuild } from "./modules/tools/agentListToolBuild.js";
 import { sessionHistoryToolBuild } from "./modules/tools/sessionHistoryToolBuild.js";
 import { permanentAgentToolBuild } from "./modules/tools/permanentAgentToolBuild.js";
 import {
   buildHeartbeatAddTool,
-  buildHeartbeatListTool,
   buildHeartbeatRemoveTool,
   buildHeartbeatRunTool
 } from "./modules/tools/heartbeat.js";
 import { buildSendAgentMessageTool, buildStartBackgroundAgentTool } from "./modules/tools/background.js";
+import { topologyToolBuild } from "./modules/tools/topologyToolBuild.js";
 import { Crons } from "./cron/crons.js";
 import { Heartbeats } from "./heartbeat/heartbeats.js";
 import { toolListContextBuild } from "./modules/tools/toolListContextBuild.js";
@@ -302,11 +301,10 @@ export class Engine {
     this.modules.tools.register("core", buildCronDeleteTaskTool(this.crons));
     this.modules.tools.register("core", buildHeartbeatRunTool());
     this.modules.tools.register("core", buildHeartbeatAddTool());
-    this.modules.tools.register("core", buildHeartbeatListTool());
     this.modules.tools.register("core", buildHeartbeatRemoveTool());
     this.modules.tools.register("core", buildStartBackgroundAgentTool());
     this.modules.tools.register("core", buildSendAgentMessageTool());
-    this.modules.tools.register("core", agentListToolBuild());
+    this.modules.tools.register("core", topologyToolBuild(this.crons, this.signals));
     this.modules.tools.register("core", sessionHistoryToolBuild());
     this.modules.tools.register("core", permanentAgentToolBuild());
     this.modules.tools.register("core", buildImageGenerationTool(this.modules.images));
@@ -319,7 +317,7 @@ export class Engine {
     this.modules.tools.register("core", buildPermissionRequestTool());
     this.modules.tools.register("core", buildPermissionGrantTool());
     logger.debug(
-      "register: Core tools registered: cron, cron_memory, heartbeat, background, agent_listing, session_history, permanent_agents, image_generation, mermaid_png, reaction, send_file, generate_signal, signal_subscribe, signal_unsubscribe, request_permission, grant_permission"
+      "register: Core tools registered: cron, cron_memory, heartbeat, topology, background, session_history, permanent_agents, image_generation, mermaid_png, reaction, send_file, generate_signal, signal_subscribe, signal_unsubscribe, request_permission, grant_permission"
     );
 
     logger.debug("start: Starting agent system");

@@ -1,15 +1,26 @@
-# Agent List Tools
+# Topology Tool
 
-Daycare includes one listing tool for session/agent discovery:
+Daycare provides a unified `topology` tool for runtime discovery. It returns:
 
-- `list_agents`: all persisted agents (user + background) with ids, type, name/label, lifecycle, and descriptor-specific metadata.
+- persisted agents (`agentList(config)`)
+- cron tasks (`crons.listTasks()`)
+- heartbeat tasks (`heartbeats.listTasks()`)
+- signal subscriptions (`signals.listSubscriptions()`)
 
-The tool returns a machine-readable `details` payload with `count` and `agents`.
+Items belonging to the calling agent are marked with `(You)` in text output and `isYou: true` in `details`.
 
 ```mermaid
 flowchart TD
-  A[Tool call list_agents] --> B[agentList]
-  B --> C[descriptor + state from disk]
-  C --> D[sorted agent summaries]
-  D --> E[text output + details.count + details.agents]
+  A[Tool call topology] --> B[agentList]
+  A --> C[crons.listTasks]
+  A --> D[heartbeats.listTasks]
+  A --> E[signals.listSubscriptions]
+  B --> F[agents section]
+  C --> G[cron section]
+  D --> H[heartbeat section]
+  E --> I[subscriptions section]
+  F --> J[text + details]
+  G --> J
+  H --> J
+  I --> J
 ```

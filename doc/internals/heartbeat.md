@@ -78,6 +78,6 @@ flowchart TD
 ## Tools
 
 - `heartbeat_add` creates or updates a heartbeat prompt.
-- `heartbeat_list` lists available heartbeat prompts.
 - `heartbeat_run` runs the batch immediately.
 - `heartbeat_remove` deletes a heartbeat prompt.
+- `topology` lists heartbeat tasks alongside agents, cron tasks, and signal subscriptions.

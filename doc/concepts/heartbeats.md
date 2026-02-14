@@ -56,6 +56,6 @@ Works identically to cron gates. Exit code `0` includes the task; non-zero skips
 | Tool | Description |
 |------|-------------|
 | `heartbeat_add` | Create or update a heartbeat prompt |
-| `heartbeat_list` | List available heartbeat prompts |
 | `heartbeat_run` | Run the batch immediately |
 | `heartbeat_remove` | Delete a heartbeat prompt |
+| `topology` | View heartbeat tasks with agents, cron tasks, and signal subscriptions |

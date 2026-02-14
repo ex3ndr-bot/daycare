@@ -56,8 +56,6 @@ const addSchema = Type.Object(
   { additionalProperties: false }
 );
 
-const listSchema = Type.Object({}, { additionalProperties: false });
-
 const removeSchema = Type.Object(
   {
     id: Type.String({ minLength: 1 })
@@ -135,49 +133,6 @@ export function buildHeartbeatAddTool(): ToolDefinition {
           title: result.title,
           filePath: result.filePath,
           gate: result.gate ?? null
-        },
-        isError: false,
-        timestamp: Date.now()
-      };
-
-      return { toolMessage, files: [] };
-    }
-  };
-}
-
-export function buildHeartbeatListTool(): ToolDefinition {
-  return {
-    tool: {
-      name: "heartbeat_list",
-      description: "List available heartbeat tasks.",
-      parameters: listSchema
-    },
-    execute: async (_args, toolContext, toolCall) => {
-      const tasks = await toolContext.heartbeats.listTasks();
-      const text = tasks.length > 0
-        ? tasks
-          .map((task) =>
-            `${task.id}: ${task.title}${
-              task.lastRunAt ? ` (last run ${task.lastRunAt})` : ""
-            }`
-          )
-          .join("\n")
-        : "No heartbeat tasks found.";
-
-      const toolMessage: ToolResultMessage = {
-        role: "toolResult",
-        toolCallId: toolCall.id,
-        toolName: toolCall.name,
-        content: [{ type: "text", text }],
-        details: {
-          tasks: tasks.map((task) => ({
-            id: task.id,
-            title: task.title,
-            prompt: task.prompt,
-            filePath: task.filePath,
-            gate: task.gate ?? null,
-            lastRunAt: task.lastRunAt ?? null
-          }))
         },
         isError: false,
         timestamp: Date.now()

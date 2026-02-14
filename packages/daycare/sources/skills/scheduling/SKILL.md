@@ -31,7 +31,7 @@ Use heartbeats when:
 - Prompts evolve over time and need periodic review
 - Lightweight status checks or reminders
 
-**Heartbeat tools:** `heartbeat_add`, `heartbeat_list`, `heartbeat_run`, `heartbeat_remove`
+**Heartbeat tools:** `heartbeat_add`, `heartbeat_run`, `heartbeat_remove` (use `topology` to inspect tasks)
 
 ## Optional Exec Gate
 
@@ -114,7 +114,7 @@ If the API is down, notify me with a short summary.
 3. Each task gets isolated agent, memory file, and workspace
 
 **For heartbeats:**
-1. Run `heartbeat_list` to see existing tasks
+1. Run `topology` to see existing heartbeat tasks and ownership
 2. Use `heartbeat_add` with title and prompt (optional `gate`)
 3. Use `heartbeat_run` to trigger immediately
 4. Use `heartbeat_remove` for cleanup
