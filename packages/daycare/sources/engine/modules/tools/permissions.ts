@@ -110,8 +110,40 @@ export function buildPermissionRequestTool(): ToolDefinition {
         }
         return { permission, access };
       });
+      const targetPermissions = await toolContext.agentSystem.permissionsForTarget({
+        agentId: requestedAgentId
+      });
+      const missingPermissions: PermissionEntry[] = [];
+      for (const requestedPermission of requestedPermissions) {
+        const hasPermission = await permissionAccessAllows(
+          targetPermissions,
+          requestedPermission.access
+        );
+        if (!hasPermission) {
+          missingPermissions.push(requestedPermission);
+        }
+      }
 
-      const friendly = requestedPermissions
+      if (missingPermissions.length === 0) {
+        const permissionLabel = permissionSummaryBuild(requestedPermissions);
+        const permissionNoun = requestedPermissions.length === 1 ? "Permission" : "Permissions";
+        const toolMessage: ToolResultMessage = {
+          role: "toolResult",
+          toolCallId: toolCall.id,
+          toolName: toolCall.name,
+          content: [{ type: "text", text: `${permissionNoun} already granted for ${permissionLabel}.` }],
+          details: {
+            permissions: permissionTags,
+            agentId: requestedAgentId,
+            approved: true
+          },
+          isError: false,
+          timestamp: Date.now()
+        };
+        return { toolMessage, files: [] };
+      }
+
+      const friendly = missingPermissions
         .map((entry) => `- ${describePermission(entry.access)}`)
         .join("\n");
       const requesterLabel = agentDescriptorLabel(requestedDescriptor);
@@ -127,7 +159,7 @@ export function buildPermissionRequestTool(): ToolDefinition {
         agentId: requestedAgentId,
         reason,
         message: text,
-        permissions: requestedPermissions,
+        permissions: missingPermissions,
         requester: {
           id: requestedAgentId,
           type: requestedDescriptor.type,
@@ -152,7 +184,7 @@ export function buildPermissionRequestTool(): ToolDefinition {
 
       if (!isForeground && requestedDescriptor.type !== "user") {
         const agentName = agentDescriptorLabel(requestedDescriptor);
-        const requestedPermissionLines = requestedPermissions
+        const requestedPermissionLines = missingPermissions
           .map((entry) => `- ${entry.permission}`)
           .join("\n");
         const notice = [

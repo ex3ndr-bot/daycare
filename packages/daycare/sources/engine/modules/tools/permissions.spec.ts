@@ -37,11 +37,7 @@ describe("buildPermissionRequestTool", () => {
       toolCall
     );
 
-    await Promise.resolve();
-    const request = requestPermission.mock.calls[0]?.[1] as PermissionRequest | undefined;
-    if (!request) {
-      throw new Error("Expected permission request payload");
-    }
+    const request = await permissionRequestWait(requestPermission);
 
     await registryResolveWhenReady(
       registry,
@@ -89,11 +85,7 @@ describe("buildPermissionRequestTool", () => {
       toolCall
     );
 
-    await Promise.resolve();
-    const request = requestPermission.mock.calls[0]?.[1] as PermissionRequest | undefined;
-    if (!request) {
-      throw new Error("Expected permission request payload");
-    }
+    const request = await permissionRequestWait(requestPermission);
 
     await registryResolveWhenReady(
       registry,
@@ -137,11 +129,7 @@ describe("buildPermissionRequestTool", () => {
       toolCall
     );
 
-    await Promise.resolve();
-    const request = requestPermission.mock.calls[0]?.[1] as PermissionRequest | undefined;
-    if (!request) {
-      throw new Error("Expected permission request payload");
-    }
+    const request = await permissionRequestWait(requestPermission);
 
     await registryResolveWhenReady(
       registry,
@@ -169,6 +157,91 @@ describe("buildPermissionRequestTool", () => {
     );
     expect(contentText(result.toolMessage.content)).toBe(
       "Permissions granted for network access, read access to /tmp."
+    );
+  });
+
+  it("returns immediately when requested permissions are already granted", async () => {
+    const registry = new PermissionRequestRegistry();
+    const grantPermission = vi.fn(async () => undefined);
+    const requestPermission = vi.fn(
+      async (
+        _targetId: string,
+        _request: PermissionRequest,
+        _context: unknown,
+        _descriptor: unknown
+      ) => undefined
+    );
+
+    const context = contextBuild({
+      registry,
+      connector: { requestPermission },
+      agentSystem: { grantPermission },
+      permissions: permissionsBuild({ network: true })
+    });
+
+    const result = await buildPermissionRequestTool().execute(
+      { permissions: ["@network"], reason: "Need web access" },
+      context,
+      toolCall
+    );
+
+    expect(requestPermission).not.toHaveBeenCalled();
+    expect(grantPermission).not.toHaveBeenCalled();
+    expect(result.toolMessage.isError).toBe(false);
+    expect(contentText(result.toolMessage.content)).toBe(
+      "Permission already granted for network access."
+    );
+  });
+
+  it("requests only permissions that are still missing", async () => {
+    const registry = new PermissionRequestRegistry();
+    const grantPermission = vi.fn(async () => undefined);
+    const requestPermission = vi.fn(
+      async (
+        _targetId: string,
+        _request: PermissionRequest,
+        _context: unknown,
+        _descriptor: unknown
+      ) => undefined
+    );
+
+    const context = contextBuild({
+      registry,
+      connector: { requestPermission },
+      agentSystem: { grantPermission },
+      permissions: permissionsBuild({ network: true })
+    });
+
+    const pending = buildPermissionRequestTool().execute(
+      { permissions: ["@network", "@read:/tmp"], reason: "Need web and files" },
+      context,
+      toolCall
+    );
+
+    const request = await permissionRequestWait(requestPermission);
+    expect(request.permissions).toEqual([
+      { permission: "@read:/tmp", access: { kind: "read", path: "/tmp" } }
+    ]);
+
+    await registryResolveWhenReady(
+      registry,
+      decisionBuild({
+        token: request.token,
+        agentId: request.agentId,
+        approved: true,
+        permissions: request.permissions
+      })
+    );
+
+    const result = await pending;
+    expect(grantPermission).toHaveBeenCalledTimes(1);
+    expect(grantPermission).toHaveBeenCalledWith(
+      { agentId: "agent-1" },
+      { kind: "read", path: "/tmp" },
+      expect.objectContaining({ source: "telegram" })
+    );
+    expect(contentText(result.toolMessage.content)).toBe(
+      "Permission granted for read access to /tmp."
     );
   });
 
@@ -261,11 +334,7 @@ describe("buildPermissionRequestTool", () => {
       toolCall
     );
 
-    await Promise.resolve();
-    const request = requestPermission.mock.calls[0]?.[1] as PermissionRequest | undefined;
-    if (!request) {
-      throw new Error("Expected permission request payload");
-    }
+    const request = await permissionRequestWait(requestPermission);
 
     await registryResolveWhenReady(
       registry,
@@ -307,7 +376,11 @@ function contextBuild(options: {
     post?: (...args: unknown[]) => Promise<void>;
     agentFor?: (strategy: "most-recent-foreground" | "heartbeat") => string | null;
     getAgentDescriptor?: (agentId: string) => AgentDescriptor | null;
+    permissionsForTarget?: (
+      target: { agentId: string } | { descriptor: AgentDescriptor }
+    ) => Promise<SessionPermissions>;
   };
+  permissions?: SessionPermissions;
 }): ToolExecutionContext {
   const descriptor: AgentDescriptor =
     options.descriptor ?? {
@@ -316,6 +389,7 @@ function contextBuild(options: {
       userId: "u1",
       channelId: "c1"
     };
+  const permissions = options.permissions ?? permissionsBuild();
 
   const connector = {
     requestPermission: options.connector?.requestPermission,
@@ -330,12 +404,12 @@ function contextBuild(options: {
     auth: null as unknown as ToolExecutionContext["auth"],
     logger: console as unknown as ToolExecutionContext["logger"],
     assistant: null,
-    permissions: permissionsBuild(),
+    permissions,
     agent: {
       id: "agent-1",
       descriptor,
       state: {
-        permissions: permissionsBuild()
+        permissions
       }
     } as unknown as ToolExecutionContext["agent"],
     source: "telegram",
@@ -344,20 +418,23 @@ function contextBuild(options: {
       grantPermission: options.agentSystem?.grantPermission ?? (async () => undefined),
       post: options.agentSystem?.post ?? (async () => undefined),
       agentFor: options.agentSystem?.agentFor ?? (() => "agent-1"),
-      getAgentDescriptor: options.agentSystem?.getAgentDescriptor ?? (() => descriptor)
+      getAgentDescriptor: options.agentSystem?.getAgentDescriptor ?? (() => descriptor),
+      permissionsForTarget:
+        options.agentSystem?.permissionsForTarget ?? (async () => permissions)
     } as unknown as ToolExecutionContext["agentSystem"],
     heartbeats: null as unknown as ToolExecutionContext["heartbeats"],
     permissionRequestRegistry: options.registry
   };
 }
 
-function permissionsBuild(): SessionPermissions {
+function permissionsBuild(overrides: Partial<SessionPermissions> = {}): SessionPermissions {
   return {
     workingDir: "/workspace",
     writeDirs: ["/workspace"],
     readDirs: ["/workspace"],
     network: false,
-    events: false
+    events: false,
+    ...overrides
   };
 }
 
@@ -384,6 +461,19 @@ async function registryResolveWhenReady(
     await Promise.resolve();
   }
   throw new Error("Permission token was never registered.");
+}
+
+async function permissionRequestWait(
+  requestPermission: { mock: { calls: unknown[][] } }
+): Promise<PermissionRequest> {
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    const request = requestPermission.mock.calls[0]?.[1] as PermissionRequest | undefined;
+    if (request) {
+      return request;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  }
+  throw new Error("Expected permission request payload");
 }
 
 function contentText(content: unknown): string {
