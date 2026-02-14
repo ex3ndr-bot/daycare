@@ -8,6 +8,8 @@ import type { AgentSkill, SkillSource } from "./skillTypes.js";
 type SkillFrontmatter = {
   name?: string;
   description?: string;
+  sandbox?: boolean;
+  permissions?: string[];
 };
 
 const logger = getLogger("engine.skills");
@@ -46,6 +48,8 @@ export async function skillResolve(
     id,
     name,
     description,
+    sandbox: metadata.sandbox,
+    permissions: metadata.permissions,
     path: resolvedPath,
     source: source.source,
     pluginId: source.source === "plugin" ? source.pluginId : undefined
@@ -124,6 +128,18 @@ function skillYamlFrontmatterParse(lines: string[]): SkillFrontmatter {
     if (key === "description") {
       result.description = normalized;
     }
+    if (key === "sandbox") {
+      const sandbox = skillYamlBooleanParse(normalized);
+      if (typeof sandbox === "boolean") {
+        result.sandbox = sandbox;
+      }
+    }
+    if (key === "permissions") {
+      const permissions = skillYamlPermissionsParse(value);
+      if (permissions.length > 0) {
+        result.permissions = permissions;
+      }
+    }
   }
 
   return result;
@@ -192,6 +208,58 @@ function skillYamlDoubleUnescape(value: string): string {
     .replace(/\\r/g, "\r")
     .replace(/\\"/g, '"')
     .replace(/\\\\/g, "\\");
+}
+
+function skillYamlBooleanParse(value: string): boolean | undefined {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true" || normalized === "yes" || normalized === "on") {
+    return true;
+  }
+  if (normalized === "false" || normalized === "no" || normalized === "off") {
+    return false;
+  }
+  return undefined;
+}
+
+function skillYamlPermissionsParse(value: string): string[] {
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return [];
+  }
+
+  const entries: string[] = [];
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    const inline = trimmed.slice(1, -1).trim();
+    if (inline.length === 0) {
+      return [];
+    }
+    for (const item of inline.split(",")) {
+      const normalized = skillYamlValueNormalize(item.trim());
+      if (normalized.length > 0) {
+        entries.push(normalized);
+      }
+    }
+    return Array.from(new Set(entries));
+  }
+
+  for (const line of trimmed.split(/\r?\n/)) {
+    const match = line.match(/^\s*-\s*(.*)$/);
+    if (!match) {
+      continue;
+    }
+    const raw = match[1]?.trim() ?? "";
+    const normalized = skillYamlValueNormalize(raw);
+    if (normalized.length > 0) {
+      entries.push(normalized);
+    }
+  }
+
+  if (entries.length > 0) {
+    return Array.from(new Set(entries));
+  }
+
+  const single = skillYamlValueNormalize(trimmed);
+  return single.length > 0 ? [single] : [];
 }
 
 function skillIdBuild(filePath: string, source: SkillSource, root?: string): string {

@@ -204,7 +204,7 @@ type PluginRegistrar = {
   unregisterImageProvider(id: string): void;
 
   // Skills
-  registerSkill(path: string): void; // SKILL.md must follow the Agent Skills specification.
+  registerSkill(path: string): void; // SKILL.md metadata powers the `skill` tool.
   unregisterSkill(path: string): void;
 
   // Cleanup all registrations
@@ -213,6 +213,12 @@ type PluginRegistrar = {
 ```
 
 All registrations are automatically cleaned up when the plugin unloads.
+
+### Plugin-registered skills and sandboxing
+
+Plugin skills are listed alongside core/config/user skills and invoked through the `skill` tool. `SKILL.md` supports:
+- `sandbox: true` to run the skill in a forked subagent.
+- `permissions: [...]` to grant explicit permission tags to that subagent (validated against the caller's permissions).
 
 ---
 

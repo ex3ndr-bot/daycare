@@ -65,8 +65,14 @@ skill-name/
 
 Every SKILL.md consists of:
 
-- **Frontmatter** (YAML): Contains `name` and `description` fields. These are the only fields that Daycare reads to determine when the skill gets used, thus it is very important to be clear and comprehensive in describing what the skill is, and when it should be used.
+- **Frontmatter** (YAML): Contains required `name` and `description` fields, plus optional execution fields like `sandbox` and `permissions`.
 - **Body** (Markdown): Instructions and guidance for using the skill. Only loaded AFTER the skill triggers (if at all).
+
+Frontmatter fields used by Daycare:
+- `name` (required): skill selector shown in prompt metadata.
+- `description` (required): when/why to use the skill.
+- `sandbox` (optional boolean): when `true`, runs the skill in a forked subagent.
+- `permissions` (optional string array): permission tags (for example `@read:/workspace`, `@write:/workspace`, `@network`) granted to sandbox subagent; must be a subset of caller permissions.
 
 #### Bundled Resources (optional)
 

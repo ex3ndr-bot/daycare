@@ -1,8 +1,11 @@
 # Skills
 
 Skills are opt-in prompts stored as files on disk. They are **not** loaded into
-the system prompt automatically. The agent loads a skill on demand by reading
-the file path listed in the system prompt.
+the system prompt automatically. The agent invokes skills with the `skill` tool.
+Depending on skill frontmatter, execution runs in one of two modes:
+
+- **Embedded** (`sandbox` absent/false): tool returns SKILL.md body; caller follows instructions.
+- **Forked** (`sandbox: true`): tool spawns a subagent, executes skill+prompt, returns final result.
 
 ## Where skills live
 
@@ -20,8 +23,7 @@ This source is framework-agnostic so the same skill folder can be reused
 across multiple local agent runtimes.
 
 Each skill is a folder containing a `SKILL.md` file. The folder name becomes
-the skill name shown to the agent. The system prompt includes the **absolute
-path** to each skill so the agent can read it directly.
+the skill name shown to the agent.
 
 The system prompt lists skills in XML tags to make parsing explicit.
 
@@ -29,8 +31,8 @@ The system prompt lists skills in XML tags to make parsing explicit.
 
 Daycare's skills catalog is composed from small helpers that focus on one task
 each, keeping listing and formatting composable. During `Agent.handleMessage`,
-the engine gathers all four sources (core, config, user, plugin) before
-formatting the prompt.
+the engine gathers all four sources (core, config, user, plugin), passes them
+into tool context, and formats prompt metadata.
 
 ```mermaid
 flowchart TD
@@ -46,6 +48,9 @@ flowchart TD
   Plugin --> Resolve
   Plugin --> Sort
   Sort --> Prompt[skillPromptFormat]
+  Agent --> Loop[agentLoopRun]
+  Loop --> SkillTool[skill tool execute()]
+  SkillTool --> Content[skillContentLoad]
 ```
 
 ## Skill ID prefixes
@@ -64,19 +69,24 @@ Required frontmatter fields:
   hyphen, no consecutive hyphens, and it must match the parent folder name.
 - `description`: 1-1024 chars describing what the skill does and when to use it.
 
-Optional frontmatter fields include `license`, `compatibility`, `metadata`, and
-`allowed-tools`. Follow the Agent Skills specification for full constraints.
+Optional frontmatter fields include:
+- `sandbox` (boolean): when true, run the skill in a forked subagent
+- `permissions` (`string[]`): permission tags granted to forked subagent (must be subset of caller)
+- `license`, `compatibility`, `metadata`, `allowed-tools`
 
 ## Loading and unloading
 
-- **Load**: read the skill file from disk.
-- **Reload**: read the file again if it has changed.
-- **Unload**: explicitly ignore the skill's guidance moving forward.
+- **Load**: call `skill(name: "...")`; tool resolves metadata and skill body.
+- **Reload**: skills are re-listed from disk on each message.
+- **Unload**: stop calling that skill.
 
 ```mermaid
 flowchart TD
   Root[Skill folders] --> Catalog[Skill catalog]
-  Catalog --> Prompt[System prompt lists skills]
-  Prompt --> Agent[Agent reads file on demand]
-  Agent --> Memory[Skill guidance in context]
+  Catalog --> Prompt[System prompt lists skill metadata]
+  Prompt --> ToolCall[Agent calls skill tool]
+  ToolCall --> Embedded[Embedded: body returned]
+  ToolCall --> Forked[Forked: subagent executes]
+  Embedded --> Memory[Skill guidance in caller context]
+  Forked --> Result[Subagent result returned]
 ```

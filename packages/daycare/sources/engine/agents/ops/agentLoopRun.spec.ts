@@ -114,6 +114,7 @@ function optionsBuild(params: {
     assistant: null,
     agentSystem: {} as AgentSystem,
     heartbeats: {} as Heartbeats,
+    skills: [],
     providersForAgent: [],
     verbose: false,
     logger: logger as never,

@@ -24,11 +24,13 @@ export function skillPromptFormat(skills: AgentSkill[]): string {
     "## Skills (mandatory)",
     "",
     "Before replying, scan the skill descriptions below:",
-    "- If exactly one skill clearly applies: read its SKILL.md at the path shown, then follow it.",
-    "- If multiple could apply: choose the most specific one, then read/follow it.",
-    "- If none clearly apply: do not read any SKILL.md.",
+    "- If exactly one skill clearly applies: call the `skill` tool with that skill name.",
+    "- If multiple could apply: choose the most specific one, then call `skill` once.",
+    "- If none clearly apply: do not call `skill`.",
     "",
-    "Never read more than one skill up front; only read after selecting.",
+    "Tool behavior:",
+    "- Non-sandbox skill: `skill` returns instructions. Follow them in this context.",
+    "- Sandbox skill (`<sandbox>true</sandbox>`): `skill` runs autonomously and returns results.",
     "",
     "<available_skills>"
   ];
@@ -46,8 +48,10 @@ export function skillPromptFormat(skills: AgentSkill[]): string {
       lines.push(`    <description>${description}</description>`);
     }
     lines.push(`    <source>${xmlEscape(sourceLabel)}</source>`);
-    lines.push(`    <path>${xmlEscape(skill.path)}</path>`);
-  lines.push("  </skill>");
+    if (skill.sandbox === true) {
+      lines.push("    <sandbox>true</sandbox>");
+    }
+    lines.push("  </skill>");
   }
 
   lines.push("</available_skills>");

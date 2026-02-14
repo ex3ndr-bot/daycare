@@ -75,6 +75,9 @@ export type {
   ToolExecutionResult
 } from "./engine/modules/tools/types.js";
 
+// Skills
+export type { AgentSkill } from "./engine/skills/skillTypes.js";
+
 // Config
 export type { Config } from "./config/configTypes.js";
 

@@ -11,7 +11,8 @@ describe("skillPromptFormat", () => {
         name: "deploy",
         description: "Use <cron> & heartbeat",
         path: "/tmp/deploy/SKILL.md",
-        source: "core"
+        source: "core",
+        sandbox: true
       },
       {
         id: "plugin:alpha/tooling",
@@ -38,7 +39,9 @@ describe("skillPromptFormat", () => {
     expect(prompt).toContain("<name>deploy</name>");
     expect(prompt).toContain("Use &lt;cron&gt; &amp; heartbeat");
     expect(prompt).toContain("<source>plugin:alpha</source>");
-    expect(prompt).toContain("/tmp/deploy/SKILL.md");
+    expect(prompt).toContain("<sandbox>true</sandbox>");
+    expect(prompt).not.toContain("/tmp/deploy/SKILL.md");
+    expect(prompt).toContain("call the `skill` tool");
     expect(prompt.match(/<name>deploy<\/name>/g)).toHaveLength(1);
   });
 });

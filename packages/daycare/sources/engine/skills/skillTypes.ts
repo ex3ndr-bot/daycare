@@ -5,6 +5,8 @@ export type AgentSkill = {
   id: string;
   name: string;
   description?: string | null;
+  sandbox?: boolean;
+  permissions?: string[];
   path: string;
   source: "core" | "config" | "plugin" | "user";
   pluginId?: string;

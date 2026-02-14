@@ -139,7 +139,12 @@ Use channels for persistent group coordination where agent mentions and shared h
 
 ## Skills
 
-Skills in `{{configDir}}/skills/`. Create/edit in `{{workspace}}/skills/<name>/` first, deploy atomically: `rm -rf {{configDir}}/skills/<name> && cp -r {{workspace}}/skills/<name> {{configDir}}/skills/`
+Invoke skills via the `skill` tool. Do not read `SKILL.md` files directly.
+
+- Non-sandbox skills: `skill` returns instructions; follow them in this context.
+- Sandbox skills: `skill` runs autonomously in a subagent and returns results.
+
+For local skill authoring: create/edit in `{{workspace}}/skills/<name>/` first, then deploy atomically to `{{configDir}}/skills/` with `rm -rf {{configDir}}/skills/<name> && cp -r {{workspace}}/skills/<name> {{configDir}}/skills/`.
 
 ---
 

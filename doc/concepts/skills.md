@@ -1,6 +1,6 @@
 # Skills
 
-Skills are opt-in prompts stored as files on disk. They are **not** loaded into the system prompt automatically. Agents load skills on demand by reading the file path listed in the system prompt.
+Skills are opt-in prompts stored as files on disk. They are **not** loaded into the system prompt automatically. Agents invoke skills via the `skill` tool.
 
 ## Where skills live
 
@@ -37,11 +37,49 @@ Skill content in Markdown...
 
 ## Loading
 
-1. The system prompt lists available skills with their absolute file paths
-2. An agent reads the skill file on demand when it needs the guidance
-3. Skill guidance becomes part of the agent's context
+1. The system prompt lists available skills with metadata (name, description, source, sandbox flag)
+2. The agent calls `skill(name: "...")`
+3. Non-sandbox skills return instructions to follow in-context; sandbox skills run in a subagent and return results
 
 Skills are loaded fresh each time the system prompt is built, so edits take effect immediately.
+
+## Sandbox execution
+
+Add optional frontmatter for isolated runs:
+
+```markdown
+---
+name: deploy
+description: Deploy application safely.
+sandbox: true
+permissions:
+  - "@read:/workspace"
+  - "@network"
+---
+```
+
+When `sandbox: true`, the `skill` tool creates a subagent, grants declared permissions (bounded by caller permissions), executes the skill with the provided prompt, and returns the subagent response.
+
+```mermaid
+sequenceDiagram
+  participant A as Agent
+  participant T as skill tool
+  participant S as AgentSystem
+  participant B as Subagent
+
+  A->>T: skill(name, prompt)
+  T->>T: resolve skill + load SKILL.md body
+  alt sandbox false
+    T-->>A: embedded instructions
+  else sandbox true
+    T->>S: create subagent + grant permissions
+    T->>S: postAndAwait(skill body + task)
+    S->>B: execute
+    B-->>S: final response
+    S-->>T: responseText
+    T-->>A: sandbox result
+  end
+```
 
 ## Skill IDs
 

@@ -545,6 +545,7 @@ export class Agent {
           assistant: this.agentSystem.config.current.settings.assistant ?? null,
           agentSystem: this.agentSystem,
           heartbeats: this.agentSystem.heartbeats,
+          skills,
           providersForAgent,
           verbose: this.agentSystem.config.current.verbose,
           logger,

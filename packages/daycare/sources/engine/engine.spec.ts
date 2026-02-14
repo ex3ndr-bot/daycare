@@ -87,6 +87,27 @@ describe("Engine RLM mode", () => {
   });
 });
 
+describe("Engine tool registration", () => {
+  it("registers the skill tool in normal mode", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
+    try {
+      const config = configResolve(
+        { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
+        path.join(dir, "settings.json")
+      );
+      const engine = new Engine({ config, eventBus: new EngineEventBus() });
+      await engine.start();
+
+      const status = engine.getStatus();
+      expect(status.tools).toContain("skill");
+
+      await engine.shutdown();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("Engine stop command", () => {
   it("aborts active inference for user commands and confirms in channel", async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));

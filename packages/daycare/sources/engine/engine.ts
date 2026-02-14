@@ -41,6 +41,7 @@ import {
 } from "./modules/tools/heartbeat.js";
 import { buildSendAgentMessageTool, buildStartBackgroundAgentTool } from "./modules/tools/background.js";
 import { topologyToolBuild } from "./modules/tools/topologyToolBuild.js";
+import { skillToolBuild } from "./modules/tools/skillToolBuild.js";
 import { Crons } from "./cron/crons.js";
 import { Heartbeats } from "./heartbeat/heartbeats.js";
 import { toolListContextBuild } from "./modules/tools/toolListContextBuild.js";
@@ -328,6 +329,7 @@ export class Engine {
     this.modules.tools.register("core", buildHeartbeatRemoveTool());
     this.modules.tools.register("core", buildStartBackgroundAgentTool());
     this.modules.tools.register("core", buildSendAgentMessageTool());
+    this.modules.tools.register("core", skillToolBuild());
     this.modules.tools.register("core", topologyToolBuild(this.crons, this.signals, this.channels));
     this.modules.tools.register("core", sessionHistoryToolBuild());
     this.modules.tools.register("core", permanentAgentToolBuild());
@@ -349,7 +351,7 @@ export class Engine {
       this.modules.tools.register("core", rlmToolBuild(this.modules.tools));
     }
     logger.debug(
-      "register: Core tools registered: cron, cron_memory, heartbeat, topology, background, session_history, permanent_agents, channels, image_generation, mermaid_png, reaction, send_file, generate_signal, signal_subscribe, signal_unsubscribe, request_permission, grant_permission"
+      "register: Core tools registered: cron, cron_memory, heartbeat, topology, background, skill, session_history, permanent_agents, channels, image_generation, mermaid_png, reaction, send_file, generate_signal, signal_subscribe, signal_unsubscribe, request_permission, grant_permission"
     );
 
     logger.debug("start: Starting agent system");

@@ -2,7 +2,7 @@ import type { Context } from "@mariozechner/pi-ai";
 import type { Logger } from "pino";
 
 import type { FileStore } from "../../../files/store.js";
-import type { FileReference } from "@/types";
+import type { AgentSkill, FileReference } from "@/types";
 import type { AuthStore } from "../../../auth/store.js";
 import type { AssistantSettings, ProviderSettings } from "../../../settings.js";
 import type { Connector } from "@/types";
@@ -39,6 +39,7 @@ type AgentLoopRunOptions = {
   assistant: AssistantSettings | null;
   agentSystem: AgentSystem;
   heartbeats: Heartbeats;
+  skills: AgentSkill[];
   providersForAgent: ProviderSettings[];
   verbose: boolean;
   logger: Logger;
@@ -83,6 +84,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
     assistant,
     agentSystem,
     heartbeats,
+    skills,
     providersForAgent,
     verbose,
     logger,
@@ -261,6 +263,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
           messageContext: entry.context,
           agentSystem,
           heartbeats,
+          skills,
           permissionRequestRegistry: agentSystem.permissionRequestRegistry
         });
         logger.debug(
