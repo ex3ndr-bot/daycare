@@ -22,6 +22,7 @@ export type {
   MessageHandler,
   MessageUnsubscribe,
   PermissionAccess,
+  PermissionEntry,
   PermissionDecision,
   PermissionHandler,
   PermissionKind,

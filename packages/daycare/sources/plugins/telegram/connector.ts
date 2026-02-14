@@ -204,8 +204,7 @@ export class TelegramConnector implements Connector {
         token,
         agentId: pending.request.agentId,
         approved,
-        permission: pending.request.permission,
-        access: pending.request.access
+        permissions: pending.request.permissions
       };
       for (const handler of this.permissionHandlers) {
         await handler(decision, pending.context, pending.descriptor);
@@ -830,13 +829,10 @@ function formatPermissionMessage(
   request: PermissionRequest,
   status: PermissionStatus
 ): { text: string; parseMode: TelegramBot.ParseMode } {
-  const access = describePermissionKind(request.access);
-  const escapedAccess = escapeHtml(access);
   const escapedReason = escapeHtml(request.reason);
-  const escapedPath =
-    request.access.kind === "read" || request.access.kind === "write"
-      ? escapeHtml(request.access.path)
-      : null;
+  const permissionLines = request.permissions.map(
+    (permission) => `- ${escapeHtml(describePermissionKind(permission.access))}`
+  );
   const heading =
     status === "approved"
       ? "✅ <b>Permission granted</b>"
@@ -854,8 +850,8 @@ function formatPermissionMessage(
   const lines = [
     heading,
     "",
-    `<b>Access</b>: ${escapedAccess}`,
-    escapedPath ? `<b>Path</b>: <code>${escapedPath}</code>` : null,
+    "<b>Permissions</b>:",
+    ...permissionLines,
     requesterLine,
     `<b>Reason</b>: ${escapedReason}`,
     "",
@@ -867,12 +863,12 @@ function formatPermissionMessage(
   };
 }
 
-function describePermissionKind(access: PermissionRequest["access"]): string {
+function describePermissionKind(access: PermissionRequest["permissions"][number]["access"]): string {
   if (access.kind === "read") {
-    return "Read files";
+    return `Read files: ${access.path}`;
   }
   if (access.kind === "write") {
-    return "Write/edit files";
+    return `Write/edit files: ${access.path}`;
   }
   if (access.kind === "events") {
     return "Events access";

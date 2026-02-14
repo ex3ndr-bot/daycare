@@ -5,7 +5,12 @@ import { createId } from "@paralleldrive/cuid2";
 import path from "node:path";
 
 import type { ToolDefinition } from "@/types";
-import type { PermissionAccess, PermissionDecision, PermissionRequest } from "@/types";
+import type {
+  PermissionAccess,
+  PermissionDecision,
+  PermissionEntry,
+  PermissionRequest
+} from "@/types";
 import { agentDescriptorTargetResolve } from "../../agents/ops/agentDescriptorTargetResolve.js";
 import { agentDescriptorLabel } from "../../agents/ops/agentDescriptorLabel.js";
 import { permissionAccessParse } from "../../permissions/permissionAccessParse.js";
@@ -14,7 +19,7 @@ import { permissionDescribeDecision } from "../../permissions/permissionDescribe
 
 const schema = Type.Object(
   {
-    permission: Type.String({ minLength: 1 }),
+    permissions: Type.Array(Type.String({ minLength: 1 }), { minItems: 1 }),
     reason: Type.String({ minLength: 1 }),
     agentId: Type.Optional(Type.String({ minLength: 1 })),
     timeout_minutes: Type.Optional(Type.Integer({ minimum: 1, maximum: 60, default: 15 }))
@@ -47,14 +52,14 @@ export function buildPermissionRequestTool(): ToolDefinition {
       const payload = args as PermissionArgs;
       const descriptor = toolContext.agent.descriptor;
       const isForeground = descriptor.type === "user";
-      const permission = payload.permission.trim();
+      const permissionTags = permissionTagsNormalize(payload.permissions);
       const reason = payload.reason.trim();
       const timeoutMinutes = payload.timeout_minutes ?? 15;
       if (!reason) {
         throw new Error("Permission reason is required.");
       }
-      if (!permission) {
-        throw new Error("Permission string is required.");
+      if (permissionTags.length === 0) {
+        throw new Error("At least one permission string is required.");
       }
       if (!isForeground && payload.agentId) {
         throw new Error("Background agents cannot override agentId.");
@@ -98,12 +103,17 @@ export function buildPermissionRequestTool(): ToolDefinition {
         throw new Error("Connector not available for permission requests.");
       }
 
-      const access = permissionAccessParse(permission);
-      if ((access.kind === "read" || access.kind === "write") && !path.isAbsolute(access.path)) {
-        throw new Error("Path must be absolute.");
-      }
+      const requestedPermissions = permissionTags.map((permission) => {
+        const access = permissionAccessParse(permission);
+        if ((access.kind === "read" || access.kind === "write") && !path.isAbsolute(access.path)) {
+          throw new Error("Path must be absolute.");
+        }
+        return { permission, access };
+      });
 
-      const friendly = describePermission(access);
+      const friendly = requestedPermissions
+        .map((entry) => `- ${describePermission(entry.access)}`)
+        .join("\n");
       const requesterLabel = agentDescriptorLabel(requestedDescriptor);
       const requesterKind =
         requestedDescriptor.type === "user" ? "foreground" : "background";
@@ -117,8 +127,7 @@ export function buildPermissionRequestTool(): ToolDefinition {
         agentId: requestedAgentId,
         reason,
         message: text,
-        permission,
-        access,
+        permissions: requestedPermissions,
         requester: {
           id: requestedAgentId,
           type: requestedDescriptor.type,
@@ -143,9 +152,13 @@ export function buildPermissionRequestTool(): ToolDefinition {
 
       if (!isForeground && requestedDescriptor.type !== "user") {
         const agentName = agentDescriptorLabel(requestedDescriptor);
+        const requestedPermissionLines = requestedPermissions
+          .map((entry) => `- ${entry.permission}`)
+          .join("\n");
         const notice = [
           `Permission request from background agent "${agentName}" was presented to the user.`,
-          `permission: ${permission}`,
+          "permissions:",
+          requestedPermissionLines,
           `reason: ${reason}`
         ].join("\n");
         await toolContext.agentSystem.post(
@@ -178,7 +191,7 @@ export function buildPermissionRequestTool(): ToolDefinition {
           toolName: toolCall.name,
           content: [{ type: "text", text: timeoutText }],
           details: {
-            permission,
+            permissions: permissionTags,
             token: request.token,
             agentId: requestedAgentId,
             timeoutMinutes
@@ -191,17 +204,20 @@ export function buildPermissionRequestTool(): ToolDefinition {
 
       const targetAgentId = decision.agentId || requestedAgentId;
       if (decision.approved) {
-        await toolContext.agentSystem.grantPermission(
-          { agentId: targetAgentId },
-          decision.access,
-          { source: toolContext.source, decision }
-        );
+        for (const permission of decision.permissions) {
+          await toolContext.agentSystem.grantPermission(
+            { agentId: targetAgentId },
+            permission.access,
+            { source: toolContext.source, decision }
+          );
+        }
       }
 
-      const permissionLabel = permissionDescribeDecision(decision.access);
+      const permissionLabel = permissionSummaryBuild(decision.permissions);
+      const permissionNoun = decision.permissions.length === 1 ? "Permission" : "Permissions";
       const resultText = decision.approved
-        ? `Permission granted for ${permissionLabel}.`
-        : `Permission denied for ${permissionLabel}.`;
+        ? `${permissionNoun} granted for ${permissionLabel}.`
+        : `${permissionNoun} denied for ${permissionLabel}.`;
 
       const toolMessage: ToolResultMessage = {
         role: "toolResult",
@@ -209,7 +225,7 @@ export function buildPermissionRequestTool(): ToolDefinition {
         toolName: toolCall.name,
         content: [{ type: "text", text: resultText }],
         details: {
-          permission,
+          permissions: permissionTags,
           token: request.token,
           agentId: targetAgentId,
           approved: decision.approved
@@ -285,4 +301,23 @@ function describePermission(access: PermissionAccess): string {
     return `Read access to ${access.path}`;
   }
   return `Write access to ${access.path}`;
+}
+
+function permissionSummaryBuild(permissions: PermissionEntry[]): string {
+  const labels = permissions.map((permission) => permissionDescribeDecision(permission.access));
+  if (labels.length === 0) {
+    return "requested permissions";
+  }
+  return labels.join(", ");
+}
+
+function permissionTagsNormalize(permissions: string[]): string[] {
+  const unique = new Set<string>();
+  for (const permission of permissions) {
+    const trimmed = permission.trim();
+    if (trimmed) {
+      unique.add(trimmed);
+    }
+  }
+  return [...unique];
 }

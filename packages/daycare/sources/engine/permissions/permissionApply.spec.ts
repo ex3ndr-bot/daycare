@@ -21,8 +21,7 @@ describe("permissionApply", () => {
       token: "token-1",
       agentId: "agent-1",
       approved: false,
-      permission: "@network",
-      access: { kind: "network" }
+      permissions: [{ permission: "@network", access: { kind: "network" } }]
     };
 
     permissionApply(permissions, decision);
@@ -36,8 +35,7 @@ describe("permissionApply", () => {
       token: "token-events",
       agentId: "agent-1",
       approved: true,
-      permission: "@events",
-      access: { kind: "events" }
+      permissions: [{ permission: "@events", access: { kind: "events" } }]
     };
 
     permissionApply(permissions, decision);
@@ -52,8 +50,7 @@ describe("permissionApply", () => {
       token: "token-2",
       agentId: "agent-1",
       approved: true,
-      permission: `@write:${target}`,
-      access: { kind: "write", path: target }
+      permissions: [{ permission: `@write:${target}`, access: { kind: "write", path: target } }]
     };
 
     permissionApply(permissions, decision);
@@ -68,8 +65,7 @@ describe("permissionApply", () => {
       token: "token-3",
       agentId: "agent-1",
       approved: true,
-      permission: "@read:relative/path",
-      access: { kind: "read", path: "relative/path" }
+      permissions: [{ permission: "@read:relative/path", access: { kind: "read", path: "relative/path" } }]
     };
 
     permissionApply(permissions, decision);
@@ -83,8 +79,12 @@ describe("permissionApply", () => {
       token: "token-4",
       agentId: "agent-1",
       approved: true,
-      permission: "@read:/etc/passwd\x00.txt",
-      access: { kind: "read", path: "/etc/passwd\x00.txt" }
+      permissions: [
+        {
+          permission: "@read:/etc/passwd\x00.txt",
+          access: { kind: "read", path: "/etc/passwd\x00.txt" }
+        }
+      ]
     };
 
     permissionApply(permissions, decision);
@@ -99,8 +99,12 @@ describe("permissionApply", () => {
       token: "token-5",
       agentId: "agent-1",
       approved: true,
-      permission: "@write:/home/user\x01file",
-      access: { kind: "write", path: "/home/user\x01file" }
+      permissions: [
+        {
+          permission: "@write:/home/user\x01file",
+          access: { kind: "write", path: "/home/user\x01file" }
+        }
+      ]
     };
 
     permissionApply(permissions, decision);
@@ -115,8 +119,7 @@ describe("permissionApply", () => {
       token: "token-6",
       agentId: "agent-1",
       approved: true,
-      permission: `@read:${longPath}`,
-      access: { kind: "read", path: longPath }
+      permissions: [{ permission: `@read:${longPath}`, access: { kind: "read", path: longPath } }]
     };
 
     permissionApply(permissions, decision);

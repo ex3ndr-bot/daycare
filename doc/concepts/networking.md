@@ -22,22 +22,22 @@ When a `@write:<path>` permission is granted, the path is also added to `readDir
 
 ## Requesting permissions
 
-Agents call `request_permission` when they need access they don't have. The request is routed to the user via the active connector (e.g., Telegram inline buttons, WhatsApp text replies).
+Agents call `request_permission` when they need access they don't have. The request is routed to the user via the active connector (e.g., Telegram inline buttons, WhatsApp text replies), and the tool blocks until allow/deny/timeout.
 
 ```mermaid
 sequenceDiagram
   participant Agent
   participant Connector
   participant User
-  Agent->>Connector: request_permission(@network, reason)
+  Agent->>Connector: request_permission(permissions[], reason)
   Connector->>User: Approval UI
   User->>Connector: Allow / Deny
-  Connector->>Agent: Permission decision
+  Connector->>Agent: Permission decision (permissions[])
 ```
 
 - Foreground agents request directly
 - Background agents route through the most recent foreground agent
-- Permission decisions are delivered asynchronously; agents continue unblocked work while waiting
+- One request can include multiple tags (`@network`, `@events`, `@read:/path`, `@write:/path`)
 
 ## Granting permissions between agents
 

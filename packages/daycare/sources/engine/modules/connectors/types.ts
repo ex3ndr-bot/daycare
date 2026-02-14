@@ -53,13 +53,17 @@ export type PermissionAccess =
   | { kind: "read"; path: string }
   | { kind: "write"; path: string };
 
+export type PermissionEntry = {
+  permission: string;
+  access: PermissionAccess;
+};
+
 export type PermissionRequest = {
   token: string;
   agentId: string;
   reason: string;
   message: string;
-  permission: string;
-  access: PermissionAccess;
+  permissions: PermissionEntry[];
   requester: {
     id: string;
     type: AgentDescriptor["type"];
@@ -72,8 +76,7 @@ export type PermissionDecision = {
   token: string;
   agentId: string;
   approved: boolean;
-  permission: string;
-  access: PermissionAccess;
+  permissions: PermissionEntry[];
 };
 
 export type PermissionHandler = (

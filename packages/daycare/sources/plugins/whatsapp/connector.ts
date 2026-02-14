@@ -425,8 +425,7 @@ export class WhatsAppConnector implements Connector {
             token,
             agentId: pending.request.agentId,
             approved,
-            permission: pending.request.permission,
-            access: pending.request.access
+            permissions: pending.request.permissions
           };
 
           // Send confirmation
@@ -603,11 +602,9 @@ function formatPermissionMessage(
   request: PermissionRequest,
   status: PermissionStatus
 ): string {
-  const access = describePermissionKind(request.access);
-  const pathStr =
-    request.access.kind === "read" || request.access.kind === "write"
-      ? request.access.path
-      : null;
+  const permissionLines = request.permissions.map(
+    (permission) => `- ${describePermissionKind(permission.access)}`
+  );
 
   const heading =
     status === "approved"
@@ -623,8 +620,8 @@ function formatPermissionMessage(
   const lines = [
     heading,
     "",
-    `*Access*: ${access}`,
-    pathStr ? `*Path*: \`${pathStr}\`` : null,
+    "*Permissions*:",
+    ...permissionLines,
     requesterLine,
     `*Reason*: ${request.reason}`,
     "",
@@ -636,12 +633,12 @@ function formatPermissionMessage(
   return lines.filter((line): line is string => line !== null).join("\n");
 }
 
-function describePermissionKind(access: PermissionRequest["access"]): string {
+function describePermissionKind(access: PermissionRequest["permissions"][number]["access"]): string {
   if (access.kind === "read") {
-    return "Read files";
+    return `Read files: ${access.path}`;
   }
   if (access.kind === "write") {
-    return "Write/edit files";
+    return `Write/edit files: ${access.path}`;
   }
   if (access.kind === "events") {
     return "Events access";

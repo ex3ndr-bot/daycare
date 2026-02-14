@@ -353,8 +353,7 @@ export class AgentSystem {
       token: "direct",
       agentId: entry.agentId,
       approved: true,
-      permission: permissionFormatTag(access),
-      access
+      permissions: [{ permission: permissionFormatTag(access), access }]
     };
     this.eventBus.emit("permission.granted", {
       agentId: entry.agentId,

@@ -193,10 +193,14 @@ export class Engine {
           const requester = this.agentSystem.getAgentDescriptor(decision.agentId);
           if (!requester || requester.type !== "user") {
             const status = decision.approved ? "approved" : "denied";
-            const permissionLabel = permissionDescribeDecision(decision.access);
+            const permissionLabels = decision.permissions.map((permission) =>
+              permissionDescribeDecision(permission.access)
+            );
+            const permissionLabel = permissionLabels.join(", ");
+            const permissionNoun = permissionLabels.length === 1 ? "permission" : "permissions";
             const agentLabel = requester ? agentDescriptorLabel(requester) : "agent";
             const notice = [
-              `User ${status} ${permissionLabel} for background agent "${agentLabel}".`,
+              `User ${status} ${permissionNoun} (${permissionLabel}) for background agent "${agentLabel}".`,
               "Decision delivered to background agent."
             ].join("\n");
             await this.agentSystem.post(

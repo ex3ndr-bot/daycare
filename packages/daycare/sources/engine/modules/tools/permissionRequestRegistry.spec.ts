@@ -56,8 +56,7 @@ function decisionBuild(
     token: "token-1",
     agentId: "agent-1",
     approved: false,
-    permission: "@network",
-    access: { kind: "network" },
+    permissions: [{ permission: "@network", access: { kind: "network" } }],
     ...overrides
   };
 }

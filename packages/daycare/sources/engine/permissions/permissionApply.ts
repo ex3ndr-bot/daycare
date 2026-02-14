@@ -11,5 +11,7 @@ export function permissionApply(
   if (!decision.approved) {
     return;
   }
-  permissionAccessApply(permissions, decision.access);
+  for (const permission of decision.permissions) {
+    permissionAccessApply(permissions, permission.access);
+  }
 }

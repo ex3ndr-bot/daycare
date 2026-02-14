@@ -32,7 +32,7 @@ describe("buildPermissionRequestTool", () => {
     });
 
     const pending = buildPermissionRequestTool().execute(
-      { permission: "@network", reason: "Need web access" },
+      { permissions: ["@network"], reason: "Need web access" },
       context,
       toolCall
     );
@@ -49,8 +49,7 @@ describe("buildPermissionRequestTool", () => {
         token: request.token,
         agentId: request.agentId,
         approved: true,
-        permission: request.permission,
-        access: request.access
+        permissions: request.permissions
       })
     );
 
@@ -85,7 +84,7 @@ describe("buildPermissionRequestTool", () => {
     });
 
     const pending = buildPermissionRequestTool().execute(
-      { permission: "@network", reason: "Need web access" },
+      { permissions: ["@network"], reason: "Need web access" },
       context,
       toolCall
     );
@@ -102,8 +101,7 @@ describe("buildPermissionRequestTool", () => {
         token: request.token,
         agentId: request.agentId,
         approved: false,
-        permission: request.permission,
-        access: request.access
+        permissions: request.permissions
       })
     );
 
@@ -112,6 +110,65 @@ describe("buildPermissionRequestTool", () => {
     expect(result.toolMessage.isError).toBe(false);
     expect(contentText(result.toolMessage.content)).toBe(
       "Permission denied for network access."
+    );
+  });
+
+  it("requests and grants multiple permissions in one call", async () => {
+    const registry = new PermissionRequestRegistry();
+    const grantPermission = vi.fn(async () => undefined);
+    const requestPermission = vi.fn(
+      async (
+        _targetId: string,
+        _request: PermissionRequest,
+        _context: unknown,
+        _descriptor: unknown
+      ) => undefined
+    );
+
+    const context = contextBuild({
+      registry,
+      connector: { requestPermission },
+      agentSystem: { grantPermission }
+    });
+
+    const pending = buildPermissionRequestTool().execute(
+      { permissions: ["@network", "@read:/tmp"], reason: "Need web and files" },
+      context,
+      toolCall
+    );
+
+    await Promise.resolve();
+    const request = requestPermission.mock.calls[0]?.[1] as PermissionRequest | undefined;
+    if (!request) {
+      throw new Error("Expected permission request payload");
+    }
+
+    await registryResolveWhenReady(
+      registry,
+      decisionBuild({
+        token: request.token,
+        agentId: request.agentId,
+        approved: true,
+        permissions: request.permissions
+      })
+    );
+
+    const result = await pending;
+    expect(grantPermission).toHaveBeenCalledTimes(2);
+    expect(grantPermission).toHaveBeenNthCalledWith(
+      1,
+      { agentId: "agent-1" },
+      { kind: "network" },
+      expect.objectContaining({ source: "telegram" })
+    );
+    expect(grantPermission).toHaveBeenNthCalledWith(
+      2,
+      { agentId: "agent-1" },
+      { kind: "read", path: "/tmp" },
+      expect.objectContaining({ source: "telegram" })
+    );
+    expect(contentText(result.toolMessage.content)).toBe(
+      "Permissions granted for network access, read access to /tmp."
     );
   });
 
@@ -137,7 +194,7 @@ describe("buildPermissionRequestTool", () => {
 
       const pending = buildPermissionRequestTool().execute(
         {
-          permission: "@network",
+          permissions: ["@network"],
           reason: "Need web access",
           timeout_minutes: 1
         },
@@ -199,7 +256,7 @@ describe("buildPermissionRequestTool", () => {
     });
 
     const pending = buildPermissionRequestTool().execute(
-      { permission: "@network", reason: "Need web access" },
+      { permissions: ["@network"], reason: "Need web access" },
       context,
       toolCall
     );
@@ -216,8 +273,7 @@ describe("buildPermissionRequestTool", () => {
         token: request.token,
         agentId: request.agentId,
         approved: false,
-        permission: request.permission,
-        access: request.access
+        permissions: request.permissions
       })
     );
 
@@ -312,8 +368,7 @@ function decisionBuild(
     token: "token-1",
     agentId: "agent-1",
     approved: false,
-    permission: "@network",
-    access: { kind: "network" },
+    permissions: [{ permission: "@network", access: { kind: "network" } }],
     ...overrides
   };
 }

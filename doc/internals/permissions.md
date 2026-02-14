@@ -55,9 +55,9 @@ flowchart LR
 
 Foreground agents request permissions directly from users via `request_permission`. Background
 agents call the same tool; the engine routes the request through the most recent foreground agent
-and includes the requesting agent id so the decision returns to the right agent. The tool returns
-immediately, and the permission decision is delivered asynchronously. Agents should continue
-unblocked work while the decision is pending, then apply the decision when it arrives.
+and includes the requesting agent id so the decision returns to the right agent. The tool blocks
+until the user allows/denies or the request times out, then returns the decision directly to the
+caller.
 
 Prompt stance: agents should request permissions proactively when blocked, without waiting for
 manual pre-approval messages. Permissions act as safety rails that enable fast execution.
@@ -68,11 +68,11 @@ sequenceDiagram
   participant Foreground as Foreground Agent
   participant Connector
   participant User
-  Foreground->>Connector: request_permission(permission, reason)
+  Foreground->>Connector: request_permission(permissions[], reason)
   Connector->>User: permission approval UI
   User->>Connector: approve/deny
-  Connector->>Foreground: onPermission(decision)
-  Foreground->>Foreground: permissionApply + resume message
+  Connector->>Foreground: onPermission(decision.permissions[])
+  Foreground->>Foreground: apply decision and continue in same tool call
 ```
 
 ```mermaid
@@ -80,8 +80,7 @@ flowchart TD
   Need[Need action] --> Check{In current permissions?}
   Check -->|yes| Execute[Execute immediately]
   Check -->|no| Request[Call request_permission now]
-  Request --> Continue[Continue unblocked work immediately]
-  Continue --> Decision{Permission decision arrives}
+  Request --> Decision{Permission decision arrives}
   Decision -->|approved| Resume[Run blocked action]
   Decision -->|denied| Fallback[Use fallback path]
 ```
@@ -90,7 +89,7 @@ Tool payload shape:
 
 ```json
 {
-  "permission": "@network",
+  "permissions": ["@network", "@read:/tmp/project"],
   "reason": "Need to verify the latest docs."
 }
 ```

@@ -217,8 +217,7 @@ describe("Engine permission callbacks", () => {
             token: string;
             agentId: string;
             approved: boolean;
-            permission: string;
-            access: { kind: "network" };
+            permissions: Array<{ permission: string; access: { kind: "network" } }>;
           },
           context: MessageContext,
           descriptor: AgentDescriptor
@@ -253,8 +252,7 @@ describe("Engine permission callbacks", () => {
         token: "perm-1",
         agentId: "agent-1",
         approved: true,
-        permission: "@network",
-        access: { kind: "network" as const }
+        permissions: [{ permission: "@network", access: { kind: "network" as const } }]
       };
 
       await handler(decision, context, descriptor);
@@ -292,8 +290,7 @@ describe("Engine permission callbacks", () => {
             token: string;
             agentId: string;
             approved: boolean;
-            permission: string;
-            access: { kind: "network" };
+            permissions: Array<{ permission: string; access: { kind: "network" } }>;
           },
           context: MessageContext,
           descriptor: AgentDescriptor
@@ -328,8 +325,7 @@ describe("Engine permission callbacks", () => {
         token: "perm-2",
         agentId: "agent-bg",
         approved: false,
-        permission: "@network",
-        access: { kind: "network" as const }
+        permissions: [{ permission: "@network", access: { kind: "network" as const } }]
       };
 
       await handler(decision, context, descriptor);

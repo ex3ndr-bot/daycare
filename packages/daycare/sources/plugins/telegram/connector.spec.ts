@@ -76,8 +76,7 @@ describe("TelegramConnector permissions", () => {
       agentId: "agent-1",
       reason: "Need read access",
       message: "Permission request",
-      permission: "@read:/tmp",
-      access: { kind: "read", path: "/tmp" },
+      permissions: [{ permission: "@read:/tmp", access: { kind: "read", path: "/tmp" } }],
       requester: {
         id: "agent-1",
         type: "subagent",
@@ -92,6 +91,8 @@ describe("TelegramConnector permissions", () => {
       userId: "123",
       channelId: "123"
     };
+    const permissionHandler = vi.fn(async () => undefined);
+    connector.onPermission(permissionHandler);
 
     await connector.requestPermission("123", request, context, descriptor);
 
@@ -128,6 +129,17 @@ describe("TelegramConnector permissions", () => {
       parse_mode: "HTML",
       reply_markup: { inline_keyboard: [] }
     });
+    expect(permissionHandler).toHaveBeenCalledTimes(1);
+    expect(permissionHandler).toHaveBeenCalledWith(
+      {
+        token: "perm-1",
+        agentId: "agent-1",
+        approved: true,
+        permissions: [{ permission: "@read:/tmp", access: { kind: "read", path: "/tmp" } }]
+      },
+      context,
+      descriptor
+    );
   });
 });
 
