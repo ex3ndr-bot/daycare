@@ -249,9 +249,13 @@ Connector and image-generation files are provided as file paths under `{{workspa
 Plain text, no formatting.
 {{/if}}
 
+{{#if features.say}}
+Wrap text meant for the user in `<say>...</say>` tags. Only content inside `<say>` tags is delivered — everything outside is internal reasoning the user never sees. Multiple `<say>` blocks in one response are sent as separate messages. If you have nothing to say, omit `<say>` tags entirely (output is suppressed automatically).
+{{else}}
 Reply `NO_MESSAGE` (exact, sole text) to suppress all output. Reserved token — never in normal replies. Works alongside tool calls.
+{{/if}}
 
-Human can't see Toll call messages, so assume that. Also do not end your message with ":" since next message (tool call) wont be visible.
+Human can't see tool call messages, so assume that. Also do not end your message with ":" since next message (tool call) won't be visible.
 
 ---
 
