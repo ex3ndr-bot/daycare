@@ -11,6 +11,8 @@ flowchart TD
   Engine --> MsgNoMessage[messageNoMessageIs.ts]
   Engine --> MsgSystem[messageBuildSystemText.ts]
   Engine --> MsgIsSystem[messageIsSystemText.ts]
+  Engine --> MsgUserFacing[messageBuildUserFacing.ts]
+  Engine --> MsgIsUserFacing[messageIsUserFacing.ts]
   Engine --> AgentBuild[agentDescriptorBuild.ts]
   Engine --> AgentKey[agentKeyBuild.ts]
   Engine --> AgentTarget[agentDescriptorTargetResolve.ts]
@@ -21,3 +23,6 @@ flowchart TD
 
 `messageNoMessageIs.ts` detects the `NO_MESSAGE` sentinel so the runtime can suppress user-facing output
 without leaking the sentinel into future model context.
+
+`messageBuildUserFacing.ts` wraps text in `<message_for_user origin="agentId">` tags for background agents
+that need the foreground agent to present content to the user. `messageIsUserFacing.ts` detects this tag.

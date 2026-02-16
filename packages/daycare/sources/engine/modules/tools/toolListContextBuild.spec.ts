@@ -12,6 +12,7 @@ const baseTools = [
   { name: "send_file", description: "", parameters: {} },
   { name: "set_reaction", description: "", parameters: {} },
   { name: "generate_image", description: "", parameters: {} },
+  { name: "send_user_message", description: "", parameters: {} },
   { name: "other", description: "", parameters: {} }
 ] as unknown as Tool[];
 
@@ -87,6 +88,39 @@ describe("toolListContextBuild", () => {
 
     const names = result.map((tool) => tool.name);
     expect(names).not.toContain("generate_image");
+  });
+
+  it("removes send_user_message for foreground agents", () => {
+    const result = toolListContextBuild({
+      tools: baseTools,
+      source: "slack",
+      agentKind: "foreground",
+      connectorRegistry: {
+        get: () => null,
+        list: () => []
+      },
+      imageRegistry: { list: () => [] }
+    });
+
+    const names = result.map((tool) => tool.name);
+    expect(names).not.toContain("send_user_message");
+    expect(names).toContain("other");
+  });
+
+  it("keeps send_user_message for background agents", () => {
+    const result = toolListContextBuild({
+      tools: baseTools,
+      source: "slack",
+      agentKind: "background",
+      connectorRegistry: {
+        get: () => null,
+        list: () => []
+      },
+      imageRegistry: { list: () => [] }
+    });
+
+    const names = result.map((tool) => tool.name);
+    expect(names).toContain("send_user_message");
   });
 
   it("returns only run_python in rlm mode", () => {
