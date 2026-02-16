@@ -236,6 +236,128 @@ describe("agentLoopRun", () => {
   });
 });
 
+describe("agentLoopRun say tag", () => {
+  it("sends only say block content when say feature enabled", async () => {
+    const connectorSend = vi.fn(async () => undefined);
+    const connector = connectorBuild(connectorSend);
+    const entry = entryBuild();
+    const context = contextBuild();
+    const inferenceRouter = inferenceRouterBuild([
+      assistantMessageBuild([{ type: "text", text: "thinking... <say>hello user</say> done" }])
+    ]);
+    const toolResolver = toolResolverBuild(async () => {
+      throw new Error("unexpected");
+    });
+
+    await agentLoopRun(
+      optionsBuild({ entry, context, connector, inferenceRouter, toolResolver, say: true })
+    );
+
+    expect(connectorSend).toHaveBeenCalledTimes(1);
+    expect(connectorSend).toHaveBeenCalledWith("channel-1", {
+      text: "hello user",
+      replyToMessageId: undefined
+    });
+  });
+
+  it("sends multiple say blocks as separate messages", async () => {
+    const connectorSend = vi.fn(async () => undefined);
+    const connector = connectorBuild(connectorSend);
+    const entry = entryBuild();
+    const context = contextBuild();
+    const inferenceRouter = inferenceRouterBuild([
+      assistantMessageBuild([
+        { type: "text", text: "reasoning <say>first</say> more <say>second</say> end" }
+      ])
+    ]);
+    const toolResolver = toolResolverBuild(async () => {
+      throw new Error("unexpected");
+    });
+
+    await agentLoopRun(
+      optionsBuild({ entry, context, connector, inferenceRouter, toolResolver, say: true })
+    );
+
+    expect(connectorSend).toHaveBeenCalledTimes(2);
+    expect(connectorSend).toHaveBeenNthCalledWith(1, "channel-1", {
+      text: "first",
+      replyToMessageId: undefined
+    });
+    expect(connectorSend).toHaveBeenNthCalledWith(2, "channel-1", {
+      text: "second",
+      replyToMessageId: undefined
+    });
+  });
+
+  it("suppresses output when say enabled but no say tags present", async () => {
+    const connectorSend = vi.fn(async () => undefined);
+    const connector = connectorBuild(connectorSend);
+    const entry = entryBuild();
+    const context = contextBuild();
+    const inferenceRouter = inferenceRouterBuild([
+      assistantMessageBuild([{ type: "text", text: "just thinking, no say tags" }])
+    ]);
+    const toolResolver = toolResolverBuild(async () => {
+      throw new Error("unexpected");
+    });
+
+    await agentLoopRun(
+      optionsBuild({ entry, context, connector, inferenceRouter, toolResolver, say: true })
+    );
+
+    expect(connectorSend).not.toHaveBeenCalled();
+  });
+
+  it("does not apply say filtering for background agents", async () => {
+    const connectorSend = vi.fn(async () => undefined);
+    const connector = connectorBuild(connectorSend);
+    const entry = entryBuild();
+    const context = contextBuild();
+    // Background agent with <say> tags — say feature should not activate
+    const inferenceRouter = inferenceRouterBuild([
+      assistantMessageBuild([{ type: "text", text: "thinking <say>hi</say> done" }])
+    ]);
+    const toolResolver = toolResolverBuild(async () => {
+      throw new Error("unexpected");
+    });
+
+    const result = await agentLoopRun(
+      optionsBuild({
+        entry, context, connector, inferenceRouter, toolResolver,
+        say: true, agentType: "subagent"
+      })
+    );
+
+    // Background agents have no target (agentDescriptorTargetResolve returns null).
+    // responseText is the full unfiltered text (say not applied to background agents).
+    expect(result.responseText).toBe("thinking <say>hi</say> done");
+  });
+
+  it("sends full text when say feature disabled", async () => {
+    const connectorSend = vi.fn(async () => undefined);
+    const connector = connectorBuild(connectorSend);
+    const entry = entryBuild();
+    const context = contextBuild();
+    const inferenceRouter = inferenceRouterBuild([
+      assistantMessageBuild([{ type: "text", text: "thinking <say>hi</say> more" }])
+    ]);
+    const toolResolver = toolResolverBuild(async () => {
+      throw new Error("unexpected");
+    });
+
+    await agentLoopRun(
+      optionsBuild({ entry, context, connector, inferenceRouter, toolResolver, say: false })
+    );
+
+    // Full text sent, say tags are just text
+    expect(connectorSend).toHaveBeenCalledTimes(1);
+    expect(connectorSend).toHaveBeenCalledWith("channel-1", {
+      text: "thinking <say>hi</say> more",
+      replyToMessageId: undefined
+    });
+  });
+});
+
 function optionsBuild(params: {
   entry: AgentMessage;
   context: Context;
@@ -244,6 +366,8 @@ function optionsBuild(params: {
   toolResolver: ToolResolverApi;
   skills?: Skills;
   rlm?: boolean;
+  say?: boolean;
+  agentType?: "user" | "subagent";
   abortSignal?: AbortSignal;
   appendHistoryRecord?: (record: AgentHistoryRecord) => Promise<void>;
   inferenceSessionId?: string;
@@ -265,7 +389,7 @@ function optionsBuild(params: {
     agent: {
       id: "agent-1",
       descriptor: {
-        type: "user",
+        type: params.agentType ?? "user",
         connector: "telegram",
         channelId: "channel-1",
         userId: "user-1"
@@ -292,7 +416,7 @@ function optionsBuild(params: {
     eventBus: { emit: vi.fn() } as unknown as EngineEventBus,
     assistant: null,
     agentSystem: {
-      config: { current: { features: { rlm: params.rlm ?? false, say: false } } },
+      config: { current: { features: { rlm: params.rlm ?? false, say: params.say ?? false } } },
       imageRegistry: { list: () => [] }
     } as unknown as AgentSystem,
     heartbeats: {} as Heartbeats,

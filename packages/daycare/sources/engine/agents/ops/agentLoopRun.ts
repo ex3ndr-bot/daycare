@@ -25,7 +25,7 @@ import type { Heartbeats } from "../../heartbeat/heartbeats.js";
 import { tokensResolve } from "./tokensResolve.js";
 import type { Skills } from "../../skills/skills.js";
 import { agentHistoryPendingToolResultsBuild } from "./agentHistoryPendingToolResultsBuild.js";
-import { tagExtract } from "../../../util/tagExtract.js";
+import { tagExtract, tagExtractAll } from "../../../util/tagExtract.js";
 
 const MAX_TOOL_ITERATIONS = 500; // Make this big enough to handle complex tasks
 
@@ -239,26 +239,63 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
         logger.debug("event: NO_MESSAGE detected; suppressing user output for this response");
       }
       lastResponseNoMessage = suppressUserOutput;
-      const effectiveResponseText = suppressUserOutput ? null : responseText;
-      const trimmedText = effectiveResponseText?.trim() ?? "";
-      const hasResponseText = trimmedText.length > 0;
-      finalResponseText = hasResponseText ? effectiveResponseText : null;
-      lastResponseTextSent = false;
-      if (hasResponseText && connector && targetId) {
-        try {
-          await connector.sendMessage(targetId, {
-            text: effectiveResponseText,
-            replyToMessageId: entry.context.messageId
-          });
-          eventBus.emit("agent.outgoing", {
-            agentId: agent.id,
-            source,
-            message: { text: effectiveResponseText },
-            context: entry.context
-          });
-          lastResponseTextSent = true;
-        } catch (error) {
-          logger.warn({ connector: source, error }, "error: Failed to send response text");
+      const sayEnabled = agentSystem.config.current.features.say && agentKind === "foreground";
+      let effectiveResponseText: string | null = suppressUserOutput ? null : responseText;
+
+      // <say> tag mode: only send text inside <say> blocks, suppress the rest
+      if (sayEnabled && effectiveResponseText) {
+        const sayBlocks = tagExtractAll(effectiveResponseText, "say");
+        if (sayBlocks.length > 0) {
+          effectiveResponseText = null; // suppress full text
+          finalResponseText = sayBlocks[sayBlocks.length - 1]!;
+          lastResponseTextSent = false;
+          if (connector && targetId) {
+            try {
+              for (const block of sayBlocks) {
+                await connector.sendMessage(targetId, {
+                  text: block,
+                  replyToMessageId: entry.context.messageId
+                });
+                eventBus.emit("agent.outgoing", {
+                  agentId: agent.id,
+                  source,
+                  message: { text: block },
+                  context: entry.context
+                });
+              }
+              lastResponseTextSent = true;
+            } catch (error) {
+              logger.warn({ connector: source, error }, "error: Failed to send <say> response text");
+            }
+          }
+        } else {
+          // No <say> blocks: suppress entire output
+          effectiveResponseText = null;
+          finalResponseText = null;
+          lastResponseTextSent = true; // prevent post-loop fallback send
+          logger.debug("event: <say> feature enabled but no <say> tags found; suppressing output");
+        }
+      } else {
+        const trimmedText = effectiveResponseText?.trim() ?? "";
+        const hasResponseText = trimmedText.length > 0;
+        finalResponseText = hasResponseText ? effectiveResponseText : null;
+        lastResponseTextSent = false;
+        if (hasResponseText && connector && targetId) {
+          try {
+            await connector.sendMessage(targetId, {
+              text: effectiveResponseText,
+              replyToMessageId: entry.context.messageId
+            });
+            eventBus.emit("agent.outgoing", {
+              agentId: agent.id,
+              source,
+              message: { text: effectiveResponseText },
+              context: entry.context
+            });
+            lastResponseTextSent = true;
+          } catch (error) {
+            logger.warn({ connector: source, error }, "error: Failed to send response text");
+          }
         }
       }
 
