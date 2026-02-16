@@ -9,7 +9,12 @@ type RegisteredTool = ToolDefinition & { pluginId: string };
 
 const logger = getLogger("engine.modules");
 
-export class ToolResolver {
+export interface ToolResolverLike {
+  listTools(): Tool[];
+  execute(toolCall: ToolCall, context: ToolExecutionContext): Promise<ToolExecutionResult>;
+}
+
+export class ToolResolver implements ToolResolverLike {
   private tools = new Map<string, RegisteredTool>();
 
   register(pluginId: string, definition: ToolDefinition): void {

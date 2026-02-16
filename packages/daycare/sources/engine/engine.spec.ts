@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { promises as fs } from "node:fs";
 
 import { describe, expect, it, vi } from "vitest";
 
@@ -216,6 +217,62 @@ describe("Engine tool registration", () => {
 
       const status = engine.getStatus();
       expect(status.tools).toContain("skill");
+
+      await engine.shutdown();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("Engine app registration", () => {
+  it("discovers apps on startup and registers app tools", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
+    try {
+      const appDir = path.join(dir, "apps", "github-reviewer");
+      await fs.mkdir(appDir, { recursive: true });
+      await fs.writeFile(
+        path.join(appDir, "APP.md"),
+        [
+          "---",
+          "id: github-reviewer",
+          "name: GitHub Reviewer",
+          "description: Reviews pull requests",
+          "---",
+          "",
+          "## System Prompt",
+          "",
+          "You are a reviewer."
+        ].join("\n")
+      );
+      await fs.writeFile(
+        path.join(appDir, "PERMISSIONS.md"),
+        [
+          "## Source Intent",
+          "",
+          "Review pull requests safely.",
+          "",
+          "## Rules",
+          "",
+          "### Allow",
+          "- Read files",
+          "",
+          "### Deny",
+          "- Delete files"
+        ].join("\n")
+      );
+
+      const config = configResolve(
+        { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
+        path.join(dir, "settings.json")
+      );
+      const engine = new Engine({ config, eventBus: new EngineEventBus() });
+      await engine.start();
+
+      const status = engine.getStatus();
+      expect(status.tools).toContain("install_app");
+      expect(status.tools).toContain("app_rules");
+      expect(status.tools).toContain("app_github_reviewer");
 
       await engine.shutdown();
     } finally {

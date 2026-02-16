@@ -2,7 +2,14 @@ export type AgentDescriptor =
   | { type: "user"; connector: string; userId: string; channelId: string }
   | { type: "cron"; id: string; name?: string }
   | { type: "system"; tag: string }
-  | { type: "subagent"; id: string; parentAgentId: string; name: string }
+  | {
+      type: "subagent";
+      id: string;
+      parentAgentId: string;
+      name: string;
+      systemPrompt?: string;
+      appId?: string;
+    }
   | {
       type: "permanent";
       id: string;

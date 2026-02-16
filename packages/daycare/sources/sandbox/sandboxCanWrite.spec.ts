@@ -9,10 +9,13 @@ import { sandboxCanWrite } from "./sandboxCanWrite.js";
 describe("sandboxCanWrite", () => {
   let workingDir: string;
   let outsideDir: string;
+  let appFile: string;
 
   beforeEach(async () => {
     workingDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-can-write-workspace-"));
     outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "sandbox-can-write-outside-"));
+    appFile = path.join(workingDir, "apps", "my-app", "APP.md");
+    await fs.mkdir(path.dirname(appFile), { recursive: true });
   });
 
   afterEach(async () => {
@@ -54,6 +57,14 @@ describe("sandboxCanWrite", () => {
     await expect(sandboxCanWrite(permissions, target))
       .rejects
       .toThrow("Path is outside the allowed directories.");
+  });
+
+  it("denies non-app agents from writing app directories", async () => {
+    const permissions = buildPermissions(workingDir, [workingDir]);
+
+    await expect(sandboxCanWrite(permissions, appFile)).rejects.toThrow(
+      "App directories are not accessible from non-app agents."
+    );
   });
 });
 

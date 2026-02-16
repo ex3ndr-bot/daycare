@@ -103,3 +103,13 @@ export type {
   ChannelMessage,
   ChannelSignalData
 } from "./engine/channels/channelTypes.js";
+
+// Apps
+export type {
+  AppDescriptor,
+  AppManifest,
+  AppPermissions,
+  AppReviewDecision,
+  AppRule,
+  AppRuleSet
+} from "./engine/apps/appTypes.js";

@@ -2,6 +2,7 @@ import os from "node:os";
 import path from "node:path";
 
 import type { SessionPermissions } from "@/types";
+import { sandboxAppsDenyPathsBuild } from "./sandboxAppsDenyPathsBuild.js";
 
 const COMMON_HOME_RELATIVE_DENY_PATHS = [
   ".ssh",
@@ -88,7 +89,8 @@ export function sandboxFilesystemPolicyBuild(
     ...homeDeny,
     ...platformHomeDeny,
     ...COMMON_SYSTEM_DENY_PATHS,
-    ...platformSystemDeny
+    ...platformSystemDeny,
+    ...sandboxAppsDenyPathsBuild(input.permissions)
   ]);
 
   return {

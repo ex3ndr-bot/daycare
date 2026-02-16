@@ -62,6 +62,9 @@ import { Processes } from "./processes/processes.js";
 import { IncomingMessages } from "./messages/incomingMessages.js";
 import { PermissionRequestRegistry } from "./modules/tools/permissionRequestRegistry.js";
 import { Channels } from "./channels/channels.js";
+import { Apps } from "./apps/appManager.js";
+import { appInstallToolBuild } from "./apps/appInstallToolBuild.js";
+import { appRuleToolBuild } from "./apps/appRuleToolBuild.js";
 
 const logger = getLogger("engine.runtime");
 const INCOMING_MESSAGES_DEBOUNCE_MS = 100;
@@ -89,6 +92,7 @@ export class Engine {
   readonly inferenceRouter: InferenceRouter;
   readonly eventBus: EngineEventBus;
   readonly permissionRequestRegistry: PermissionRequestRegistry;
+  readonly apps: Apps;
   private readonly reloadSync: InvalidateSync;
   private readonly incomingMessages: IncomingMessages;
 
@@ -314,6 +318,7 @@ export class Engine {
       signals: this.signals,
       agentSystem: this.agentSystem
     });
+    this.apps = new Apps({ workspaceDir: this.config.current.workspaceDir });
 
   }
 
@@ -371,11 +376,15 @@ export class Engine {
     this.modules.tools.register("core", buildSignalUnsubscribeTool(this.signals));
     this.modules.tools.register("core", buildPermissionRequestTool());
     this.modules.tools.register("core", buildPermissionGrantTool());
+    this.modules.tools.register("core", appInstallToolBuild(this.apps));
+    this.modules.tools.register("core", appRuleToolBuild(this.apps));
     if (this.config.current.rlm) {
       this.modules.tools.register("core", rlmToolBuild(this.modules.tools));
     }
+    await this.apps.discover();
+    this.apps.registerTools(this.modules.tools);
     logger.debug(
-      "register: Core tools registered: cron, cron_memory, heartbeat, topology, background, skill, session_history, permanent_agents, channels, image_generation, mermaid_png, reaction, send_file, generate_signal, signal_subscribe, signal_unsubscribe, request_permission, grant_permission"
+      "register: Core tools registered: cron, cron_memory, heartbeat, topology, background, skill, session_history, permanent_agents, channels, image_generation, mermaid_png, reaction, send_file, generate_signal, signal_subscribe, signal_unsubscribe, request_permission, grant_permission, install_app, app_rules"
     );
 
     await this.pluginManager.preStartAll();

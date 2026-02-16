@@ -67,6 +67,7 @@ import { signalMessageBuild } from "../signals/signalMessageBuild.js";
 import { channelMessageBuild, channelSignalDataParse } from "../channels/channelMessageBuild.js";
 import type { AgentSystem } from "./agentSystem.js";
 import { systemAgentPromptResolve } from "./system/systemAgentPromptResolve.js";
+import type { ToolResolverLike } from "../modules/toolResolver.js";
 
 const logger = getLogger("engine.agent");
 
@@ -378,7 +379,9 @@ export class Agent {
     }
     const agentPrompt = this.descriptor.type === "permanent"
       ? this.descriptor.systemPrompt.trim()
-      : (systemAgentPrompt?.systemPrompt ?? "");
+      : this.descriptor.type === "subagent"
+        ? this.descriptor.systemPrompt?.trim() ?? ""
+        : (systemAgentPrompt?.systemPrompt ?? "");
     const agentKind = this.resolveAgentKind();
     const allowCronTools = agentDescriptorIsCron(this.descriptor);
 
@@ -448,8 +451,9 @@ export class Agent {
       logger.warn({ agentId: this.id, error }, "error: Failed to write system prompt snapshot");
     }
 
+    const toolResolver = item.toolResolverOverride ?? this.agentSystem.toolResolver;
     const history = await agentHistoryLoad(this.agentSystem.config.current, this.id);
-    const contextTools = this.listContextTools(source, {
+    const contextTools = this.listContextTools(toolResolver, source, {
       agentKind,
       allowCronTools,
       skills: availableSkills
@@ -557,7 +561,7 @@ export class Agent {
           connector,
           connectorRegistry: this.agentSystem.connectorRegistry,
           inferenceRouter: this.agentSystem.inferenceRouter,
-          toolResolver: this.agentSystem.toolResolver,
+          toolResolver,
           fileStore: this.agentSystem.fileStore,
           authStore: this.agentSystem.authStore,
           eventBus: this.agentSystem.eventBus,
@@ -957,6 +961,7 @@ export class Agent {
   }
 
   private listContextTools(
+    toolResolver: ToolResolverLike,
     source?: string,
     options?: {
       agentKind?: "background" | "foreground";
@@ -965,7 +970,7 @@ export class Agent {
     }
   ) {
     return toolListContextBuild({
-      tools: this.agentSystem.toolResolver.listTools(),
+      tools: toolResolver.listTools(),
       skills: options?.skills,
       source,
       agentKind: options?.agentKind,

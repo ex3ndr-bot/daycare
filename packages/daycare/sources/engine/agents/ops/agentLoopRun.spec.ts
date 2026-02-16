@@ -4,8 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import { agentLoopRun } from "./agentLoopRun.js";
 import type { AgentHistoryRecord, AgentMessage } from "./agentTypes.js";
 import type { Agent } from "../agent.js";
-import type { AgentSkill, Connector, FileReference, ToolExecutionResult } from "@/types";
-import type { ToolResolver } from "../../modules/toolResolver.js";
+import type { Connector, FileReference, ToolExecutionResult } from "@/types";
+import type { ToolResolverLike } from "../../modules/toolResolver.js";
+import type { AgentSkill } from "@/types";
 import type { InferenceRouter } from "../../modules/inference/router.js";
 import type { ConnectorRegistry } from "../../modules/connectorRegistry.js";
 import type { FileStore } from "../../../files/store.js";
@@ -133,7 +134,7 @@ describe("agentLoopRun", () => {
         toolResolverSkills.push(executeContext.skills);
         return toolResultTextBuild("call-1", "run_python", "ok");
       })
-    } as unknown as ToolResolver;
+    } as unknown as ToolResolverLike;
 
     await agentLoopRun(
       optionsBuild({
@@ -240,7 +241,7 @@ function optionsBuild(params: {
   context: Context;
   connector: Connector;
   inferenceRouter: InferenceRouter;
-  toolResolver: ToolResolver;
+  toolResolver: ToolResolverLike;
   skills?: Skills;
   rlm?: boolean;
   abortSignal?: AbortSignal;
@@ -351,11 +352,11 @@ function inferenceRouterBuild(messages: AssistantMessage[]): InferenceRouter {
 
 function toolResolverBuild(
   execute: (toolCall: { id: string; name: string }) => Promise<ToolExecutionResult>
-): ToolResolver {
+): ToolResolverLike {
   return {
     listTools: () => [],
     execute: vi.fn(async (toolCall: { id: string; name: string }) => execute(toolCall))
-  } as unknown as ToolResolver;
+  } as unknown as ToolResolverLike;
 }
 
 function connectorRegistryBuild(): ConnectorRegistry {

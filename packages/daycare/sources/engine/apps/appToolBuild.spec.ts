@@ -1,0 +1,29 @@
+import { describe, expect, it } from "vitest";
+
+import type { AppDescriptor } from "./appTypes.js";
+import { appToolBuild } from "./appToolBuild.js";
+
+describe("appToolBuild", () => {
+  it("formats tool metadata from app descriptor", () => {
+    const app: AppDescriptor = {
+      id: "github-reviewer",
+      path: "/workspace/apps/github-reviewer",
+      manifest: {
+        id: "github-reviewer",
+        name: "GitHub Reviewer",
+        description: "Reviews pull requests",
+        systemPrompt: "You are a reviewer."
+      },
+      permissions: {
+        sourceIntent: "Review pull requests safely.",
+        rules: { allow: [], deny: [] }
+      }
+    };
+
+    const definition = appToolBuild(app);
+    expect(definition.tool.name).toBe("app_github_reviewer");
+    expect(definition.tool.description).toBe("Reviews pull requests");
+    expect(definition.tool.parameters.type).toBe("object");
+    expect(definition.tool.parameters.required).toEqual(["prompt"]);
+  });
+});
