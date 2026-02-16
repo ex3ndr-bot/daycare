@@ -68,7 +68,10 @@ Core commands are registered with Telegram (scoped to private chats), and plugin
 | `/context` | Show token usage snapshot |
 | `/compaction` | Compact the current conversation |
 | `/stop` | Abort the current inference for the current user |
-| `/restart` | Restart the Daycare server process |
+
+When the Upgrade plugin is enabled, it also contributes:
+- `/upgrade` to install the latest `daycare-cli` and restart PM2.
+- `/restart` to restart the configured PM2 Daycare process without running upgrade install.
 
 ## Permission handling
 

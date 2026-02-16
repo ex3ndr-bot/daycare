@@ -18,8 +18,9 @@ The command runs:
   - `strategy: "pm2"`
   - `processName: "daycare"`
 
-## Slash command
+## Slash commands
 - `/upgrade` - upgrades Daycare CLI and restarts the configured PM2 process.
+- `/restart` - restarts the configured PM2 process without running the upgrade install step.
 
 ## Notes
 - Slash commands are user-facing and are not exposed as model tools.

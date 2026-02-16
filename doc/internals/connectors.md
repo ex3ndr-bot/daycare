@@ -90,7 +90,7 @@ flowchart LR
 - `/context` reports the latest context token usage snapshot.
 - `/compaction` requests manual context compaction.
 - `/stop` aborts the current inference for the current user.
-- `/restart` requests a graceful server shutdown so the process supervisor can restart it.
+- Upgrade plugin commands may add `/upgrade` and `/restart` when that plugin is enabled.
 
 ```mermaid
 sequenceDiagram
