@@ -277,6 +277,7 @@ export class AgentSystem {
     };
   }
 
+
   async agentExists(agentId: string): Promise<boolean> {
     if (this.entries.has(agentId)) {
       return true;
@@ -374,7 +375,7 @@ export class AgentSystem {
 
   async sleepIfIdle(
     agentId: string,
-    reason: "message" | "system_message" | "signal" | "reset" | "restore"
+    reason: "message" | "system_message" | "signal" | "reset" | "compact" | "restore"
   ): Promise<void> {
     const entry = this.entries.get(agentId);
     if (!entry) {

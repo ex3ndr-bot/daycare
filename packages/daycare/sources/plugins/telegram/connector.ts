@@ -58,6 +58,10 @@ const TELEGRAM_SLASH_COMMANDS: TelegramBot.BotCommand[] = [
     description: "Show latest context token usage."
   },
   {
+    command: "compaction",
+    description: "Compact the current conversation."
+  },
+  {
     command: "stop",
     description: "Abort the current inference."
   }

@@ -97,6 +97,10 @@ export type AgentInboxItem =
       context?: MessageContext;
     }
   | {
+      type: "compact";
+      context?: MessageContext;
+    }
+  | {
       type: "restore";
     };
 
@@ -108,6 +112,7 @@ export type AgentInboxSystemMessage = Extract<
 export type AgentInboxSignal = Extract<AgentInboxItem, { type: "signal" }>;
 
 export type AgentInboxReset = Extract<AgentInboxItem, { type: "reset" }>;
+export type AgentInboxCompact = Extract<AgentInboxItem, { type: "compact" }>;
 export type AgentInboxRestore = Extract<AgentInboxItem, { type: "restore" }>;
 
 export type AgentInboxResult =
@@ -126,6 +131,10 @@ export type AgentInboxResult =
     }
   | {
       type: "reset";
+      ok: boolean;
+    }
+  | {
+      type: "compact";
       ok: boolean;
     }
   | {

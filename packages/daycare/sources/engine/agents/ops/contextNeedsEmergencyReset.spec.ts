@@ -27,4 +27,18 @@ describe("contextNeedsEmergencyReset", () => {
 
     expect(contextNeedsEmergencyReset(config, history)).toBe(false);
   });
+
+  it("includes heuristic extras in the estimate", () => {
+    const config = configResolve(
+      { agents: { emergencyContextLimit: 10 } },
+      path.resolve("/tmp/settings.json")
+    );
+    const history: AgentHistoryRecord[] = [
+      { type: "user_message", at: 1, text: "", files: [] }
+    ];
+
+    expect(
+      contextNeedsEmergencyReset(config, history, { systemPrompt: "x".repeat(40) })
+    ).toBe(true);
+  });
 });

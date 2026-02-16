@@ -236,6 +236,63 @@ describe("Engine stop command", () => {
   });
 });
 
+describe("Engine compaction command", () => {
+  it("posts compaction work for user commands", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
+    try {
+      const config = configResolve(
+        { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
+        path.join(dir, "settings.json")
+      );
+      const engine = new Engine({ config, eventBus: new EngineEventBus() });
+      const postSpy = vi.spyOn(engine.agentSystem, "post").mockResolvedValue(undefined);
+
+      const sendMessage = vi.fn(async () => undefined);
+      const commandState: {
+        handler?: (command: string, context: MessageContext, descriptor: AgentDescriptor) => void | Promise<void>;
+      } = {};
+
+      const connector: Connector = {
+        capabilities: { sendText: true },
+        onMessage: () => () => undefined,
+        onCommand: (handler) => {
+          commandState.handler = handler;
+          return () => undefined;
+        },
+        sendMessage
+      };
+
+      const registerResult = engine.modules.connectors.register("telegram", connector);
+      expect(registerResult).toEqual({ ok: true, status: "loaded" });
+      const commandHandler = commandState.handler;
+      if (!commandHandler) {
+        throw new Error("Expected command handler to be registered");
+      }
+
+      const descriptor: AgentDescriptor = {
+        type: "user",
+        connector: "telegram",
+        channelId: "123",
+        userId: "123"
+      };
+      const context: MessageContext = { messageId: "57" };
+
+      await commandHandler("/compaction", context, descriptor);
+
+      expect(postSpy).toHaveBeenCalledWith(
+        { descriptor },
+        { type: "compact", context }
+      );
+      expect(sendMessage).not.toHaveBeenCalled();
+
+      await engine.modules.connectors.unregisterAll("test");
+      await engine.shutdown();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("Engine message batching", () => {
   it("debounces and combines connector messages per descriptor", async () => {
     vi.useFakeTimers();

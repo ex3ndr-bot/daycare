@@ -14,6 +14,7 @@
 ## Build, Test, and Development Commands
 - Runtime baseline: Node **22+**.
 - Install deps: `yarn install`
+- Run `yarn install` before tests.
 - Run CLI in dev: `yarn dev`.
 - Node remains supported for running built output (`dist/*`) and production installs.
 - Type-check/build: `yarn typecheck` (tsc)

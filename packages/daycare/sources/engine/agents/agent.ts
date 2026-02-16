@@ -47,6 +47,7 @@ import type {
   AgentInboxSignal,
   AgentInboxSystemMessage,
   AgentInboxReset,
+  AgentInboxCompact,
   AgentInboxRestore,
   AgentInboxResult,
   AgentMessage,
@@ -231,6 +232,7 @@ export class Agent {
       item.type !== "system_message" &&
       item.type !== "signal" &&
       item.type !== "reset" &&
+      item.type !== "compact" &&
       item.type !== "restore"
     ) {
       return;
@@ -244,6 +246,7 @@ export class Agent {
       | AgentInboxSystemMessage
       | AgentInboxSignal
       | AgentInboxReset
+      | AgentInboxCompact
       | AgentInboxRestore
   ): Promise<AgentInboxResult> {
     switch (item.type) {
@@ -262,6 +265,10 @@ export class Agent {
       case "reset": {
         const ok = await this.handleReset(item);
         return { type: "reset", ok };
+      }
+      case "compact": {
+        const ok = await this.handleCompaction(item);
+        return { type: "compact", ok };
       }
       case "restore": {
         const ok = await this.handleRestore(item);
@@ -442,11 +449,21 @@ export class Agent {
     }
 
     const history = await agentHistoryLoad(this.agentSystem.config.current, this.id);
-    const extraTokens = Math.ceil((systemPrompt.length + rawText.length) / 4);
+    const contextTools = this.listContextTools(source, {
+      agentKind,
+      allowCronTools,
+      skills: availableSkills
+    });
     const compactionStatus = contextCompactionStatusBuild(
       history,
       this.agentSystem.config.current.settings.agents.emergencyContextLimit,
-      { extraTokens }
+      {
+        extras: {
+          systemPrompt,
+          tools: contextTools,
+          extraText: [rawText]
+        }
+      }
     );
     if (compactionStatus.severity !== "ok") {
       const target = agentDescriptorTargetResolve(this.descriptor);
@@ -469,29 +486,8 @@ export class Agent {
         const summaryText = summaryMessage
           ? messageExtractText(summaryMessage)?.trim() ?? ""
           : "";
-          if (summaryText) {
-            const summaryWithContinue = `${summaryText}\n\nPlease continue with the user's latest request.`;
-            compactionAt = Date.now();
-            this.state.context = {
-              messages: [
-                {
-                  role: "user",
-                  content: summaryWithContinue,
-                  timestamp: compactionAt
-                }
-              ]
-            };
-            this.state.tokens = null;
-            await agentHistoryAppend(this.agentSystem.config.current, this.id, {
-              type: "reset",
-              at: compactionAt
-            });
-          await agentHistoryAppend(this.agentSystem.config.current, this.id, {
-            type: "user_message",
-            at: compactionAt,
-            text: summaryWithContinue,
-            files: []
-          });
+        if (summaryText) {
+          compactionAt = await this.applyCompactionSummary(summaryText);
         }
       } catch (error) {
         logger.warn({ agentId: this.id, error }, "error: Context compaction failed; continuing with full context");
@@ -508,11 +504,7 @@ export class Agent {
     const agentContext = this.state.context;
     const contextForRun: Context = {
       ...agentContext,
-      tools: this.listContextTools(source, {
-        agentKind,
-        allowCronTools,
-        skills: availableSkills
-      }),
+      tools: contextTools,
       systemPrompt
     };
 
@@ -718,6 +710,27 @@ export class Agent {
     return true;
   }
 
+  private async handleCompaction(item: AgentInboxCompact): Promise<boolean> {
+    const result = await this.runManualCompaction();
+    if (this.descriptor.type !== "user") {
+      return result.ok;
+    }
+    const connector = this.agentSystem.connectorRegistry.get(this.descriptor.connector);
+    if (!connector?.capabilities.sendText) {
+      return result.ok;
+    }
+    const text = this.compactionResultText(result);
+    try {
+      await connector.sendMessage(this.descriptor.channelId, {
+        text,
+        replyToMessageId: item.context?.messageId
+      });
+    } catch (error) {
+      logger.warn({ agentId: this.id, error }, "error: Compaction command response failed");
+    }
+    return result.ok;
+  }
+
   /**
    * Resets the session when the emergency context limit is exceeded.
    * Expects: reset record written and state persisted before notifying users.
@@ -775,6 +788,57 @@ export class Agent {
     await agentStateWrite(this.agentSystem.config.current, this.id, this.state);
     this.agentSystem.eventBus.emit("agent.restored", { agentId: this.id });
     return true;
+  }
+
+  private async runManualCompaction(): Promise<{ ok: boolean; reason?: string }> {
+    const messages = this.state.context.messages ?? [];
+    if (messages.length === 0) {
+      return { ok: false, reason: "empty" };
+    }
+    const providers = listActiveInferenceProviders(this.agentSystem.config.current.settings);
+    if (providers.length === 0) {
+      return { ok: false, reason: "no_provider" };
+    }
+    const providerId = this.resolveAgentProvider(providers);
+    try {
+      const compacted = await contextCompact({
+        context: this.state.context,
+        inferenceRouter: this.agentSystem.inferenceRouter,
+        providers,
+        providerId: providerId ?? undefined,
+        agentId: `${this.id}:compaction`
+      });
+      const summaryMessage = compacted.messages?.[0];
+      const summaryText = summaryMessage
+        ? messageExtractText(summaryMessage)?.trim() ?? ""
+        : "";
+      if (!summaryText) {
+        return { ok: false, reason: "empty_summary" };
+      }
+      const compactionAt = await this.applyCompactionSummary(summaryText);
+      this.state.updatedAt = compactionAt;
+      await agentStateWrite(this.agentSystem.config.current, this.id, this.state);
+      return { ok: true };
+    } catch (error) {
+      logger.warn({ agentId: this.id, error }, "error: Manual compaction failed");
+      return { ok: false, reason: "failed" };
+    }
+  }
+
+  private compactionResultText(result: { ok: boolean; reason?: string }): string {
+    if (result.ok) {
+      return "Session compacted.";
+    }
+    switch (result.reason) {
+      case "empty":
+        return "Nothing to compact yet.";
+      case "empty_summary":
+        return "Compaction produced an empty summary; context unchanged.";
+      case "no_provider":
+        return "Compaction unavailable: no inference provider configured.";
+      default:
+        return "Compaction failed.";
+    }
   }
 
   /**
@@ -956,6 +1020,32 @@ export class Agent {
       }
     }
     return messages;
+  }
+
+  private async applyCompactionSummary(summaryText: string): Promise<number> {
+    const summaryWithContinue = `${summaryText}\n\nPlease continue with the user's latest request.`;
+    const compactionAt = Date.now();
+    this.state.context = {
+      messages: [
+        {
+          role: "user",
+          content: summaryWithContinue,
+          timestamp: compactionAt
+        }
+      ]
+    };
+    this.state.tokens = null;
+    await agentHistoryAppend(this.agentSystem.config.current, this.id, {
+      type: "reset",
+      at: compactionAt
+    });
+    await agentHistoryAppend(this.agentSystem.config.current, this.id, {
+      type: "user_message",
+      at: compactionAt,
+      text: summaryWithContinue,
+      files: []
+    });
+    return compactionAt;
   }
 
   /**

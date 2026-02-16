@@ -170,6 +170,17 @@ export class Engine {
           await this.handleContextCommand(descriptor, context);
           return;
         }
+        if (parsed.name === "compaction" || parsed.name === "compact") {
+          if (descriptor.type !== "user") {
+            return;
+          }
+          logger.info(
+            { connector, channelId: descriptor.channelId, userId: descriptor.userId },
+            "receive: Compaction command received"
+          );
+          await this.handleCompactionCommand(descriptor, context);
+          return;
+        }
         if (parsed.name === "stop") {
           if (descriptor.type !== "user") {
             return;
@@ -460,6 +471,13 @@ export class Engine {
     }
   }
 
+  private async handleCompactionCommand(
+    descriptor: AgentDescriptor,
+    context: MessageContext
+  ): Promise<void> {
+    await this.agentSystem.post({ descriptor }, { type: "compact", context });
+  }
+
   private async handleResetCommand(
     descriptor: AgentDescriptor,
     context: MessageContext
@@ -570,7 +588,6 @@ function parseCommand(command: string): { name: string; args: string[] } | null 
   }
   return { name, args: parts };
 }
-
 /**
  * Compares reloadable runtime config fields.
  * Keep this in sync with `Config` whenever runtime behavior changes.

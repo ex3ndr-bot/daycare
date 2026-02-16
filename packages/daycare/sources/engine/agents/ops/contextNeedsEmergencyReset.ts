@@ -1,6 +1,9 @@
 import type { AgentHistoryRecord, Config } from "@/types";
 
-import { contextEstimateTokens } from "./contextEstimateTokens.js";
+import {
+  contextEstimateTokensWithExtras,
+  type ContextEstimateTokensExtras
+} from "./contextEstimateTokensWithExtras.js";
 
 /**
  * Checks if the current history exceeds the emergency context limit.
@@ -8,8 +11,9 @@ import { contextEstimateTokens } from "./contextEstimateTokens.js";
  */
 export function contextNeedsEmergencyReset(
   config: Config,
-  history: AgentHistoryRecord[]
+  history: AgentHistoryRecord[],
+  extras?: ContextEstimateTokensExtras
 ): boolean {
   const limit = config.settings.agents.emergencyContextLimit;
-  return contextEstimateTokens(history) >= limit;
+  return contextEstimateTokensWithExtras(history, extras) >= limit;
 }

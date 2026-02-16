@@ -32,9 +32,12 @@ describe("contextCompactionStatusBuild", () => {
     expect(criticalStatus.severity).toBe("critical");
   });
 
-  it("includes extra tokens in the estimate", () => {
+  it("includes heuristic extras in the estimate", () => {
     const history = buildHistory(0);
-    const status = contextCompactionStatusBuild(history, 100, { extraTokens: 12 });
+    const status = contextCompactionStatusBuild(history, 100, {
+      extras: { systemPrompt: "x".repeat(48) }
+    });
     expect(status.estimatedTokens).toBe(12);
+    expect(status.extraTokens).toBe(12);
   });
 });
