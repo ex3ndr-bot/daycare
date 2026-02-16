@@ -111,6 +111,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
   let activeSkills: AgentSkill[] = [];
   const isSubagent = agent.descriptor.type === "subagent";
   let subagentNudged = false;
+  let subagentResponded = false;
   const agentKind = agent.descriptor.type === "user" ? "foreground" : "background";
   const allowCronTools = agentDescriptorIsCron(agent.descriptor);
   const target = agentDescriptorTargetResolve(agent.descriptor);
@@ -270,15 +271,21 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
         toolCalls,
         tokens: tokensEntry
       }, appendHistoryRecord);
+
+      // Subagent <response> tag: check on every iteration, deliver each one to parent
+      if (isSubagent) {
+        const extracted = tagExtract(responseText ?? "", "response");
+        if (extracted !== null) {
+          finalResponseText = extracted;
+          subagentResponded = true;
+          await subagentDeliverResponse(agentSystem, agent, extracted, logger);
+        }
+      }
+
       if (toolCalls.length === 0) {
-        // Subagent response tag extraction: check for <response> tag, nudge if missing
-        if (isSubagent) {
-          const extracted = tagExtract(responseText ?? "", "response");
-          if (extracted !== null) {
-            finalResponseText = extracted;
-            logger.debug("event: Subagent <response> tag extracted");
-            break;
-          } else if (!subagentNudged) {
+        // Subagent final iteration: nudge if no <response> tag was ever emitted
+        if (isSubagent && !subagentResponded) {
+          if (!subagentNudged) {
             subagentNudged = true;
             context.messages.push({
               role: "user",
@@ -531,6 +538,37 @@ async function historyPendingToolCallsComplete(
   );
   for (const record of completionRecords) {
     await historyRecordAppend(historyRecords, record, appendHistoryRecord);
+  }
+}
+
+/**
+ * Delivers a <response> tag payload from a subagent to its parent agent.
+ * Called inline during the inference loop so intermediate responses arrive immediately.
+ */
+async function subagentDeliverResponse(
+  agentSystem: AgentSystem,
+  agent: Agent,
+  text: string,
+  logger: Logger
+): Promise<void> {
+  if (agent.descriptor.type !== "subagent") {
+    return;
+  }
+  const parentAgentId = agent.descriptor.parentAgentId ?? null;
+  if (!parentAgentId) {
+    return;
+  }
+  try {
+    await agentSystem.post(
+      { agentId: parentAgentId },
+      { type: "system_message", text, origin: agent.id }
+    );
+    logger.debug("event: Subagent <response> delivered to parent");
+  } catch (error) {
+    logger.warn(
+      { agentId: agent.id, parentAgentId, error },
+      "error: Subagent response delivery failed"
+    );
   }
 }
 
