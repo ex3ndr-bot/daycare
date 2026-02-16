@@ -44,7 +44,7 @@ All paths are validated before use:
 ### App directory isolation
 
 - Non-app agents are denied read/write access to `<workspace>/apps/*`.
-- App subagents can access only their own app directory and can write only to `<workspace>/apps/<app-id>/data`.
+- App agents can access only their own app directory and can write only to `<workspace>/apps/<app-id>/data`.
 
 ## Allowed domains
 

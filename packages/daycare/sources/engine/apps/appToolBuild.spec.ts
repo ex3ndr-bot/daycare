@@ -10,9 +10,9 @@ describe("appToolBuild", () => {
       path: "/workspace/apps/github-reviewer",
       manifest: {
         id: "github-reviewer",
-        name: "GitHub Reviewer",
-        description: "Reviews pull requests",
-        systemPrompt: "You are a reviewer."
+        name: "github-reviewer",
+        title: "GitHub Reviewer",
+        description: "Reviews pull requests"
       },
       permissions: {
         sourceIntent: "Review pull requests safely.",

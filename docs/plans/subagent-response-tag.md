@@ -110,7 +110,6 @@ Update prompt templates to instruct subagents to use `<response>` tags.
 
 ### Task 6: Update documentation
 
-- [ ] Update `packages/daycare/sources/prompts/ACTORS.md` if subagent communication wiring changed
 - [ ] Add brief note in relevant doc if applicable
 
 ## Technical Details

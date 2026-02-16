@@ -517,7 +517,7 @@ export class AgentSystem {
 
     const agentId = descriptor.type === "cron" && cuid2Is(descriptor.id) ? descriptor.id : createId();
     const resolvedDescriptor =
-      descriptor.type === "subagent" && descriptor.id !== agentId
+      (descriptor.type === "subagent" || descriptor.type === "app") && descriptor.id !== agentId
         ? { ...descriptor, id: agentId }
         : descriptor;
     logger.debug(

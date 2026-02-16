@@ -125,6 +125,9 @@ function batchKeyBuild(descriptor: AgentDescriptor): string {
   if (descriptor.type === "subagent") {
     return `/subagent/${descriptor.id}`;
   }
+  if (descriptor.type === "app") {
+    return `/app/${descriptor.id}`;
+  }
   if (descriptor.type === "permanent") {
     return `/permanent/${descriptor.id}`;
   }

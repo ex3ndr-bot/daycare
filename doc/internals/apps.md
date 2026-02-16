@@ -14,7 +14,7 @@ Apps are implemented in `sources/engine/apps/` and wired by `engine.ts`.
 sequenceDiagram
   participant A as Caller Agent
   participant T as app_<id> Tool
-  participant S as App Subagent
+  participant S as App Agent (type=app)
   participant R as Review Model
   participant X as Real Tool
 
@@ -34,17 +34,19 @@ sequenceDiagram
 
 ## Permission Model
 
-- App subagent `workingDir` and writable area: `<workspace>/apps/<id>/data`
-- App subagent readable area: workspace root (with app-directory isolation enforcement)
+- App agent `workingDir` and writable area: `<workspace>/apps/<id>/data`
+- App agent readable area: workspace root (with app-directory isolation enforcement)
 - Non-app agents: denied from `workspace/apps/*`
 - Runtime app policy source: `PERMISSIONS.md` (source intent + rules)
+- App tool results include the spawned `agentId`; callers can continue with
+  `send_agent_message` targeting that id.
 
 ## Files
 
 - `appManifestParse.ts` / `appManifestValidate.ts`: APP.md parsing and validation
 - `appPermissionsParse.ts` / `appPermissionsValidate.ts`: PERMISSIONS.md parsing and validation
 - `appDiscover.ts`: app discovery
-- `appExecute.ts`: subagent creation and execution
+- `appExecute.ts`: app-agent creation and execution
 - `appToolExecutorBuild.ts`: review wrapper around tool execution
 - `appInstall.ts`: install from local filesystem source
 - `appRuleApply.ts`: mutable PERMISSIONS.md rule updates

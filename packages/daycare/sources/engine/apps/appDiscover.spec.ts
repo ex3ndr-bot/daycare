@@ -27,13 +27,10 @@ describe("appDiscover", () => {
       [
         "---",
         "id: github-reviewer",
-        "name: GitHub Reviewer",
+        "name: github-reviewer",
+        "title: GitHub Reviewer",
         "description: Reviews PRs",
-        "---",
-        "",
-        "## System Prompt",
-        "",
-        "You review pull requests."
+        "---"
       ].join("\n")
     );
     await fs.writeFile(
@@ -57,13 +54,10 @@ describe("appDiscover", () => {
       [
         "---",
         "id: Invalid With Spaces",
-        "name: Broken",
+        "name: broken",
+        "title: Broken",
         "description: bad id",
-        "---",
-        "",
-        "## System Prompt",
-        "",
-        "Broken"
+        "---"
       ].join("\n")
     );
     await fs.writeFile(

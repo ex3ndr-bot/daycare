@@ -64,6 +64,9 @@ function senderUsernameResolve(descriptor: AgentDescriptor): string {
   if (descriptor.type === "subagent") {
     return usernameNormalize(descriptor.name);
   }
+  if (descriptor.type === "app") {
+    return usernameNormalize(descriptor.name);
+  }
   if (descriptor.type === "cron") {
     return usernameNormalize(descriptor.name ?? descriptor.id);
   }
@@ -80,4 +83,3 @@ function usernameNormalize(value: string): string {
   }
   return normalized.replace(/\s+/g, "-");
 }
-

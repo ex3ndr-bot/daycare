@@ -4,7 +4,7 @@ import path from "node:path";
 import type { SessionPermissions } from "@/types";
 
 /**
- * Builds locked-down session permissions for an app subagent.
+ * Builds locked-down session permissions for an app agent.
  * Expects: workspaceDir is absolute; appId is a validated app id.
  */
 export async function appPermissionBuild(

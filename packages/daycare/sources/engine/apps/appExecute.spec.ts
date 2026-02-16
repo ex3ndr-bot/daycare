@@ -20,7 +20,7 @@ describe("appExecute", () => {
     await fs.rm(rootDir, { recursive: true, force: true });
   });
 
-  it("configures subagent permissions and passes a reviewed tool executor override", async () => {
+  it("configures app-agent permissions and passes a reviewed tool executor override", async () => {
     const config = configResolve(
       { engine: { dataDir: path.join(rootDir, "data") }, assistant: { workspaceDir: rootDir } },
       path.join(rootDir, "settings.json")
@@ -51,6 +51,7 @@ describe("appExecute", () => {
       async (_target: unknown, _item: unknown) =>
         ({ type: "message" as const, responseText: "App response." })
     );
+    const agentIdForTarget = vi.fn(async () => agentId);
     const updateAgentPermissions = vi.fn();
     const toolResolver = {
       listTools: () => [
@@ -91,7 +92,7 @@ describe("appExecute", () => {
       messageContext: {},
       agentSystem: {
         config: { current: config },
-        agentIdForTarget: vi.fn(async () => agentId),
+        agentIdForTarget,
         updateAgentPermissions,
         postAndAwait,
         inferenceRouter: {} as unknown,
@@ -105,9 +106,9 @@ describe("appExecute", () => {
       path: path.join(rootDir, "apps", "github-reviewer"),
       manifest: {
         id: "github-reviewer",
-        name: "GitHub Reviewer",
-        description: "Reviews pull requests",
-        systemPrompt: "You are an app reviewer."
+        name: "github-reviewer",
+        title: "GitHub Reviewer",
+        description: "Reviews pull requests"
       },
       permissions: {
         sourceIntent: "Review pull requests safely.",
@@ -118,12 +119,21 @@ describe("appExecute", () => {
       }
     };
 
-    const response = await appExecute({
+    const result = await appExecute({
       app,
       prompt: "Review PR #42",
       context
     });
-    expect(response).toBe("App response.");
+    expect(result).toEqual({ agentId, responseText: "App response." });
+    expect(agentIdForTarget).toHaveBeenCalledWith({
+      descriptor: {
+        type: "app",
+        id: expect.any(String),
+        parentAgentId: "parent-agent",
+        name: "github-reviewer",
+        appId: "github-reviewer"
+      }
+    });
 
     expect(updateAgentPermissions).toHaveBeenCalledTimes(1);
     expect(postAndAwait).toHaveBeenCalledTimes(1);
@@ -134,7 +144,15 @@ describe("appExecute", () => {
     const item = firstCall[1] as unknown;
     expect(item).toMatchObject({
       type: "message",
-      message: { text: "Review PR #42" }
+      message: {
+        text: [
+          "You are running app \"GitHub Reviewer\" (github-reviewer).",
+          "Reviews pull requests",
+          "",
+          "Task:",
+          "Review PR #42"
+        ].join("\n")
+      }
     });
     const override = (
       item as { toolResolverOverride: { listTools: () => Array<{ name: string }> } }

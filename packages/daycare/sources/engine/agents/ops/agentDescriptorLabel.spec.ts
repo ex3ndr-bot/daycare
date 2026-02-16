@@ -22,6 +22,15 @@ describe("agentDescriptorLabel", () => {
         systemPrompt: "prompt"
       })
     ).toBe("memory (@memorybot)");
+    expect(
+      agentDescriptorLabel({
+        type: "app",
+        id: "app-agent-1",
+        parentAgentId: "parent",
+        name: "github-reviewer",
+        appId: "github-reviewer"
+      })
+    ).toBe("github-reviewer");
   });
 
   it("labels non-user agents", () => {

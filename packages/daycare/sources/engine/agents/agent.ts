@@ -379,9 +379,7 @@ export class Agent {
     }
     const agentPrompt = this.descriptor.type === "permanent"
       ? this.descriptor.systemPrompt.trim()
-      : this.descriptor.type === "subagent"
-        ? this.descriptor.systemPrompt?.trim() ?? ""
-        : (systemAgentPrompt?.systemPrompt ?? "");
+      : (systemAgentPrompt?.systemPrompt ?? "");
     const agentKind = this.resolveAgentKind();
     const allowCronTools = agentDescriptorIsCron(this.descriptor);
 
@@ -436,7 +434,7 @@ export class Agent {
       agentPrompt,
       replaceSystemPrompt: systemAgentPrompt?.replaceSystemPrompt ?? false,
       agentKind,
-      parentAgentId: this.descriptor.type === "subagent"
+      parentAgentId: this.descriptor.type === "subagent" || this.descriptor.type === "app"
         ? this.descriptor.parentAgentId ?? ""
         : "",
       configDir: this.agentSystem.config.current.configDir
@@ -914,19 +912,20 @@ export class Agent {
   }
 
   /**
-   * Notifies a parent agent when a subagent fails.
+   * Notifies a parent agent when a child background agent fails.
    * Expects: parent agent exists.
    */
   async notifySubagentFailure(reason: string, error?: unknown): Promise<void> {
-    if (this.descriptor.type !== "subagent") {
+    if (this.descriptor.type !== "subagent" && this.descriptor.type !== "app") {
       return;
     }
     const parentAgentId = this.descriptor.parentAgentId ?? null;
     if (!parentAgentId) {
-      logger.warn({ agentId: this.id }, "event: Subagent missing parent agent");
+      logger.warn({ agentId: this.id }, "event: Child agent missing parent agent");
       return;
     }
-    const name = this.descriptor.name ?? "subagent";
+    const name = this.descriptor.name ?? this.descriptor.type;
+    const descriptorType = this.descriptor.type;
     const errorText = error instanceof Error ? error.message : error ? String(error) : "";
     const detail = errorText ? `${reason} (${errorText})` : reason;
     try {
@@ -934,14 +933,14 @@ export class Agent {
         { agentId: parentAgentId },
         {
           type: "system_message",
-          text: `Subagent ${name} (${this.id}) failed: ${detail}.`,
+          text: `${descriptorType} ${name} (${this.id}) failed: ${detail}.`,
           origin: this.id
         }
       );
     } catch (sendError) {
       logger.warn(
         { agentId: this.id, parentAgentId, error: sendError },
-        "error: Subagent failure notification failed"
+        "error: Child agent failure notification failed"
       );
     }
   }

@@ -33,19 +33,21 @@ export function appToolBuild(app: AppDescriptor): ToolDefinition {
       if (!prompt) {
         throw new Error("App prompt is required.");
       }
-      const responseText = await appExecute({
+      const result = await appExecute({
         app,
         prompt,
         context
       });
+      const responseText = result.responseText;
       const text = responseText && responseText.trim().length > 0
-        ? responseText
-        : `App "${app.manifest.name}" completed without a text response.`;
+        ? `${responseText}\n\nApp agent id: ${result.agentId}`
+        : `App "${app.manifest.title}" completed without a text response. App agent id: ${result.agentId}`;
       const toolMessage: ToolResultMessage = {
         role: "toolResult",
         toolCallId: toolCall.id,
         toolName: toolCall.name,
         content: [{ type: "text", text }],
+        details: { agentId: result.agentId, appId: app.id },
         isError: false,
         timestamp: Date.now()
       };

@@ -24,6 +24,7 @@ type AgentDescriptor =
   | { type: "cron"; id: string }
   | { type: "system"; tag: string }
   | { type: "subagent"; id: string; parentAgentId: string; name: string }
+  | { type: "app"; id: string; parentAgentId: string; name: string; appId: string }
   | {
       type: "permanent";
       id: string;
@@ -38,7 +39,8 @@ Notes:
 - `user` is a foreground connector conversation.
 - `cron` maps to a scheduled task uid.
 - `system` maps to built-in tag-addressable agents (for example `heartbeat`, `architect`).
-- `subagent` is any background agent and always includes a parent + name.
+- `subagent` is a generic background worker and always includes a parent + name.
+- `app` is a dedicated app runtime agent and always includes parent + username-style name + app id.
 - `permanent` is a background agent with a stable name, short description, system prompt, and optional workspace folder.
 
 ## System agent registry
@@ -96,17 +98,19 @@ Resolution behavior:
 ```mermaid
 flowchart LR
   User[User agent] -->|spawns| Subagent[Subagent]
+  User -->|invokes app_<id>| AppAgent[App agent]
   Cron[Cron agent] -->|spawns| Subagent
   Heartbeat[Heartbeat scheduler] -->|batch prompt| HeartbeatAgent[System agent: heartbeat]
   Architect[Planner flow] -->|specialized prompt| ArchitectAgent[System agent: architect]
   Subagent -->|send_agent_message| User
+  AppAgent -->|send_agent_message| User
 ```
 
 Operational notes:
 - User agents are the only agents treated as foreground.
-- Subagents always have a parent (usually a user agent, cron, or a system agent).
+- Subagents and app agents always have a parent (usually a user agent, cron, or a system agent).
 - Heartbeat runs always map to a single `system:heartbeat` agent that runs a batch prompt.
-- Cron agents are scheduled inputs; they can spawn subagents but are not foreground targets.
+- Cron agents are scheduled inputs; they can spawn child agents but are not foreground targets.
 
 ## Message delivery
 
@@ -160,7 +164,7 @@ sequenceDiagram
 
 Delivery notes:
 - The `most-recent-foreground` strategy selects the most recent `user` agent.
-- Subagents default to their `parentAgentId`; other agents fall back to
+- Child agents (`subagent`/`app`) default to their `parentAgentId`; other agents fall back to
   `most-recent-foreground` when no agent id is provided.
 
 ### Permission request via foreground agent

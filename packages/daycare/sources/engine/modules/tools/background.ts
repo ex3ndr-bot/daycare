@@ -94,7 +94,9 @@ export function buildSendAgentMessageTool(): ToolDefinition {
       const origin = toolContext.agent.id;
       const targetAgentId =
         payload.agentId ??
-        (descriptor.type === "subagent" ? descriptor.parentAgentId : undefined);
+        (descriptor.type === "subagent" || descriptor.type === "app"
+          ? descriptor.parentAgentId
+          : undefined);
       const resolvedTarget =
         targetAgentId ?? toolContext.agentSystem.agentFor("most-recent-foreground");
       if (!resolvedTarget) {

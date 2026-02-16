@@ -8,6 +8,9 @@ export function agentDescriptorLabel(descriptor: AgentDescriptor): string {
   if (descriptor.type === "subagent") {
     return descriptor.name ?? descriptor.type;
   }
+  if (descriptor.type === "app") {
+    return descriptor.name ?? descriptor.type;
+  }
   if (descriptor.type === "permanent") {
     if (descriptor.username) {
       return `${descriptor.name} (@${descriptor.username})`;

@@ -109,9 +109,9 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
   const historyRecords: AgentHistoryRecord[] = [];
   const tokenStatsUpdates: AgentLoopResult["tokenStatsUpdates"] = [];
   let activeSkills: AgentSkill[] = [];
-  const isSubagent = agent.descriptor.type === "subagent";
-  let subagentNudged = false;
-  let subagentResponded = false;
+  const isChildAgent = agent.descriptor.type === "subagent" || agent.descriptor.type === "app";
+  let childAgentNudged = false;
+  let childAgentResponded = false;
   const agentKind = agent.descriptor.type === "user" ? "foreground" : "background";
   const allowCronTools = agentDescriptorIsCron(agent.descriptor);
   const target = agentDescriptorTargetResolve(agent.descriptor);
@@ -272,21 +272,21 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
         tokens: tokensEntry
       }, appendHistoryRecord);
 
-      // Subagent <response> tag: check on every iteration, deliver each one to parent
-      if (isSubagent) {
+      // Child-agent <response> tag: check on every iteration, deliver each one to parent
+      if (isChildAgent) {
         const extracted = tagExtract(responseText ?? "", "response");
         if (extracted !== null) {
           finalResponseText = extracted;
-          subagentResponded = true;
+          childAgentResponded = true;
           await subagentDeliverResponse(agentSystem, agent, extracted, logger);
         }
       }
 
       if (toolCalls.length === 0) {
-        // Subagent final iteration: nudge if no <response> tag was ever emitted
-        if (isSubagent && !subagentResponded) {
-          if (!subagentNudged) {
-            subagentNudged = true;
+        // Child-agent final iteration: nudge if no <response> tag was ever emitted
+        if (isChildAgent && !childAgentResponded) {
+          if (!childAgentNudged) {
+            childAgentNudged = true;
             context.messages.push({
               role: "user",
               content: [
@@ -297,13 +297,13 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
               ],
               timestamp: Date.now()
             });
-            logger.debug("event: Subagent nudged to emit <response> tag");
+            logger.debug("event: Child agent nudged to emit <response> tag");
             continue;
           } else {
-            finalResponseText = "Error: subagent did not produce a response.";
+            finalResponseText = "Error: child agent did not produce a response.";
             logger.warn(
               { agentId: agent.id },
-              "error: Subagent failed to emit <response> tag after nudge"
+              "error: Child agent failed to emit <response> tag after nudge"
             );
             break;
           }
@@ -542,7 +542,7 @@ async function historyPendingToolCallsComplete(
 }
 
 /**
- * Delivers a <response> tag payload from a subagent to its parent agent.
+ * Delivers a <response> tag payload from a child background agent to its parent agent.
  * Called inline during the inference loop so intermediate responses arrive immediately.
  */
 async function subagentDeliverResponse(
@@ -551,7 +551,7 @@ async function subagentDeliverResponse(
   text: string,
   logger: Logger
 ): Promise<void> {
-  if (agent.descriptor.type !== "subagent") {
+  if (agent.descriptor.type !== "subagent" && agent.descriptor.type !== "app") {
     return;
   }
   const parentAgentId = agent.descriptor.parentAgentId ?? null;
@@ -563,11 +563,11 @@ async function subagentDeliverResponse(
       { agentId: parentAgentId },
       { type: "system_message", text, origin: agent.id }
     );
-    logger.debug("event: Subagent <response> delivered to parent");
+    logger.debug("event: Child agent <response> delivered to parent");
   } catch (error) {
     logger.warn(
       { agentId: agent.id, parentAgentId, error },
-      "error: Subagent response delivery failed"
+      "error: Child agent response delivery failed"
     );
   }
 }

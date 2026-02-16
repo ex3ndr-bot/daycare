@@ -14,7 +14,7 @@ Apps are sandboxed tool wrappers discovered from
 `workspace/apps/<app-id>/APP.md` and `workspace/apps/<app-id>/PERMISSIONS.md`.
 Each app is exposed as a callable tool named `app_<id>`.
 
-On invocation, an app runs as a constrained subagent and each tool call is reviewed
+On invocation, an app runs as a constrained app agent and each tool call is reviewed
 against the app's allow/deny rules before execution.
 
 ### What Apps Provide
@@ -22,7 +22,7 @@ against the app's allow/deny rules before execution.
 1. Isolated capabilities with explicit boundaries
 2. Rule-reviewed tool execution on every app tool call
 3. Persistent app state in `data/`
-4. Reusable app behavior via a focused system prompt
+4. Reusable app behavior via clear metadata and strict rules
 
 ## Core Principles
 
@@ -44,11 +44,6 @@ Design around Daycare app boundaries:
 - App manifest and bundled files are read-only to the app
 - Non-app agents should not read/write app directories
 
-### Keep Prompts Focused
-
-The app system prompt should define behavior, priorities, and constraints relevant to
-the app only.
-
 ## Anatomy of an App
 
 Every app consists of required `APP.md` and `PERMISSIONS.md` files plus optional bundled resources:
@@ -58,11 +53,11 @@ app-id/
 ├── APP.md (required)
 │   ├── YAML frontmatter (required)
 │   │   ├── id: (required)
-│   │   ├── name: (required)
+│   │   ├── name: (required, username-style)
+│   │   ├── title: (required, human-readable)
 │   │   ├── description: (required)
 │   │   └── model: (optional)
-│   └── Markdown body (required)
-│       └── ## System Prompt
+│   └── Markdown body (optional notes for humans)
 ├── PERMISSIONS.md (required)
 │   └── Markdown body (required)
 │       ├── ## Source Intent
@@ -77,8 +72,8 @@ app-id/
 
 Every `APP.md` consists of:
 
-- **Frontmatter** (YAML): `id`, `name`, `description`, optional `model`.
-- **Body** (Markdown): app system prompt.
+- **Frontmatter** (YAML): `id`, `name`, `title`, `description`, optional `model`.
+- **Body** (Markdown): optional notes for humans.
 
 When parsing or writing `APP.md`:
 
@@ -91,14 +86,11 @@ When parsing or writing `APP.md`:
 ```markdown
 ---
 id: github-reviewer
-name: GitHub Reviewer
+name: github-reviewer
+title: GitHub Reviewer
 description: Reviews pull requests and drafts feedback
 model: default
 ---
-
-## System Prompt
-
-You are a PR reviewer. Read diffs carefully and provide actionable feedback.
 ```
 
 ### Example PERMISSIONS.md
@@ -171,8 +163,7 @@ Then create `APP.md` and `PERMISSIONS.md` with required sections.
 
 ### Step 4: Edit APP.md, PERMISSIONS.md, and Resources
 
-Write a focused system prompt in `APP.md` and clear source intent + allow/deny rules in
-`PERMISSIONS.md`.
+Write clear metadata in `APP.md` and clear source intent + allow/deny rules in `PERMISSIONS.md`.
 
 If scripts are needed, keep them minimal and app-specific.
 
@@ -180,7 +171,7 @@ If scripts are needed, keep them minimal and app-specific.
 
 Validation checklist:
 
-- Frontmatter has valid `id`, `name`, `description` (optional `model`)
+- Frontmatter has valid `id`, `name`, `title`, `description` (optional `model`)
 - Tool name maps cleanly to `app_<id>`
 - Writes are limited to `data/`
 - Allow rules cover intended workflows

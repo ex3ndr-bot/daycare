@@ -7,8 +7,13 @@ export type AgentDescriptor =
       id: string;
       parentAgentId: string;
       name: string;
-      systemPrompt?: string;
-      appId?: string;
+    }
+  | {
+      type: "app";
+      id: string;
+      parentAgentId: string;
+      name: string;
+      appId: string;
     }
   | {
       type: "permanent";

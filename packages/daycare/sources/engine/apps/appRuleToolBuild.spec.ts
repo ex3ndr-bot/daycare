@@ -23,13 +23,10 @@ describe("appRuleToolBuild", () => {
       [
         "---",
         "id: github-reviewer",
-        "name: GitHub Reviewer",
+        "name: github-reviewer",
+        "title: GitHub Reviewer",
         "description: Reviews pull requests",
-        "---",
-        "",
-        "## System Prompt",
-        "",
-        "You are a reviewer."
+        "---"
       ].join("\n")
     );
     await fs.writeFile(

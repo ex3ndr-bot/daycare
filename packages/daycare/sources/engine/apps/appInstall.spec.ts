@@ -28,13 +28,10 @@ describe("appInstall", () => {
       [
         "---",
         "id: github-reviewer",
-        "name: GitHub Reviewer",
+        "name: github-reviewer",
+        "title: GitHub Reviewer",
         "description: Reviews pull requests",
-        "---",
-        "",
-        "## System Prompt",
-        "",
-        "You are a reviewer."
+        "---"
       ].join("\n")
     );
     await fs.writeFile(
@@ -71,13 +68,10 @@ describe("appInstall", () => {
       [
         "---",
         "id: Invalid With Spaces",
-        "name: Broken",
+        "name: broken",
+        "title: Broken",
         "description: bad id",
-        "---",
-        "",
-        "## System Prompt",
-        "",
-        "Broken"
+        "---"
       ].join("\n")
     );
     await fs.writeFile(
@@ -108,13 +102,10 @@ describe("appInstall", () => {
       [
         "---",
         "id: github-reviewer",
-        "name: GitHub Reviewer",
+        "name: github-reviewer",
+        "title: GitHub Reviewer",
         "description: Reviews pull requests",
-        "---",
-        "",
-        "## System Prompt",
-        "",
-        "You are a reviewer."
+        "---"
       ].join("\n")
     );
     await fs.writeFile(
@@ -146,13 +137,10 @@ describe("appInstall", () => {
       [
         "---",
         "id: missing-permissions",
-        "name: Missing Permissions",
+        "name: missing-permissions",
+        "title: Missing Permissions",
         "description: Missing permissions file",
-        "---",
-        "",
-        "## System Prompt",
-        "",
-        "You are a reviewer."
+        "---"
       ].join("\n")
     );
 

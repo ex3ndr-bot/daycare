@@ -14,28 +14,32 @@ type AppExecuteInput = {
   context: ToolExecutionContext;
 };
 
+export type AppExecuteResult = {
+  agentId: string;
+  responseText: string | null;
+};
+
 /**
- * Executes an app as a one-shot subagent with reviewed tool access.
+ * Executes an app in a dedicated app agent with reviewed tool access.
  * Expects: app descriptor is discovered/validated; prompt is non-empty.
  */
-export async function appExecute(input: AppExecuteInput): Promise<string | null> {
+export async function appExecute(input: AppExecuteInput): Promise<AppExecuteResult> {
   const agentSystem = input.context.agentSystem;
   const config = agentSystem.config.current;
   const appPermissions = await appPermissionBuild(config.workspaceDir, input.app.id);
 
   const descriptor = {
-    type: "subagent" as const,
+    type: "app" as const,
     id: createId(),
     parentAgentId: input.context.agent.id,
-    name: `app:${input.app.id}`,
-    systemPrompt: input.app.manifest.systemPrompt,
+    name: input.app.manifest.name,
     appId: input.app.id
   };
 
   const agentId = await agentSystem.agentIdForTarget({ descriptor });
   const state = await agentStateRead(config, agentId);
   if (!state) {
-    throw new Error(`App subagent state not found: ${agentId}`);
+    throw new Error(`App agent state not found: ${agentId}`);
   }
   const updatedAt = Date.now();
   const nextState = {
@@ -49,7 +53,7 @@ export async function appExecute(input: AppExecuteInput): Promise<string | null>
   const reviewProviders = appReviewProvidersResolve(config, input.app.manifest.model);
   const reviewedExecutor = appToolExecutorBuild({
     appId: input.app.id,
-    appName: input.app.manifest.name,
+    appName: input.app.manifest.title,
     sourceIntent: input.app.permissions.sourceIntent,
     rules: input.app.permissions.rules,
     inferenceRouter: agentSystem.inferenceRouter,
@@ -61,13 +65,23 @@ export async function appExecute(input: AppExecuteInput): Promise<string | null>
     { agentId },
     {
       type: "message",
-      message: { text: input.prompt },
+      message: { text: appTaskPromptBuild(input.app, input.prompt) },
       context: {},
       toolResolverOverride: reviewedExecutor
     }
   );
   if (result.type !== "message") {
-    return null;
+    return { agentId, responseText: null };
   }
-  return result.responseText;
+  return { agentId, responseText: result.responseText };
+}
+
+function appTaskPromptBuild(app: AppDescriptor, prompt: string): string {
+  return [
+    `You are running app "${app.manifest.title}" (${app.id}).`,
+    app.manifest.description,
+    "",
+    "Task:",
+    prompt
+  ].join("\n");
 }
