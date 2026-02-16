@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { tagExtract, tagStrip } from "./tagExtract.js";
+import { tagExtract, tagExtractAll, tagStrip } from "./tagExtract.js";
 
 describe("tagExtract", () => {
   it("extracts basic content", () => {
@@ -79,6 +79,42 @@ describe("tagExtract", () => {
   it("handles whitespace in close tag", () => {
     expect(tagExtract("<response>hello</response >", "response")).toBe("hello");
     expect(tagExtract("<response>hello</ response>", "response")).toBeNull();
+  });
+});
+
+describe("tagExtractAll", () => {
+  it("returns empty array when no tags found", () => {
+    expect(tagExtractAll("no tags here", "say")).toEqual([]);
+  });
+
+  it("extracts single tag block", () => {
+    expect(tagExtractAll("thinking <say>hello</say> done", "say")).toEqual(["hello"]);
+  });
+
+  it("extracts multiple tag blocks", () => {
+    const text = "reasoning <say>first</say> more thinking <say>second</say> end";
+    expect(tagExtractAll(text, "say")).toEqual(["first", "second"]);
+  });
+
+  it("trims whitespace in extracted content", () => {
+    expect(tagExtractAll("<say>  hello world  </say>", "say")).toEqual(["hello world"]);
+  });
+
+  it("handles case-insensitive tags", () => {
+    expect(tagExtractAll("<Say>a</Say><SAY>b</SAY>", "say")).toEqual(["a", "b"]);
+  });
+
+  it("returns empty array when only open tag present", () => {
+    expect(tagExtractAll("<say>hello", "say")).toEqual([]);
+  });
+
+  it("handles adjacent blocks", () => {
+    expect(tagExtractAll("<say>a</say><say>b</say>", "say")).toEqual(["a", "b"]);
+  });
+
+  it("preserves multiline content", () => {
+    const text = "<say>\nline 1\nline 2\n</say>";
+    expect(tagExtractAll(text, "say")).toEqual(["line 1\nline 2"]);
   });
 });
 

@@ -28,6 +28,34 @@ export function tagExtract(text: string, tag: string): string | null {
 }
 
 /**
+ * Extracts content from all non-overlapping `<tag>...</tag>` pairs in order.
+ * Each pair is matched greedily to its nearest closing tag. Content is trimmed.
+ * Returns empty array if no complete pairs are found.
+ */
+export function tagExtractAll(text: string, tag: string): string[] {
+  const results: string[] = [];
+  const openPattern = new RegExp(`<${escapeRegExp(tag)}(\\s[^>]*)?>`, "gi");
+  const closePattern = buildCloseTagPattern(tag);
+
+  let cursor = 0;
+  while (cursor < text.length) {
+    openPattern.lastIndex = cursor;
+    const openMatch = openPattern.exec(text);
+    if (!openMatch) break;
+
+    const contentStart = openMatch.index + openMatch[0].length;
+    closePattern.lastIndex = contentStart;
+    const closeMatch = closePattern.exec(text);
+    if (!closeMatch) break;
+
+    results.push(text.slice(contentStart, closeMatch.index).trim());
+    cursor = closeMatch.index + closeMatch[0].length;
+  }
+
+  return results;
+}
+
+/**
  * Removes the matched tag block (first open to last close, inclusive) from text.
  * Returns the remaining text. If no complete tag block is found, returns text unchanged.
  */
