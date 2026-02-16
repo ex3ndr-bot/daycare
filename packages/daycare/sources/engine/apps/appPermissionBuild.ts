@@ -19,6 +19,7 @@ export async function appPermissionBuild(
   await fs.mkdir(appDataDir, { recursive: true });
 
   const permissions: SessionPermissions = {
+    workspaceDir: resolvedWorkspace,
     workingDir: appDataDir,
     writeDirs: [appDataDir],
     readDirs: [resolvedWorkspace],

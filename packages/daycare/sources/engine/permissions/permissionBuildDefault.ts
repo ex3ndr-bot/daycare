@@ -30,6 +30,7 @@ export function permissionBuildDefault(
   ];
   const readDirs = [...writeDirs];
   return {
+    workspaceDir: path.resolve(workingDir),
     workingDir: path.resolve(workingDir),
     writeDirs: Array.from(new Set(writeDirs)),
     readDirs: Array.from(new Set(readDirs)),

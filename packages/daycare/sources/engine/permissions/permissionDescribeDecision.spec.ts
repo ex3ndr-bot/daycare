@@ -11,6 +11,10 @@ describe("permissionDescribeDecision", () => {
     expect(permissionDescribeDecision({ kind: "events" })).toBe("events access");
   });
 
+  it("describes workspace access", () => {
+    expect(permissionDescribeDecision({ kind: "workspace" })).toBe("workspace write access");
+  });
+
   it("describes read access", () => {
     expect(permissionDescribeDecision({ kind: "read", path: "/tmp" })).toBe(
       "read access to /tmp"

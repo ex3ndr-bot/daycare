@@ -20,6 +20,7 @@ describe("appPermissionStateGrant", () => {
   });
 
   it("persists shared app permissions in app workspace state.json", async () => {
+    await appPermissionStateGrant(workspaceDir, "github-reviewer", { kind: "workspace" });
     await appPermissionStateGrant(workspaceDir, "github-reviewer", { kind: "network" });
     await appPermissionStateGrant(workspaceDir, "github-reviewer", {
       kind: "read",
@@ -34,6 +35,6 @@ describe("appPermissionStateGrant", () => {
     expect(stat.isFile()).toBe(true);
 
     const tags = await appPermissionStateRead(workspaceDir, "github-reviewer");
-    expect(tags).toEqual(["@network", "@read:/tmp/daycare-app-read"]);
+    expect(tags).toEqual(["@workspace", "@network", "@read:/tmp/daycare-app-read"]);
   });
 });

@@ -4,7 +4,7 @@ import { permissionAccessParse } from "./permissionAccessParse.js";
 
 /**
  * Applies permission tags to a permissions object.
- * Expects: tags are @network, @events, @read:<path>, or @write:<path>.
+ * Expects: tags are @network, @events, @workspace, @read:<path>, or @write:<path>.
  */
 export function permissionTagsApply(
   permissions: SessionPermissions,

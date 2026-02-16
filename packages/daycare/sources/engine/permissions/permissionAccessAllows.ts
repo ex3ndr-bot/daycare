@@ -3,10 +3,11 @@ import path from "node:path";
 import type { PermissionAccess, SessionPermissions } from "@/types";
 import { pathResolveSecure } from "./pathResolveSecure.js";
 import { pathSanitizeAndResolve } from "./pathSanitize.js";
+import { permissionWorkspacePathResolve } from "./permissionWorkspacePathResolve.js";
 
 /**
  * Checks whether a permission access is already allowed by current permissions.
- * Expects: access.kind is network/events/read/write; paths must be absolute for read/write.
+ * Expects: access.kind is network/events/workspace/read/write; paths must be absolute for read/write.
  */
 export async function permissionAccessAllows(
   permissions: SessionPermissions,
@@ -17,6 +18,15 @@ export async function permissionAccessAllows(
   }
   if (access.kind === "events") {
     return permissions.events;
+  }
+  if (access.kind === "workspace") {
+    const workspacePath = permissionWorkspacePathResolve(permissions);
+    try {
+      await pathResolveSecure(permissions.writeDirs, workspacePath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   if (!path.isAbsolute(access.path)) {

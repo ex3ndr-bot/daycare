@@ -10,6 +10,7 @@ import { agentPathBuild } from "./agentPathBuild.js";
 
 const permissionsSchema = z
   .object({
+    workspaceDir: z.string().min(1).optional(),
     workingDir: z.string().min(1),
     writeDirs: z.array(z.string()),
     readDirs: z.array(z.string()),

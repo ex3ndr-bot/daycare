@@ -54,12 +54,13 @@ export type PluginCommandDefinition = SlashCommandEntry & {
 export type MessageUnsubscribe = () => void;
 export type CommandUnsubscribe = () => void;
 
-export type PermissionKind = "read" | "write" | "network" | "events";
+export type PermissionKind = "read" | "write" | "network" | "events" | "workspace";
 export type PermissionRequestScope = "now" | "always";
 
 export type PermissionAccess =
   | { kind: "network" }
   | { kind: "events" }
+  | { kind: "workspace" }
   | { kind: "read"; path: string }
   | { kind: "write"; path: string };
 

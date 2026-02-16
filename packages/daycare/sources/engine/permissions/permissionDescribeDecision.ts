@@ -7,6 +7,9 @@ export function permissionDescribeDecision(access: PermissionAccess): string {
   if (access.kind === "events") {
     return "events access";
   }
+  if (access.kind === "workspace") {
+    return "workspace write access";
+  }
   if (access.kind === "read") {
     return `read access to ${access.path}`;
   }

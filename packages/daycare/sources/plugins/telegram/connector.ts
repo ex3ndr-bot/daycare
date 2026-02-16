@@ -905,6 +905,9 @@ function describePermissionKind(access: PermissionRequest["permissions"][number]
   if (access.kind === "write") {
     return `Write/edit files: ${access.path}`;
   }
+  if (access.kind === "workspace") {
+    return "Workspace write access";
+  }
   if (access.kind === "events") {
     return "Events access";
   }

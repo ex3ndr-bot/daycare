@@ -20,6 +20,7 @@ describe("permissionTagsValidate", () => {
     await fs.writeFile(target, "ok", "utf8");
 
     const permissions = {
+      workspaceDir: dir,
       workingDir: dir,
       writeDirs: [dir],
       readDirs: [dir],
@@ -31,6 +32,7 @@ describe("permissionTagsValidate", () => {
     await permissionTagsValidate(permissions, [
       "@network",
       "@events",
+      "@workspace",
       `@read:${target}`,
       `@write:${dir}`
     ]);
@@ -47,6 +49,20 @@ describe("permissionTagsValidate", () => {
 
     await expect(permissionTagsValidate(permissions, ["@network"]))
       .rejects.toThrow("Cannot attach permission '@network' - you don't have it.");
+  });
+
+  it("rejects workspace permission when caller lacks it", async () => {
+    const permissions = {
+      workspaceDir: "/tmp/workspace",
+      workingDir: "/tmp/workspace/apps/my-app/data",
+      writeDirs: ["/tmp/workspace/apps/my-app/data"],
+      readDirs: ["/tmp/workspace"],
+      network: false,
+      events: false
+    };
+
+    await expect(permissionTagsValidate(permissions, ["@workspace"]))
+      .rejects.toThrow("Cannot attach permission '@workspace' - you don't have it.");
   });
 
   it("rejects events permission when caller lacks it", async () => {

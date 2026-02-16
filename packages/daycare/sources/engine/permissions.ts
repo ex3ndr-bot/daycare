@@ -4,6 +4,7 @@ import path from "node:path";
 import type { AssistantSettings } from "../settings.js";
 
 export type SessionPermissions = {
+  workspaceDir?: string;
   workingDir: string;
   writeDirs: string[];
   readDirs: string[];
@@ -38,6 +39,7 @@ export function normalizePermissions(
   let events = false;
   if (value && typeof value === "object") {
     const candidate = value as {
+      workspaceDir?: unknown;
       workingDir?: unknown;
       writeDirs?: unknown;
       readDirs?: unknown;
@@ -66,7 +68,13 @@ export function normalizePermissions(
         if (typeof candidate.events === "boolean") {
           events = candidate.events;
         }
+        const workspaceDir = typeof candidate.workspaceDir === "string" &&
+            candidate.workspaceDir.trim().length > 0 &&
+            path.isAbsolute(candidate.workspaceDir)
+          ? path.resolve(candidate.workspaceDir)
+          : path.resolve(candidate.workingDir);
         return {
+          workspaceDir,
           workingDir: path.resolve(candidate.workingDir),
           writeDirs: dedupe(writeDirs),
           readDirs: dedupe(readDirs),
@@ -77,6 +85,7 @@ export function normalizePermissions(
     }
   }
   return {
+    workspaceDir: path.resolve(defaultWorkingDir),
     workingDir: path.resolve(defaultWorkingDir),
     writeDirs: [],
     readDirs: [],

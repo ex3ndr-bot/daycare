@@ -7,5 +7,8 @@ export function permissionFormatTag(access: PermissionAccess): string {
   if (access.kind === "events") {
     return "@events";
   }
+  if (access.kind === "workspace") {
+    return "@workspace";
+  }
   return `@${access.kind}:${access.path}`;
 }

@@ -8,6 +8,7 @@ export function permissionBuildCron(
 ): SessionPermissions {
   const permissions = normalizePermissions(
     {
+      workspaceDir: defaultPermissions.workspaceDir ?? defaultPermissions.workingDir,
       workingDir: filesPath,
       writeDirs: defaultPermissions.writeDirs,
       readDirs: defaultPermissions.readDirs,

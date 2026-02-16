@@ -5,6 +5,7 @@ import { permissionAccessApply } from "./permissionAccessApply.js";
 
 describe("permissionAccessApply", () => {
   const basePermissions = () => ({
+    workspaceDir: "/workspace",
     workingDir: "/tmp",
     writeDirs: [] as string[],
     readDirs: [] as string[],
@@ -24,6 +25,21 @@ describe("permissionAccessApply", () => {
     const applied = permissionAccessApply(permissions, { kind: "events" });
     expect(applied).toBe(true);
     expect(permissions.events).toBe(true);
+  });
+
+  it("applies workspace access to the shared workspace root", () => {
+    const permissions = {
+      workspaceDir: "/workspace",
+      workingDir: "/workspace/apps/my-app/data",
+      writeDirs: ["/workspace/apps/my-app/data"],
+      readDirs: ["/workspace"],
+      network: false,
+      events: false
+    };
+    const applied = permissionAccessApply(permissions, { kind: "workspace" });
+    expect(applied).toBe(true);
+    expect(permissions.writeDirs).toContain("/workspace");
+    expect(permissions.readDirs).toContain("/workspace");
   });
 
   it("applies read/write paths", () => {

@@ -4,6 +4,7 @@ import type { SessionPermissions } from "@/types";
 import { gatePermissionsCheck } from "./gatePermissionsCheck.js";
 
 const basePermissions: SessionPermissions = {
+  workspaceDir: "/tmp",
   workingDir: "/tmp",
   readDirs: ["/tmp"],
   writeDirs: ["/tmp"],
@@ -41,6 +42,26 @@ describe("gatePermissionsCheck", () => {
     expect(result).toEqual({ allowed: true, missing: [] });
   });
 
+  it("denies workspace when not allowed", async () => {
+    const appPermissions: SessionPermissions = {
+      workspaceDir: "/tmp",
+      workingDir: "/tmp/apps/my-app/data",
+      readDirs: ["/tmp"],
+      writeDirs: ["/tmp/apps/my-app/data"],
+      network: false,
+      events: false
+    };
+    const result = await gatePermissionsCheck(appPermissions, ["@workspace"]);
+    expect(result.allowed).toBe(false);
+    expect(result.missing).toEqual(["@workspace"]);
+  });
+
+  it("allows workspace when permitted", async () => {
+    const permissions: SessionPermissions = { ...basePermissions };
+    const result = await gatePermissionsCheck(permissions, ["@workspace"]);
+    expect(result).toEqual({ allowed: true, missing: [] });
+  });
+
   it("denies paths outside allowed roots", async () => {
     const result = await gatePermissionsCheck(basePermissions, ["@read:/etc"]);
     expect(result.allowed).toBe(false);
@@ -51,7 +72,7 @@ describe("gatePermissionsCheck", () => {
     const result = await gatePermissionsCheck(basePermissions, ["@banana"]);
     expect(result.allowed).toBe(false);
     expect(result.missing).toEqual([
-      "@banana (Permission must be @network, @events, @read:<path>, or @write:<path>.)"
+      "@banana (Permission must be @network, @events, @workspace, @read:<path>, or @write:<path>.)"
     ]);
   });
 });

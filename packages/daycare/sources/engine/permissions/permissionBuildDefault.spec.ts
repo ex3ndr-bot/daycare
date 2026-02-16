@@ -17,6 +17,7 @@ describe("permissionBuildDefault", () => {
 
     const permissions = permissionBuildDefault(workingDir, configDir);
 
+    expect(permissions.workspaceDir).toBe(path.resolve(workingDir));
     expect(permissions.workingDir).toBe(path.resolve(workingDir));
     expect(permissions.writeDirs).toEqual(
       expect.arrayContaining([

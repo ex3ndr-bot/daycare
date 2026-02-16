@@ -2,6 +2,7 @@ import path from "node:path";
 
 import type { PermissionAccess, SessionPermissions } from "@/types";
 import { pathSanitizeAndResolve } from "./pathSanitize.js";
+import { permissionWorkspacePathResolve } from "./permissionWorkspacePathResolve.js";
 
 /**
  * Applies a permission access to a permissions object in place.
@@ -17,6 +18,17 @@ export function permissionAccessApply(
   }
   if (access.kind === "events") {
     permissions.events = true;
+    return true;
+  }
+  if (access.kind === "workspace") {
+    const resolvedWorkspace = permissionWorkspacePathResolve(permissions);
+    const writeDirs = new Set(permissions.writeDirs);
+    writeDirs.add(resolvedWorkspace);
+    permissions.writeDirs = Array.from(writeDirs.values());
+
+    const readDirs = new Set(permissions.readDirs);
+    readDirs.add(resolvedWorkspace);
+    permissions.readDirs = Array.from(readDirs.values());
     return true;
   }
 

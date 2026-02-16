@@ -7,11 +7,12 @@ describe("permissionTagsNormalize", () => {
     const result = permissionTagsNormalize([
       " @network ",
       "@events",
+      "@workspace",
       "@read:/tmp",
       "@read:/tmp",
       "@write:/var/log"
     ]);
-    expect(result).toEqual(["@network", "@events", "@read:/tmp", "@write:/var/log"]);
+    expect(result).toEqual(["@network", "@events", "@workspace", "@read:/tmp", "@write:/var/log"]);
   });
 
   it("returns empty for missing values", () => {

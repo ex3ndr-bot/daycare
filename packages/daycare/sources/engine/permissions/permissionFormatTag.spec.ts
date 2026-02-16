@@ -11,6 +11,10 @@ describe("permissionFormatTag", () => {
     expect(permissionFormatTag({ kind: "events" })).toBe("@events");
   });
 
+  it("formats workspace permissions", () => {
+    expect(permissionFormatTag({ kind: "workspace" })).toBe("@workspace");
+  });
+
   it("formats path permissions", () => {
     expect(permissionFormatTag({ kind: "read", path: "/tmp" })).toBe("@read:/tmp");
   });

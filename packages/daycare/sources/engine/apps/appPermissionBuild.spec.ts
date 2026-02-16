@@ -22,6 +22,7 @@ describe("appPermissionBuild", () => {
     const expectedDataDir = path.join(workspaceDir, "apps", "github-reviewer", "data");
 
     expect(permissions).toEqual({
+      workspaceDir: path.resolve(workspaceDir),
       workingDir: expectedDataDir,
       writeDirs: [expectedDataDir],
       readDirs: [path.resolve(workspaceDir)],
@@ -35,6 +36,7 @@ describe("appPermissionBuild", () => {
 
   it("merges shared app permissions persisted in app state", async () => {
     await appPermissionStateWrite(workspaceDir, "github-reviewer", [
+      "@workspace",
       "@network",
       "@read:/tmp/daycare-app-read",
       "@write:/tmp/daycare-app-write"
@@ -44,6 +46,7 @@ describe("appPermissionBuild", () => {
     expect(permissions.network).toBe(true);
     expect(permissions.readDirs).toContain("/tmp/daycare-app-read");
     expect(permissions.readDirs).toContain("/tmp/daycare-app-write");
+    expect(permissions.writeDirs).toContain(path.resolve(workspaceDir));
     expect(permissions.writeDirs).toContain("/tmp/daycare-app-write");
   });
 });

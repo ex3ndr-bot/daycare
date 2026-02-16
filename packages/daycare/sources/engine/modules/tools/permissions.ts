@@ -373,6 +373,9 @@ function describePermission(access: PermissionAccess): string {
   if (access.kind === "events") {
     return "Events access (Daycare socket control)";
   }
+  if (access.kind === "workspace") {
+    return "Workspace write access";
+  }
   if (access.kind === "read") {
     return `Read access to ${access.path}`;
   }

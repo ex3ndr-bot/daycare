@@ -29,6 +29,42 @@ describe("permissionAccessAllows", () => {
     expect(allowed).toBe(true);
   });
 
+  it("allows workspace access when workspace dir is writable", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "perm-workspace-access-"));
+    tempDirs.push(workspace);
+    const allowed = await permissionAccessAllows(
+      {
+        workspaceDir: workspace,
+        workingDir: workspace,
+        writeDirs: [workspace],
+        readDirs: [workspace],
+        network: false,
+        events: false
+      },
+      { kind: "workspace" }
+    );
+    expect(allowed).toBe(true);
+  });
+
+  it("denies workspace access for app sandbox by default", async () => {
+    const workspace = await fs.mkdtemp(path.join(os.tmpdir(), "perm-workspace-app-"));
+    tempDirs.push(workspace);
+    const appDataDir = path.join(workspace, "apps", "my-app", "data");
+    await fs.mkdir(appDataDir, { recursive: true });
+    const allowed = await permissionAccessAllows(
+      {
+        workspaceDir: workspace,
+        workingDir: appDataDir,
+        writeDirs: [appDataDir],
+        readDirs: [workspace],
+        network: false,
+        events: false
+      },
+      { kind: "workspace" }
+    );
+    expect(allowed).toBe(false);
+  });
+
   it("allows read access within allowed directories", async () => {
     const dir = await fs.mkdtemp(path.join(os.tmpdir(), "perm-allow-"));
     tempDirs.push(dir);
