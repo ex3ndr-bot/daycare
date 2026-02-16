@@ -35,10 +35,10 @@ describe("configResolve", () => {
     expect(config.rlm).toBe(true);
   });
 
-  it("defaults security.appReviewerEnabled to true", () => {
+  it("defaults security.appReviewerEnabled to false", () => {
     const configPath = path.join("/tmp/daycare", "settings.json");
     const config = configResolve({}, configPath);
-    expect(config.settings.security.appReviewerEnabled).toBe(true);
+    expect(config.settings.security.appReviewerEnabled).toBe(false);
   });
 
   it("resolves security.appReviewerEnabled from settings", () => {

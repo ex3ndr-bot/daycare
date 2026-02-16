@@ -51,7 +51,7 @@ export function configResolve(
 function resolveSettingsDefaults(settings: SettingsConfig): ResolvedSettingsConfig {
   const emergencyContextLimit =
     settings.agents?.emergencyContextLimit ?? 200_000;
-  const appReviewerEnabled = settings.security?.appReviewerEnabled ?? true;
+  const appReviewerEnabled = settings.security?.appReviewerEnabled ?? false;
   return {
     ...settings,
     agents: {

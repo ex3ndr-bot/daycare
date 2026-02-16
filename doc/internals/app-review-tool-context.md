@@ -71,6 +71,8 @@ App review execution is now configurable via settings:
 }
 ```
 
+Default: `security.appReviewerEnabled` is `false` when omitted.
+
 When `security.appReviewerEnabled` is `false`, app tool calls still go through
 the app tool allowlist, but the review-model decision step is skipped.
 
