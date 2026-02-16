@@ -1,3 +1,6 @@
+import Handlebars from "handlebars";
+
+import { agentPromptBundledRead } from "../agents/ops/agentPromptBundledRead.js";
 import type { AppRuleSet } from "./appTypes.js";
 
 type AppReviewPromptBuildInput = {
@@ -18,10 +21,8 @@ type AppReviewPromptBuildInput = {
  * Builds the review-model prompt for a pending app tool call.
  * Expects: tool metadata and app rules are already normalized.
  */
-export function appReviewPromptBuild(input: AppReviewPromptBuildInput): string {
-  const argsText = argsSerialize(input.args);
-  const availableTools = toolsSerialize(input.availableTools);
-  const appSystemPrompt = systemPromptSerialize(input.appSystemPrompt);
+export async function appReviewPromptBuild(input: AppReviewPromptBuildInput): Promise<string> {
+  const template = await reviewerTemplateCompile();
   const allowRules =
     input.rules.allow.length > 0
       ? input.rules.allow.map((rule) => `- ${rule.text}`).join("\n")
@@ -31,37 +32,16 @@ export function appReviewPromptBuild(input: AppReviewPromptBuildInput): string {
       ? input.rules.deny.map((rule) => `- ${rule.text}`).join("\n")
       : "- (none)";
 
-  return [
-    `You are a security reviewer for the app "${input.appName}".`,
-    "A tool call is being made. Decide if it should be ALLOWED or DENIED based on the rules below.",
-    "",
-    "## Tool Call",
-    `- Tool: ${input.toolName}`,
-    `- Arguments: ${argsText}`,
-    "",
-    "## Available Tools In This Sandbox",
-    availableTools,
-    "",
-    "Interpret the tool call strictly against this tool list and descriptions.",
-    "Do not reinterpret tool names using unrelated language/runtime built-ins.",
-    `For example: tool "exec" is the Daycare exec tool from this list, not Python exec().`,
-    "",
-    "## App System Prompt",
-    appSystemPrompt,
-    "",
-    "## Source Intent",
-    input.sourceIntent,
-    "",
-    "## Allow Rules",
+  return template({
+    appName: input.appName,
+    toolName: input.toolName,
+    argsText: argsSerialize(input.args),
+    availableToolsText: toolsSerialize(input.availableTools),
+    appSystemPrompt: systemPromptSerialize(input.appSystemPrompt),
+    sourceIntent: systemPromptSerialize(input.sourceIntent),
     allowRules,
-    "",
-    "## Deny Rules",
-    denyRules,
-    "",
-    "Respond with exactly one of:",
-    "- ALLOW",
-    "- DENY: <reason>"
-  ].join("\n");
+    denyRules
+  }).trim();
 }
 
 function systemPromptSerialize(systemPrompt: string): string {
@@ -96,4 +76,26 @@ function toolsSerialize(
       ].join("\n");
     })
     .join("\n");
+}
+
+type ReviewerTemplateContext = {
+  appName: string;
+  toolName: string;
+  argsText: string;
+  availableToolsText: string;
+  appSystemPrompt: string;
+  sourceIntent: string;
+  allowRules: string;
+  denyRules: string;
+};
+
+let reviewerTemplate: HandlebarsTemplateDelegate<ReviewerTemplateContext> | null = null;
+
+async function reviewerTemplateCompile(): Promise<HandlebarsTemplateDelegate<ReviewerTemplateContext>> {
+  if (reviewerTemplate) {
+    return reviewerTemplate;
+  }
+  const source = (await agentPromptBundledRead("REVIEWER.md")).trim();
+  reviewerTemplate = Handlebars.compile<ReviewerTemplateContext>(source);
+  return reviewerTemplate;
 }

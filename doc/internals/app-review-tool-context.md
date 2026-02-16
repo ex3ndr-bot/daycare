@@ -10,6 +10,9 @@ language/runtime built-ins (for example, interpreting tool `exec` as Python
 The review prompt also includes the app's own runtime system prompt so policy
 evaluation can account for the app's intended behavior and constraints.
 
+Review prompt text is now sourced from `sources/prompts/REVIEWER.md` and
+rendered with Handlebars in `appReviewPromptBuild`.
+
 ## Prompt flow
 
 ```mermaid
@@ -38,3 +41,14 @@ sequenceDiagram
 - Added explicit interpretation guard:
   - evaluate against provided tool list only
   - do not reinterpret names by language built-ins
+
+## Template rendering
+
+```mermaid
+flowchart TD
+  A[appToolReview input] --> B[appReviewPromptBuild]
+  B --> C[Read prompts/REVIEWER.md]
+  C --> D[Handlebars compile cache]
+  D --> E[Render with tool + rule + intent context]
+  E --> F[Review model user message]
+```

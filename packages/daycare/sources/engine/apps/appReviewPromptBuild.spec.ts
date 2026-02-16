@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { appReviewPromptBuild } from "./appReviewPromptBuild.js";
 
 describe("appReviewPromptBuild", () => {
-  it("includes tool details and allow/deny rules", () => {
-    const prompt = appReviewPromptBuild({
+  it("includes tool details and allow/deny rules", async () => {
+    const prompt = await appReviewPromptBuild({
       appName: "GitHub Reviewer",
       appSystemPrompt:
         "You are a secure review assistant. Use only approved tooling and avoid destructive actions.",

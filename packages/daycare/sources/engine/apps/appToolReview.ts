@@ -27,7 +27,7 @@ type AppToolReviewInput = {
  * Expects: rules and toolCall were prepared by the app executor.
  */
 export async function appToolReview(input: AppToolReviewInput): Promise<AppReviewDecision> {
-  const reviewPrompt = appReviewPromptBuild({
+  const reviewPrompt = await appReviewPromptBuild({
     appName: input.appName,
     appSystemPrompt: input.appSystemPrompt,
     sourceIntent: input.sourceIntent,
