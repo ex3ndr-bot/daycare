@@ -1209,7 +1209,8 @@ export class Agent {
       memory,
       additionalWriteDirs,
       permanentAgentsPrompt: context.permanentAgentsPrompt ?? "",
-      agentPrompt: context.agentPrompt ?? ""
+      agentPrompt: context.agentPrompt ?? "",
+      features: this.agentSystem.config.current.features
     };
 
     // Render permissions template first (it contains Handlebars expressions)
