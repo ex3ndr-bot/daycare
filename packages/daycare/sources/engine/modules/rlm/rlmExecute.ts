@@ -103,7 +103,8 @@ export async function rlmExecute(
       };
     }
 
-    progress = progress.resume(resumeOptions);
+    // Reload snapshot before resume so maxDurationSecs applies to active interpreter work only.
+    progress = snapshotResumeWithDurationReset(progress, resumeOptions);
   }
 
   return {
@@ -111,6 +112,16 @@ export async function rlmExecute(
     printOutput,
     toolCallCount
   };
+}
+
+function snapshotResumeWithDurationReset(
+  snapshot: MontySnapshot,
+  options:
+    | { returnValue: unknown }
+    | { exception: { type: string; message: string } }
+): MontySnapshot | MontyComplete {
+  const restored = MontySnapshot.load(snapshot.dump());
+  return restored.resume(options);
 }
 
 function printCallsRewrite(code: string): string {

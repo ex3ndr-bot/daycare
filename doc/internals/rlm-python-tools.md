@@ -51,6 +51,19 @@ flowchart TD
 `rlmExecute` enforces resource limits (`maxDurationSecs`, `maxMemory`, `maxRecursionDepth`,
 `maxAllocations`).
 
+`maxDurationSecs` is applied to active interpreter execution only. After each
+external tool call returns, RLM reloads the snapshot before `resume()`, which
+resets the duration clock for the next interpreter segment.
+
+```mermaid
+flowchart TD
+  A[MontySnapshot emitted] --> B[Call external Daycare tool]
+  B --> C[Tool finishes]
+  C --> D[Snapshot dump/load]
+  D --> E[resume return/exception]
+  E --> F[New 30s maxDuration window]
+```
+
 Errors are surfaced as:
 - Syntax errors: `MontySyntaxError` with retry guidance
 - Runtime errors: `MontyRuntimeError` traceback

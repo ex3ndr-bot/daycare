@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { Type } from "@sinclair/typebox";
+import { MontySnapshot } from "@pydantic/monty";
 
 import type { ToolExecutionContext, ToolExecutionResult } from "@/types";
 import type { ToolResolverApi } from "../toolResolver.js";
@@ -89,6 +90,27 @@ describe("rlmExecute", () => {
     expect(result.output).toBe("done");
     expect(result.printOutput).toEqual(["hello world"]);
     expect(result.toolCallCount).toBe(0);
+  });
+
+  it("reloads snapshot before resume so duration limits reset after tool calls", async () => {
+    const loadSpy = vi.spyOn(MontySnapshot, "load");
+    const resolver = createResolver(async (name, args) => {
+      if (name !== "echo") {
+        throw new Error(`Unexpected tool ${name}`);
+      }
+      const payload = args as { text: string };
+      return okResult(name, payload.text);
+    });
+
+    await rlmExecute(
+      "value = echo('hello')\nvalue",
+      rlmPreambleBuild(resolver.listTools()),
+      createContext(),
+      resolver
+    );
+
+    expect(loadSpy).toHaveBeenCalledTimes(1);
+    loadSpy.mockRestore();
   });
 });
 

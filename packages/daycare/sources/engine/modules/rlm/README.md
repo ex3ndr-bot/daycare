@@ -51,6 +51,10 @@ RLM execution limits:
 - `maxRecursionDepth`: `100`
 - `maxAllocations`: `1_000_000`
 
+`maxDurationSecs` is enforced per interpreter segment. After each external tool
+call returns, the snapshot is reloaded before `resume()`, so waiting time spent
+inside the external Daycare tool does not count against the 30-second budget.
+
 ## Error Handling
 
 - `MontySyntaxError`: returned as tool error with a "fix and retry" hint
