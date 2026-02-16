@@ -50,6 +50,7 @@ import { EngineEventBus } from "./ipc/events.js";
 import { ProviderManager } from "../providers/manager.js";
 import { agentDescriptorLabel } from "./agents/ops/agentDescriptorLabel.js";
 import { agentDescriptorTargetResolve } from "./agents/ops/agentDescriptorTargetResolve.js";
+import { messageContextStatus } from "./agents/ops/messageContextStatus.js";
 import { permissionDescribeDecision } from "./permissions/permissionDescribeDecision.js";
 import { InvalidateSync } from "../util/sync.js";
 import { valueDeepEqual } from "../util/valueDeepEqual.js";
@@ -447,7 +448,8 @@ export class Engine {
     } catch (error) {
       logger.warn({ connector: target.connector, error }, "error: Context command failed to load tokens");
     }
-    const text = contextCommandTextBuild(tokens);
+    const contextLimit = this.config.current.settings.agents.emergencyContextLimit;
+    const text = messageContextStatus({ tokens, contextLimit });
     try {
       await connector.sendMessage(target.targetId, {
         text,
@@ -563,21 +565,6 @@ function parseCommand(command: string): { name: string; args: string[] } | null 
     return null;
   }
   return { name, args: parts };
-}
-
-function contextCommandTextBuild(tokens: AgentTokenEntry | null): string {
-  if (!tokens) {
-    return "Context size unavailable yet. Run a prompt to capture token usage.";
-  }
-  const { size } = tokens;
-  return [
-    `Context size (${tokens.provider}/${tokens.model})`,
-    `total: ${size.total} tokens`,
-    `input: ${size.input} tokens`,
-    `output: ${size.output} tokens`,
-    `cache read: ${size.cacheRead} tokens`,
-    `cache write: ${size.cacheWrite} tokens`
-  ].join("\n");
 }
 
 /**
