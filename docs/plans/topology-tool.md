@@ -105,7 +105,7 @@ Items belonging to the calling agent are marked with `(You)` so the model immedi
 - [x] Run linter if available (no lint script is configured in this repo)
 
 ### Task 5: [Final] Update documentation
-- [x] Update `ACTORS.md` if the tool change affects agent wiring documentation (not required: no actor/signal topology change)
+- [x] Update topology-facing documentation if the tool change affects wiring docs (not required: no actor/signal topology change)
 - [x] Add/update doc in `doc/` if topology tool warrants a mention
 
 ## Technical Details

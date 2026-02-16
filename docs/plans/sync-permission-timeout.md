@@ -38,7 +38,7 @@ Convert the `request_permission` tool from an async fire-and-forget pattern to a
 - Add newly discovered tasks with ➕ prefix
 - Document issues/blockers with ⚠️ prefix
 - Update plan if implementation deviates from original scope
-- ⚠️ `packages/daycare/sources/prompts/ACTORS.md` and `doc/PLUGINS.md` are not present in this checkout; documentation updates are applied to this plan and existing code-adjacent docs/tests instead.
+- ⚠️ `doc/PLUGINS.md` is not present in this checkout; documentation updates are applied to this plan and existing code-adjacent docs/tests instead.
 
 ## Implementation Steps
 
@@ -106,7 +106,7 @@ Clean up the async permission handling code that is no longer needed.
 
 ### Task 6: [Final] Update documentation
 - [x] Update `doc/PLUGINS.md` if permission request interface changed (N/A: connector permission interface unchanged; file path not present in this checkout)
-- [x] Update ACTORS.md if signal/event wiring changed (N/A: no actor/signal topology change; file path not present in this checkout)
+- [x] Update topology-facing docs if signal/event wiring changed (N/A: no actor/signal topology change)
 
 ## Technical Details
 

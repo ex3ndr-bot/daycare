@@ -23,7 +23,7 @@ How it integrates:
 - **Agent inbox** (`agentTypes.ts`): has `signal` item type — channel messages will arrive as signals
 - **Engine** (`engine.ts`): registers core tools and wires signals → agent system
 - **Topology tool** (`topologyToolBuild.ts`): unified snapshot of agents, cron tasks, heartbeat tasks, and signal subscriptions — should be extended to include channels
-- **ACTORS.md**: must be updated before implementation
+- **Topology output/docs**: must be updated when channel wiring changes
 
 ## Development Approach
 
@@ -42,10 +42,10 @@ How it integrates:
 
 ## Implementation Steps
 
-### Task 1: Update ACTORS.md with channel topology
+### Task 1: Update topology docs with channel topology
 
-- [x] Add channel leader agent entry to Agents table
-- [x] Add channel signal subscriptions to Signal Subscriptions table
+- [x] Add channel leader agent entry to topology documentation
+- [x] Add channel signal subscriptions to topology documentation
 - [x] Update mermaid wiring diagram with channel signal flow
 - [x] No tests needed (documentation only)
 

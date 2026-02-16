@@ -25,6 +25,12 @@ across multiple local agent runtimes.
 Each skill is a folder containing a `SKILL.md` file. The folder name becomes
 the skill name shown to the agent.
 
+Core examples in this repo include:
+- `skill-creator`
+- `permanent-agent-creator`
+- `scheduling`
+- `app-creator`
+
 The system prompt lists skills in XML tags to make parsing explicit.
 
 ## Skills catalog flow (code)

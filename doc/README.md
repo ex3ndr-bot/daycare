@@ -8,6 +8,7 @@ Core concepts and systems that power Daycare.
 - [Cron](concepts/cron.md) - Scheduled task execution with cron expressions
 - [Heartbeats](concepts/heartbeats.md) - Batch-executed periodic prompts
 - [Signals](concepts/signals.md) - Broadcast event system for multi-agent coordination
+- [Apps](concepts/apps.md) - LLM-reviewed sandboxed app tools discovered from workspace
 - [Sandboxes](concepts/sandboxes.md) - Filesystem and network sandboxing, durable processes
 - [Networking & Permissions](concepts/networking.md) - Permission system, web search/fetch tools
 - [Memory](concepts/memory.md) - Structured entity storage as Markdown

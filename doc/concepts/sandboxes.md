@@ -41,6 +41,11 @@ All paths are validated before use:
 
 `openSecure` opens file handles atomically with `lstat` verification to prevent time-of-check to time-of-use race conditions.
 
+### App directory isolation
+
+- Non-app agents are denied read/write access to `<workspace>/apps/*`.
+- App subagents can access only their own app directory and can write only to `<workspace>/apps/<app-id>/data`.
+
 ## Allowed domains
 
 The `exec` tool supports an explicit domain allowlist for outbound network access:
