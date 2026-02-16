@@ -23,6 +23,24 @@ When compaction runs, the agent:
 
 If compaction produces no summary text, no reset is applied and context remains unchanged.
 
+## Compaction prompt contract
+
+The compaction prompt requires a strict checkpoint format (pi-mono style) so summaries stay resumable instead of conversational.
+
+```text
+## Goal
+## Constraints & Preferences
+## Progress
+### Done
+### In Progress
+### Blocked
+## Key Decisions
+## Next Steps
+## Critical Context
+```
+
+The prompt also explicitly tells the model to not continue the conversation and to output only the structured summary.
+
 ## Flow
 
 ```mermaid
