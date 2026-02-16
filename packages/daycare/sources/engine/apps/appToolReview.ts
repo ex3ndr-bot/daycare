@@ -12,6 +12,11 @@ type AppToolReviewInput = {
   sourceIntent: string;
   toolCall: ToolCall;
   rules: AppRuleSet;
+  availableTools: Array<{
+    name: string;
+    description: string;
+    parameters: unknown;
+  }>;
   inferenceRouter: InferenceRouter;
   providersOverride?: ProviderSettings[];
 };
@@ -26,7 +31,8 @@ export async function appToolReview(input: AppToolReviewInput): Promise<AppRevie
     sourceIntent: input.sourceIntent,
     toolName: input.toolCall.name,
     args: input.toolCall.arguments,
-    rules: input.rules
+    rules: input.rules,
+    availableTools: input.availableTools
   });
   const context: Context = {
     messages: [

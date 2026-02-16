@@ -12,6 +12,7 @@ describe("appToolReview", () => {
       sourceIntent: "Review pull requests safely.",
       toolCall: { id: "t1", name: "read", type: "toolCall", arguments: { path: "/tmp/file" } },
       rules: { allow: [], deny: [] },
+      availableTools: availableToolsBuild(),
       inferenceRouter: inferenceRouterBuild(assistantMessageBuild("ALLOW"))
     });
 
@@ -25,6 +26,7 @@ describe("appToolReview", () => {
       sourceIntent: "Review pull requests safely.",
       toolCall: { id: "t1", name: "exec", type: "toolCall", arguments: { command: "rm -rf ." } },
       rules: { allow: [], deny: [] },
+      availableTools: availableToolsBuild(),
       inferenceRouter: inferenceRouterBuild(assistantMessageBuild("DENY: destructive command"))
     });
 
@@ -38,11 +40,43 @@ describe("appToolReview", () => {
       sourceIntent: "Review pull requests safely.",
       toolCall: { id: "t1", name: "exec", type: "toolCall", arguments: { command: "echo ok" } },
       rules: { allow: [], deny: [] },
+      availableTools: availableToolsBuild(),
       inferenceRouter: inferenceRouterBuild(assistantMessageBuild("maybe"))
     });
 
     expect(review.allowed).toBe(false);
     expect(review.reason).toContain("invalid decision");
+  });
+
+  it("includes available tool context in the review prompt", async () => {
+    const complete = vi.fn(async (_context: unknown) => ({
+      message: assistantMessageBuild("ALLOW"),
+      providerId: "provider-1",
+      modelId: "model-1"
+    }));
+    const inferenceRouter = { complete } as unknown as InferenceRouter;
+    await appToolReview({
+      appId: "github-reviewer",
+      appName: "GitHub Reviewer",
+      sourceIntent: "Review pull requests safely.",
+      toolCall: { id: "t1", name: "exec", type: "toolCall", arguments: { command: "echo ok" } },
+      rules: { allow: [], deny: [] },
+      availableTools: availableToolsBuild(),
+      inferenceRouter
+    });
+
+    const firstCall = complete.mock.calls[0];
+    expect(firstCall).toBeTruthy();
+    if (!firstCall) {
+      throw new Error("Expected review model call");
+    }
+    const context = firstCall[0] as {
+      messages?: Array<{ content?: Array<{ type: string; text: string }> }>;
+    };
+    const prompt = context.messages?.[0]?.content?.find((item) => item.type === "text")?.text ?? "";
+    expect(prompt).toContain("## Available Tools In This Sandbox");
+    expect(prompt).toContain("Name: exec");
+    expect(prompt).toContain('not Python exec()');
   });
 });
 
@@ -80,4 +114,31 @@ function assistantMessageBuild(text: string): AssistantMessage {
     stopReason: "stop",
     timestamp: Date.now()
   };
+}
+
+function availableToolsBuild(): Array<{ name: string; description: string; parameters: unknown }> {
+  return [
+    {
+      name: "exec",
+      description: "Run a shell command in the workspace.",
+      parameters: {
+        type: "object",
+        properties: {
+          command: { type: "string" }
+        },
+        required: ["command"]
+      }
+    },
+    {
+      name: "read",
+      description: "Read file contents.",
+      parameters: {
+        type: "object",
+        properties: {
+          path: { type: "string" }
+        },
+        required: ["path"]
+      }
+    }
+  ];
 }

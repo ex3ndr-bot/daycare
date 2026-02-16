@@ -54,12 +54,22 @@ export function appToolExecutorBuild(input: AppToolExecutorBuildInput): AppToolE
         };
       }
 
+      const availableTools = input.toolResolver
+        .listTools()
+        .filter((tool) => allowedToolNames.has(tool.name))
+        .map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters
+        }));
+
       const decision = await appToolReview({
         appId: input.appId,
         appName: input.appName,
         sourceIntent: input.sourceIntent,
         toolCall,
         rules: input.rules,
+        availableTools,
         inferenceRouter: input.inferenceRouter,
         providersOverride: input.providersOverride
       });

@@ -9,6 +9,17 @@ describe("appReviewPromptBuild", () => {
       sourceIntent: "Review pull requests safely.",
       toolName: "exec",
       args: { command: "git diff" },
+      availableTools: [
+        {
+          name: "exec",
+          description: "Run a shell command in the workspace.",
+          parameters: {
+            type: "object",
+            properties: { command: { type: "string" } },
+            required: ["command"]
+          }
+        }
+      ],
       rules: {
         allow: [{ text: "Run read-only git commands" }],
         deny: [{ text: "Rewrite git history" }]
@@ -18,6 +29,9 @@ describe("appReviewPromptBuild", () => {
     expect(prompt).toContain('app "GitHub Reviewer"');
     expect(prompt).toContain("- Tool: exec");
     expect(prompt).toContain('"command": "git diff"');
+    expect(prompt).toContain("## Available Tools In This Sandbox");
+    expect(prompt).toContain("Name: exec");
+    expect(prompt).toContain("not Python exec()");
     expect(prompt).toContain("Review pull requests safely.");
     expect(prompt).toContain("- Run read-only git commands");
     expect(prompt).toContain("- Rewrite git history");

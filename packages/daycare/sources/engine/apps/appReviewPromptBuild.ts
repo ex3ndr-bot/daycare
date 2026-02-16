@@ -6,6 +6,11 @@ type AppReviewPromptBuildInput = {
   toolName: string;
   args: unknown;
   rules: AppRuleSet;
+  availableTools: Array<{
+    name: string;
+    description: string;
+    parameters: unknown;
+  }>;
 };
 
 /**
@@ -14,6 +19,7 @@ type AppReviewPromptBuildInput = {
  */
 export function appReviewPromptBuild(input: AppReviewPromptBuildInput): string {
   const argsText = argsSerialize(input.args);
+  const availableTools = toolsSerialize(input.availableTools);
   const allowRules =
     input.rules.allow.length > 0
       ? input.rules.allow.map((rule) => `- ${rule.text}`).join("\n")
@@ -30,6 +36,13 @@ export function appReviewPromptBuild(input: AppReviewPromptBuildInput): string {
     "## Tool Call",
     `- Tool: ${input.toolName}`,
     `- Arguments: ${argsText}`,
+    "",
+    "## Available Tools In This Sandbox",
+    availableTools,
+    "",
+    "Interpret the tool call strictly against this tool list and descriptions.",
+    "Do not reinterpret tool names using unrelated language/runtime built-ins.",
+    `For example: tool "exec" is the Daycare exec tool from this list, not Python exec().`,
     "",
     "## Source Intent",
     input.sourceIntent,
@@ -52,4 +65,22 @@ function argsSerialize(value: unknown): string {
   } catch {
     return "<unserializable>";
   }
+}
+
+function toolsSerialize(
+  tools: Array<{ name: string; description: string; parameters: unknown }>
+): string {
+  if (tools.length === 0) {
+    return "- (none)";
+  }
+  return tools
+    .map((tool) => {
+      const parameters = argsSerialize(tool.parameters);
+      return [
+        `- Name: ${tool.name}`,
+        `  Description: ${tool.description || "(none)"}`,
+        `  Parameters: ${parameters}`
+      ].join("\n");
+    })
+    .join("\n");
 }
