@@ -21,6 +21,8 @@ The command runs:
 ## Slash commands
 - `/upgrade` - upgrades Daycare CLI and restarts the configured PM2 process.
 - `/restart` - restarts the configured PM2 process without running the upgrade install step.
+  - The command writes a pending marker before `pm2 restart`.
+  - On next process boot, plugin `postStart()` checks the marker (pid/time heuristic) and sends restart completion status.
 
 ## Notes
 - Slash commands are user-facing and are not exposed as model tools.

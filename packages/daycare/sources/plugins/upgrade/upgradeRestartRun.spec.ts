@@ -58,8 +58,7 @@ describe("upgradeRestartRun", () => {
       expect.any(Function)
     );
     expect(sendStatus.mock.calls.map((call) => call[0])).toEqual([
-      "Restarting process \"daycare\" via pm2...",
-      "Restart complete. PM2 process \"daycare\" restarted."
+      "Restarting process \"daycare\" via pm2..."
     ]);
   });
 

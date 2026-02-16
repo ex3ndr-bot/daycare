@@ -2,6 +2,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { plugin } from "./plugin.js";
 import { upgradePm2ProcessDetect } from "./upgradePm2ProcessDetect.js";
+import { upgradeRestartPendingClear } from "./upgradeRestartPendingClear.js";
+import { upgradeRestartPendingSet } from "./upgradeRestartPendingSet.js";
+import { upgradeRestartPendingTake } from "./upgradeRestartPendingTake.js";
 import { upgradeRestartRun } from "./upgradeRestartRun.js";
 import { upgradeRun } from "./upgradeRun.js";
 
@@ -14,12 +17,27 @@ vi.mock("./upgradeRun.js", () => ({
 vi.mock("./upgradeRestartRun.js", () => ({
   upgradeRestartRun: vi.fn()
 }));
+vi.mock("./upgradeRestartPendingSet.js", () => ({
+  upgradeRestartPendingSet: vi.fn()
+}));
+vi.mock("./upgradeRestartPendingTake.js", () => ({
+  upgradeRestartPendingTake: vi.fn()
+}));
+vi.mock("./upgradeRestartPendingClear.js", () => ({
+  upgradeRestartPendingClear: vi.fn()
+}));
 
 describe("upgrade plugin onboarding", () => {
   beforeEach(() => {
     vi.mocked(upgradePm2ProcessDetect).mockReset();
     vi.mocked(upgradeRun).mockReset();
     vi.mocked(upgradeRestartRun).mockReset();
+    vi.mocked(upgradeRestartPendingSet).mockReset();
+    vi.mocked(upgradeRestartPendingTake).mockReset();
+    vi.mocked(upgradeRestartPendingClear).mockReset();
+    vi.mocked(upgradeRestartPendingSet).mockResolvedValue(undefined);
+    vi.mocked(upgradeRestartPendingTake).mockResolvedValue(null);
+    vi.mocked(upgradeRestartPendingClear).mockResolvedValue(undefined);
   });
 
   it("returns default pm2 settings when daycare process is detected", async () => {
@@ -198,6 +216,104 @@ describe("upgrade plugin commands", () => {
         processName: "daycare",
         sendStatus: expect.any(Function)
       })
+    );
+    expect(upgradeRestartPendingSet).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dataDir: "/tmp/daycare",
+        descriptor,
+        context
+      })
+    );
+    expect(upgradeRestartPendingClear).not.toHaveBeenCalled();
+  });
+
+  it("clears pending restart marker when restart command fails", async () => {
+    vi.mocked(upgradeRestartRun).mockRejectedValue(new Error("pm2 failed"));
+    const registrar = {
+      registerCommand: vi.fn(),
+      unregisterCommand: vi.fn(),
+      sendMessage: vi.fn(async () => undefined)
+    };
+    const api = {
+      instance: { instanceId: "upgrade", pluginId: "upgrade" },
+      settings: { strategy: "pm2", processName: "daycare" },
+      engineSettings: {},
+      logger: { warn: vi.fn() },
+      auth: {},
+      dataDir: "/tmp/daycare",
+      registrar,
+      fileStore: {},
+      inference: { complete: async () => undefined },
+      processes: {},
+      mode: "runtime",
+      events: { emit: () => undefined }
+    };
+    const instance = await plugin.create(api as never);
+    await instance.load?.();
+    const commands = registrar.registerCommand.mock.calls.map(
+      (call) => call[0] as { command: string; handler: (...args: unknown[]) => Promise<void> }
+    );
+    const restartCommand = commands.find((entry) => entry.command === "restart");
+    if (!restartCommand) {
+      throw new Error("Expected restart command to be registered");
+    }
+    const descriptor = {
+      type: "user",
+      connector: "telegram",
+      channelId: "123",
+      userId: "123"
+    };
+    const context = { messageId: "56" };
+
+    await restartCommand.handler("/restart", context, descriptor);
+
+    expect(upgradeRestartPendingClear).toHaveBeenCalledWith("/tmp/daycare");
+  });
+
+  it("sends restart completion from postStart when a recent marker exists", async () => {
+    vi.mocked(upgradeRestartPendingTake).mockResolvedValue({
+      descriptor: {
+        type: "user",
+        connector: "telegram",
+        channelId: "123",
+        userId: "123"
+      },
+      context: { messageId: "77" },
+      requestedAtMs: Date.now(),
+      requesterPid: process.pid - 1
+    });
+    const registrar = {
+      registerCommand: vi.fn(),
+      unregisterCommand: vi.fn(),
+      sendMessage: vi.fn(async () => undefined)
+    };
+    const api = {
+      instance: { instanceId: "upgrade", pluginId: "upgrade" },
+      settings: { strategy: "pm2", processName: "daycare" },
+      engineSettings: {},
+      logger: { warn: vi.fn() },
+      auth: {},
+      dataDir: "/tmp/daycare",
+      registrar,
+      fileStore: {},
+      inference: { complete: async () => undefined },
+      processes: {},
+      mode: "runtime",
+      events: { emit: () => undefined }
+    };
+    const instance = await plugin.create(api as never);
+
+    await instance.postStart?.();
+
+    expect(registrar.sendMessage).toHaveBeenCalledWith(
+      {
+        type: "user",
+        connector: "telegram",
+        channelId: "123",
+        userId: "123"
+      },
+      { messageId: "77" },
+      { text: "Restart complete. Daycare is back online." }
     );
   });
 });

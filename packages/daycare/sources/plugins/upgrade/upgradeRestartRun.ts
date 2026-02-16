@@ -26,8 +26,6 @@ export async function upgradeRestartRun(options: UpgradeRestartRunOptions): Prom
     await options.sendStatus(text);
     throw new Error(text);
   }
-
-  await options.sendStatus(`Restart complete. PM2 process \"${options.processName}\" restarted.`);
 }
 
 function commandRun(command: string, args: string[]): Promise<void> {

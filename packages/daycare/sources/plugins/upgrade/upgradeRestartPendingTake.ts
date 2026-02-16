@@ -1,0 +1,64 @@
+import { readFile, rm } from "node:fs/promises";
+import path from "node:path";
+
+import type { UpgradeRestartPending } from "./upgradeRestartPendingTypes.js";
+
+/**
+ * Reads and clears persisted restart confirmation metadata.
+ * Expects: dataDir points to the plugin data directory.
+ */
+export async function upgradeRestartPendingTake(
+  dataDir: string
+): Promise<UpgradeRestartPending | null> {
+  const statePath = path.join(dataDir, "restart-pending.json");
+  let raw: string;
+  try {
+    raw = await readFile(statePath, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return null;
+    }
+    throw error;
+  }
+
+  await rm(statePath, { force: true });
+  return pendingParse(raw);
+}
+
+function pendingParse(value: string): UpgradeRestartPending | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value) as unknown;
+  } catch {
+    return null;
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    return null;
+  }
+  const candidate = parsed as {
+    descriptor?: unknown;
+    context?: unknown;
+    requestedAtMs?: unknown;
+    requesterPid?: unknown;
+  };
+  if (typeof candidate.requestedAtMs !== "number") {
+    return null;
+  }
+  if (typeof candidate.requesterPid !== "number") {
+    return null;
+  }
+  if (!candidate.descriptor || typeof candidate.descriptor !== "object") {
+    return null;
+  }
+  if (!candidate.context || typeof candidate.context !== "object") {
+    return null;
+  }
+
+  return {
+    descriptor: candidate.descriptor as UpgradeRestartPending["descriptor"],
+    context: candidate.context as UpgradeRestartPending["context"],
+    requestedAtMs: candidate.requestedAtMs,
+    requesterPid: candidate.requesterPid
+  };
+}

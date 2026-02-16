@@ -2,12 +2,16 @@ import { z } from "zod";
 
 import { definePlugin } from "../../engine/plugins/types.js";
 import type { AgentDescriptor, MessageContext } from "@/types";
+import { upgradeRestartPendingClear } from "./upgradeRestartPendingClear.js";
+import { upgradeRestartPendingSet } from "./upgradeRestartPendingSet.js";
+import { upgradeRestartPendingTake } from "./upgradeRestartPendingTake.js";
 import { upgradePm2ProcessDetect } from "./upgradePm2ProcessDetect.js";
 import { upgradeRestartRun } from "./upgradeRestartRun.js";
 import { upgradeRun } from "./upgradeRun.js";
 
 const UPGRADE_COMMAND = "upgrade";
 const RESTART_COMMAND = "restart";
+const RESTART_CONFIRM_MAX_AGE_MS = 5 * 60 * 1000;
 
 const settingsSchema = z
   .object({
@@ -102,12 +106,26 @@ export const plugin = definePlugin({
 
       await sendStatus("Restarting Daycare...");
       try {
+        await upgradeRestartPendingSet({
+          dataDir: api.dataDir,
+          descriptor,
+          context,
+          requestedAtMs: Date.now(),
+          requesterPid: process.pid
+        });
+      } catch (error) {
+        api.logger.warn({ error }, "error: Failed to persist restart pending marker");
+        await sendStatus("Restart failed before scheduling confirmation.");
+        return;
+      }
+      try {
         await upgradeRestartRun({
           strategy: settings.strategy,
           processName: settings.processName,
           sendStatus
         });
       } catch (error) {
+        await upgradeRestartPendingClear(api.dataDir);
         api.logger.warn({ error }, "error: Restart command failed");
       }
     };
@@ -128,6 +146,27 @@ export const plugin = definePlugin({
       unload: async () => {
         api.registrar.unregisterCommand(UPGRADE_COMMAND);
         api.registrar.unregisterCommand(RESTART_COMMAND);
+      },
+      postStart: async () => {
+        const pending = await upgradeRestartPendingTake(api.dataDir);
+        if (!pending) {
+          return;
+        }
+        if (pending.requesterPid === process.pid) {
+          return;
+        }
+        if (Date.now() - pending.requestedAtMs > RESTART_CONFIRM_MAX_AGE_MS) {
+          return;
+        }
+        try {
+          await api.registrar.sendMessage(
+            pending.descriptor,
+            pending.context,
+            { text: "Restart complete. Daycare is back online." }
+          );
+        } catch (error) {
+          api.logger.warn({ error }, "error: Failed to send restart completion status message");
+        }
       }
     };
   }
