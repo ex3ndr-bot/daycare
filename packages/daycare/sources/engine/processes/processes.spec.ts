@@ -272,6 +272,59 @@ describe("Processes", () => {
     TEST_TIMEOUT_MS
   );
 
+  it(
+    "removes plugin-owned processes and keeps other owners",
+    async () => {
+      const manager = await createManager(baseDir);
+      const ownedA1 = await manager.create(
+        {
+          command: `node -e \"setInterval(() => {}, 1000)\"`,
+          keepAlive: true,
+          cwd: workspaceDir,
+          owner: { type: "plugin", id: "plugin-a" }
+        },
+        permissions
+      );
+      const ownedA2 = await manager.create(
+        {
+          command: `node -e \"setInterval(() => {}, 1000)\"`,
+          keepAlive: true,
+          cwd: workspaceDir,
+          owner: { type: "plugin", id: "plugin-a" }
+        },
+        permissions
+      );
+      const ownedB = await manager.create(
+        {
+          command: `node -e \"setInterval(() => {}, 1000)\"`,
+          keepAlive: true,
+          cwd: workspaceDir,
+          owner: { type: "plugin", id: "plugin-b" }
+        },
+        permissions
+      );
+
+      const removed = await manager.removeByOwner({ type: "plugin", id: "plugin-a" });
+      expect(removed).toBe(2);
+
+      const byOwnerA = await manager.listByOwner({ type: "plugin", id: "plugin-a" });
+      const byOwnerB = await manager.listByOwner({ type: "plugin", id: "plugin-b" });
+      expect(byOwnerA).toHaveLength(0);
+      expect(byOwnerB.map((entry) => entry.id)).toEqual([ownedB.id]);
+
+      await expect(
+        fs.access(path.join(baseDir, "processes", ownedA1.id, "record.json"))
+      ).rejects.toThrow();
+      await expect(
+        fs.access(path.join(baseDir, "processes", ownedA2.id, "record.json"))
+      ).rejects.toThrow();
+      await expect(
+        fs.access(path.join(baseDir, "processes", ownedB.id, "record.json"))
+      ).resolves.toBeUndefined();
+    },
+    TEST_TIMEOUT_MS
+  );
+
   async function createManager(
     dir: string,
     options: { bootTimeMs?: number | null; socketPath?: string } = {}

@@ -328,6 +328,21 @@ export class PluginManager {
       await entry.instance.unload?.();
       this.logger.debug(`unload: Plugin.unload() completed instanceId=${instanceId}`);
     } finally {
+      const removedProcesses = await this.processes
+        .removeByOwner({ type: "plugin", id: instanceId })
+        .catch((error) => {
+          this.logger.warn(
+            { error, instance: instanceId, plugin: entry.config.pluginId },
+            "error: Plugin process cleanup failed"
+          );
+          return 0;
+        });
+      if (removedProcesses > 0) {
+        this.logger.info(
+          { instance: instanceId, plugin: entry.config.pluginId, removedProcesses },
+          "cleanup: Removed plugin-owned processes"
+        );
+      }
       this.logger.debug(`unregister: Unregistering plugin components instanceId=${instanceId}`);
       await entry.registrar.unregisterAll();
       this.loaded.delete(instanceId);

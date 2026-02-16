@@ -35,6 +35,11 @@ const SIGNALS = ["SIGTERM", "SIGINT", "SIGHUP", "SIGKILL"] as const;
 
 export type ProcessSignal = (typeof SIGNALS)[number];
 
+export type ProcessOwner = {
+  type: "plugin";
+  id: string;
+};
+
 export type ProcessCreateInput = {
   command: string;
   name?: string;
@@ -44,6 +49,7 @@ export type ProcessCreateInput = {
   packageManagers?: SandboxPackageManager[];
   allowedDomains?: string[];
   keepAlive?: boolean;
+  owner?: ProcessOwner;
 };
 
 export type ProcessInfo = {
@@ -75,6 +81,7 @@ type ProcessRecord = {
   packageManagers: SandboxPackageManager[];
   allowedDomains: string[];
   permissions: SessionPermissions;
+  owner: ProcessOwner | null;
   keepAlive: boolean;
   desiredState: "running" | "stopped";
   status: "running" | "stopped" | "exited";
@@ -214,6 +221,7 @@ export class Processes {
         packageManagers: [...(input.packageManagers ?? [])],
         allowedDomains,
         permissions: clonePermissions(permissions),
+        owner: input.owner ? ownerNormalize(input.owner) : null,
         keepAlive: input.keepAlive ?? false,
         desiredState: "running",
         status: "stopped",
@@ -234,6 +242,17 @@ export class Processes {
       this.records.set(record.id, record);
       await this.writeRecordLocked(record);
       return toProcessInfo(record);
+    });
+  }
+
+  async listByOwner(owner: ProcessOwner): Promise<ProcessInfo[]> {
+    return this.lock.inLock(async () => {
+      const normalizedOwner = ownerNormalize(owner);
+      await this.refreshRecordStatusLocked();
+      return Array.from(this.records.values())
+        .filter((record) => ownerIs(record.owner, normalizedOwner))
+        .sort((a, b) => a.createdAt - b.createdAt)
+        .map((record) => toProcessInfo(record));
     });
   }
 
@@ -267,6 +286,32 @@ export class Processes {
       await this.stopRecordLocked(record, signal);
       await this.writeRecordLocked(record);
       return toProcessInfo(record);
+    });
+  }
+
+  async remove(processId: string, signal: ProcessSignal = "SIGTERM"): Promise<void> {
+    await this.lock.inLock(async () => {
+      const record = this.records.get(processId);
+      if (!record) {
+        throw new Error(`Unknown process id: ${processId}`);
+      }
+      await this.removeRecordLocked(record, signal);
+    });
+  }
+
+  async removeByOwner(
+    owner: ProcessOwner,
+    signal: ProcessSignal = "SIGTERM"
+  ): Promise<number> {
+    return this.lock.inLock(async () => {
+      const normalizedOwner = ownerNormalize(owner);
+      const records = Array.from(this.records.values()).filter((record) =>
+        ownerIs(record.owner, normalizedOwner)
+      );
+      for (const record of records) {
+        await this.removeRecordLocked(record, signal);
+      }
+      return records.length;
     });
   }
 
@@ -388,6 +433,18 @@ export class Processes {
       scheduleRestart(record, failedAt);
       await this.writeRecordLocked(record);
     }
+  }
+
+  private async removeRecordLocked(
+    record: ProcessRecord,
+    signal: ProcessSignal
+  ): Promise<void> {
+    record.desiredState = "stopped";
+    await this.stopRecordLocked(record, signal);
+    this.records.delete(record.id);
+    this.children.delete(record.id);
+    await fs.rm(this.processDir(record.id), { recursive: true, force: true });
+    this.logger.info({ processId: record.id, signal }, "remove: Process removed");
   }
 
   private async startRecordLocked(
@@ -625,6 +682,7 @@ async function readRecord(recordPath: string): Promise<ProcessRecord | null> {
               .map(([key, value]) => [key.trim(), value])
           )
         : {};
+    const owner = parseOwner(parsed.owner);
 
     return {
       version: RECORD_VERSION,
@@ -637,6 +695,7 @@ async function readRecord(recordPath: string): Promise<ProcessRecord | null> {
       packageManagers,
       allowedDomains,
       permissions,
+      owner,
       keepAlive,
       desiredState,
       status,
@@ -698,6 +757,39 @@ function clonePermissions(permissions: SessionPermissions): SessionPermissions {
     network: permissions.network,
     events: permissions.events
   };
+}
+
+function ownerNormalize(owner: ProcessOwner): ProcessOwner {
+  const id = owner.id.trim();
+  if (!id) {
+    throw new Error("Process owner id is required.");
+  }
+  return { type: owner.type, id };
+}
+
+function ownerIs(
+  candidate: ProcessOwner | null,
+  owner: ProcessOwner
+): boolean {
+  if (!candidate) {
+    return false;
+  }
+  return candidate.type === owner.type && candidate.id === owner.id;
+}
+
+function parseOwner(value: unknown): ProcessOwner | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const candidate = value as { type?: unknown; id?: unknown };
+  if (candidate.type !== "plugin" || typeof candidate.id !== "string") {
+    return null;
+  }
+  const id = candidate.id.trim();
+  if (!id) {
+    return null;
+  }
+  return { type: "plugin", id };
 }
 
 function isPackageManager(value: unknown): value is SandboxPackageManager {

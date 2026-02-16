@@ -69,3 +69,21 @@ flowchart TD
   Exists -- yes --> AppCmd[Use /Applications/Tailscale.app/Contents/MacOS/Tailscale]
   Exists -- no --> PathCmd
 ```
+
+## Cloudflare managed process ownership
+- Cloudflare tunnel plugin now starts a durable `cloudflared` userspace process through `Processes`.
+- Process owner is `{ type: "plugin", id: <pluginInstanceId> }`.
+- On plugin unload/delete, plugin-owned processes are automatically removed by `PluginManager`.
+
+```mermaid
+sequenceDiagram
+  participant Plugin as cloudflare-tunnel plugin
+  participant Processes
+  participant PM as PluginManager
+
+  Plugin->>Processes: create(owner=plugin instance, keepAlive=true)
+  Plugin->>Plugin: register expose provider
+  PM->>Plugin: unload()
+  PM->>Processes: removeByOwner({type: plugin, id: instanceId})
+  Processes-->>PM: removed process count
+```

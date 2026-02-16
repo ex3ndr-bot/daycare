@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -34,7 +34,8 @@ function createManager(
   entryPath: string,
   pluginId: string,
   rootDir: string,
-  onEvent?: (event: PluginEvent) => void
+  onEvent?: (event: PluginEvent) => void,
+  processes?: Processes
 ): { manager: PluginManager; modules: ModuleRegistry; config: ConfigModule } {
   const modules = new ModuleRegistry({ onMessage: () => {} });
   const pluginRegistry = new PluginRegistry(modules);
@@ -73,7 +74,7 @@ function createManager(
       fileStore,
       pluginCatalog: catalog,
       inferenceRouter,
-      processes: new Processes(rootDir, getLogger("test.processes")),
+      processes: processes ?? new Processes(rootDir, getLogger("test.processes")),
       exposes: {
         registerProvider: async () => undefined,
         unregisterProvider: async () => undefined,
@@ -469,5 +470,38 @@ export const plugin = {
       { label: "A" },
       { label: "B" }
     ]);
+  });
+
+  it("removes plugin-owned processes when unloading a plugin", async () => {
+    const dir = await createTempDir();
+    const pluginSource = `import { z } from "zod";
+
+export const plugin = {
+  settingsSchema: z.object({}).passthrough(),
+  create: () => ({
+    load: async () => {},
+    unload: async () => {}
+  })
+};
+	`;
+    const entryPath = await writePluginFile(dir, pluginSource);
+    const removeByOwnerSpy = vi.fn(async () => 1);
+    const processes = {
+      removeByOwner: removeByOwnerSpy
+    } as unknown as Processes;
+    const { manager } = createManager(entryPath, "cleanup", dir, undefined, processes);
+
+    await manager.load({
+      instanceId: "cleanup-one",
+      pluginId: "cleanup",
+      enabled: true,
+      settings: {}
+    });
+    await manager.unload("cleanup-one");
+
+    expect(removeByOwnerSpy).toHaveBeenCalledWith({
+      type: "plugin",
+      id: "cleanup-one"
+    });
   });
 });
