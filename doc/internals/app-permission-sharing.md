@@ -8,6 +8,9 @@ approved access across invocations.
 - `scope: "now"` keeps the grant on the current app agent only.
 - `scope: "always"` persists the grant to app-level state and applies it to all
   loaded agents for that app id.
+- User-facing prompts render these scopes as:
+  - `One time` for `now`
+  - `Always` for `always`
 
 ## Persistence
 

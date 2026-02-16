@@ -160,10 +160,12 @@ export function buildPermissionRequestTool(): ToolDefinition {
       const heading =
         requestedDescriptor.type === "user"
           ? "Permission request:"
-          : `Permission request from background agent "${requesterLabel}":`;
+          : requestedDescriptor.type === "app"
+            ? `Permission request from app "${requesterLabel}":`
+            : `Permission request from background agent "${requesterLabel}":`;
       const scopeLine =
         descriptor.type === "app"
-          ? `Scope: ${requestedScope === "always" ? "always (all agents for this app)" : "now (this app agent only)"}`
+          ? `Scope: ${permissionScopeLabel(requestedScope)}`
           : null;
       const text = [
         heading,
@@ -289,7 +291,7 @@ export function buildPermissionRequestTool(): ToolDefinition {
         : `${permissionNoun} denied for ${permissionLabel}.`;
       const scopedResultText =
         descriptor.type === "app"
-          ? `${resultText} Scope: ${resolvedScope}.`
+          ? `${resultText} Scope: ${permissionScopeLabel(resolvedScope)}.`
           : resultText;
 
       const toolMessage: ToolResultMessage = {
@@ -394,4 +396,10 @@ function permissionTagsNormalize(permissions: string[]): string[] {
     }
   }
   return [...unique];
+}
+
+function permissionScopeLabel(scope: PermissionRequestScope): string {
+  return scope === "always"
+    ? "Always (all future runs for this app)"
+    : "One time (this app run only)";
 }

@@ -877,9 +877,9 @@ function formatPermissionMessage(
       : null;
   const scopeLine =
     request.scope === "always"
-      ? "<b>Scope</b>: always (shared across this app)"
+      ? "<b>Scope</b>: Always (all future runs for this app)"
       : request.scope === "now"
-        ? "<b>Scope</b>: now (current app agent only)"
+        ? "<b>Scope</b>: One time (this app run only)"
         : null;
   const lines = [
     heading,

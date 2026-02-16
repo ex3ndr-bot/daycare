@@ -9,7 +9,7 @@ export function agentDescriptorLabel(descriptor: AgentDescriptor): string {
     return descriptor.name ?? descriptor.type;
   }
   if (descriptor.type === "app") {
-    return descriptor.name ?? descriptor.type;
+    return appLabelFormat(descriptor.name ?? descriptor.type);
   }
   if (descriptor.type === "permanent") {
     if (descriptor.username) {
@@ -24,4 +24,15 @@ export function agentDescriptorLabel(descriptor: AgentDescriptor): string {
     return descriptor.tag;
   }
   return "user";
+}
+
+function appLabelFormat(value: string): string {
+  if (!value) {
+    return "app";
+  }
+  // Prefer a human label when app names are slug-like.
+  const text = value.includes(" ")
+    ? value
+    : value.replace(/[_-]+/g, " ");
+  return text.replace(/\b[a-z]/g, (letter) => letter.toUpperCase());
 }

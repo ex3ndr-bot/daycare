@@ -31,7 +31,17 @@ describe("agentDescriptorLabel", () => {
         systemPrompt: "prompt",
         appId: "github-reviewer"
       })
-    ).toBe("github-reviewer");
+    ).toBe("Github Reviewer");
+    expect(
+      agentDescriptorLabel({
+        type: "app",
+        id: "app-agent-2",
+        parentAgentId: "parent",
+        name: "RuTracker Search",
+        systemPrompt: "prompt",
+        appId: "rutracker-search"
+      })
+    ).toBe("RuTracker Search");
   });
 
   it("labels non-user agents", () => {

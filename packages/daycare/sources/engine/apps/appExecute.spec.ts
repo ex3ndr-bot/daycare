@@ -130,7 +130,7 @@ describe("appExecute", () => {
         type: "app",
         id: expect.any(String),
         parentAgentId: "parent-agent",
-        name: "github-reviewer",
+        name: "GitHub Reviewer",
         systemPrompt: "You are a focused PR review assistant.",
         appId: "github-reviewer"
       }

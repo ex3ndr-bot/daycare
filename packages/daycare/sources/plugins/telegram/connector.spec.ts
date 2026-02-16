@@ -141,6 +141,50 @@ describe("TelegramConnector permissions", () => {
       descriptor
     );
   });
+
+  it("renders scope with human-readable labels", async () => {
+    const fileStore = { saveFromPath: vi.fn() } as unknown as FileStore;
+    const connector = new TelegramConnector({
+      token: "token",
+      allowedUids: ["123"],
+      polling: false,
+      clearWebhook: false,
+      statePath: null,
+      fileStore,
+      dataDir: "/tmp",
+      enableGracefulShutdown: false
+    });
+
+    const request: PermissionRequest = {
+      token: "perm-1",
+      agentId: "agent-1",
+      reason: "Need network access",
+      message: "Permission request",
+      permissions: [{ permission: "@network", access: { kind: "network" } }],
+      scope: "now",
+      requester: {
+        id: "agent-1",
+        type: "app",
+        label: "RuTracker",
+        kind: "background"
+      }
+    };
+    const context: MessageContext = { messageId: "msg-1" };
+    const descriptor: AgentDescriptor = {
+      type: "user",
+      connector: "telegram",
+      userId: "123",
+      channelId: "123"
+    };
+
+    await connector.requestPermission("123", request, context, descriptor);
+
+    const bot = telegramInstances[0];
+    const call = bot?.sendMessage.mock.calls[0];
+    expect(call).toBeTruthy();
+    expect(String(call?.[1])).toContain("Scope");
+    expect(String(call?.[1])).toContain("One time");
+  });
 });
 
 describe("TelegramConnector commands", () => {

@@ -483,7 +483,9 @@ describe("buildPermissionRequestTool", () => {
       expect.objectContaining({ source: "telegram" })
     );
     expect(grantPermission).not.toHaveBeenCalled();
-    expect(contentText(result.toolMessage.content)).toContain("Scope: always.");
+    expect(contentText(result.toolMessage.content)).toContain(
+      "Scope: Always (all future runs for this app)."
+    );
   });
 
   it("rejects scoped permission requests from non-app agents", async () => {
