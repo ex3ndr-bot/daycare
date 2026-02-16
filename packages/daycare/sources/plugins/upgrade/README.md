@@ -22,6 +22,7 @@ The command runs:
 - `/upgrade` - upgrades Daycare CLI and restarts the configured PM2 process.
 - `/restart` - restarts the configured PM2 process without running the upgrade install step.
   - The command writes a pending marker before `pm2 restart`.
+  - If PM2 returns an error, the plugin probes `pm2 jlist` before failing; if restart indicators changed (pid/uptime/restart count), the command is treated as successful.
   - On next process boot, plugin `postStart()` checks the marker (pid/time heuristic) and sends restart completion status.
 
 ## Notes

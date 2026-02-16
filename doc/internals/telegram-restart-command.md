@@ -19,6 +19,7 @@ sequenceDiagram
   P->>S: write pending confirmation marker
   P->>R: upgradeRestartRun(settings)
   R->>M: pm2 restart <processName>
+  R->>M: if restart errors, read pm2 jlist and compare pid/uptime/restart count
   M->>E: boot new process
   E->>P: postStart()
   P->>S: consume marker + validate pid/time heuristic
@@ -28,4 +29,5 @@ sequenceDiagram
 - `/restart` is registered only when the Upgrade plugin is enabled.
 - Restart uses the plugin's configured PM2 process name.
 - The command does not run `npm install`; it performs restart only.
+- Restart failures include PM2 output and exit metadata (`code`, `signal`) when available.
 - Completion is sent only after the new process starts and confirms a fresh restart marker.
