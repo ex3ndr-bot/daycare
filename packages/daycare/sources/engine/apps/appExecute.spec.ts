@@ -47,6 +47,7 @@ describe("appExecute", () => {
       })
     );
 
+    const post = vi.fn(async (_target: unknown, _item: unknown) => undefined);
     const postAndAwait = vi.fn(
       async (_target: unknown, _item: unknown) =>
         ({ type: "message" as const, responseText: "App response." })
@@ -94,6 +95,7 @@ describe("appExecute", () => {
         config: { current: config },
         agentIdForTarget,
         updateAgentPermissions,
+        post,
         postAndAwait,
         inferenceRouter: {} as unknown,
         toolResolver
@@ -122,7 +124,8 @@ describe("appExecute", () => {
     const result = await appExecute({
       app,
       prompt: "Review PR #42",
-      context
+      context,
+      waitForResponse: true
     });
     expect(result).toEqual({ agentId, responseText: "App response." });
     expect(agentIdForTarget).toHaveBeenCalledWith({
@@ -137,6 +140,7 @@ describe("appExecute", () => {
     });
 
     expect(updateAgentPermissions).toHaveBeenCalledTimes(1);
+    expect(post).not.toHaveBeenCalled();
     expect(postAndAwait).toHaveBeenCalledTimes(1);
     const firstCall = postAndAwait.mock.calls[0];
     if (!firstCall) {
@@ -166,5 +170,124 @@ describe("appExecute", () => {
     expect(updated.permissions.writeDirs).toEqual([
       path.join(rootDir, "apps", "github-reviewer", "data")
     ]);
+  });
+
+  it("posts app task asynchronously by default", async () => {
+    const config = configResolve(
+      { engine: { dataDir: path.join(rootDir, "data") }, assistant: { workspaceDir: rootDir } },
+      path.join(rootDir, "settings.json")
+    );
+    const agentId = "agent-app-2";
+    const statePath = path.join(config.agentsDir, agentId, "state.json");
+    await fs.mkdir(path.dirname(statePath), { recursive: true });
+    await fs.writeFile(
+      statePath,
+      JSON.stringify({
+        context: { messages: [] },
+        permissions: {
+          workingDir: rootDir,
+          writeDirs: [rootDir],
+          readDirs: [rootDir],
+          network: false,
+          events: false
+        },
+        tokens: null,
+        stats: {},
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        state: "active"
+      })
+    );
+
+    const post = vi.fn(async (_target: unknown, _item: unknown) => undefined);
+    const postAndAwait = vi.fn(
+      async (_target: unknown, _item: unknown) =>
+        ({ type: "message" as const, responseText: "Should not be used." })
+    );
+    const agentIdForTarget = vi.fn(async () => agentId);
+    const updateAgentPermissions = vi.fn();
+    const toolResolver = {
+      listTools: () => [
+        { name: "read", description: "read", parameters: { type: "object", properties: {} } },
+        { name: "write", description: "write", parameters: { type: "object", properties: {} } },
+        { name: "exec", description: "exec", parameters: { type: "object", properties: {} } }
+      ],
+      execute: async () =>
+        ({
+          toolMessage: {
+            role: "toolResult",
+            toolCallId: "t1",
+            toolName: "read",
+            content: [{ type: "text", text: "ok" }],
+            isError: false,
+            timestamp: Date.now()
+          },
+          files: []
+        }) as ToolExecutionResult
+    };
+
+    const context = {
+      connectorRegistry: null as unknown as ToolExecutionContext["connectorRegistry"],
+      fileStore: null as unknown as ToolExecutionContext["fileStore"],
+      auth: null as unknown as ToolExecutionContext["auth"],
+      logger: console as unknown as ToolExecutionContext["logger"],
+      assistant: null,
+      permissions: {
+        workingDir: rootDir,
+        writeDirs: [rootDir],
+        readDirs: [rootDir],
+        network: false,
+        events: false
+      },
+      agent: { id: "parent-agent" } as ToolExecutionContext["agent"],
+      source: "test",
+      messageContext: {},
+      agentSystem: {
+        config: { current: config },
+        agentIdForTarget,
+        updateAgentPermissions,
+        post,
+        postAndAwait,
+        inferenceRouter: {} as unknown,
+        toolResolver
+      } as unknown as ToolExecutionContext["agentSystem"],
+      heartbeats: null as unknown as ToolExecutionContext["heartbeats"]
+    } as ToolExecutionContext;
+
+    const app: AppDescriptor = {
+      id: "github-reviewer",
+      path: path.join(rootDir, "apps", "github-reviewer"),
+      manifest: {
+        name: "github-reviewer",
+        title: "GitHub Reviewer",
+        description: "Reviews pull requests",
+        systemPrompt: "You are a focused PR review assistant."
+      },
+      permissions: {
+        sourceIntent: "Review pull requests safely.",
+        rules: {
+          allow: [{ text: "Read files" }],
+          deny: [{ text: "Delete files" }]
+        }
+      }
+    };
+
+    const result = await appExecute({
+      app,
+      prompt: "Review PR #99",
+      context
+    });
+
+    expect(result).toEqual({ agentId, responseText: null });
+    expect(post).toHaveBeenCalledTimes(1);
+    expect(postAndAwait).not.toHaveBeenCalled();
+    const firstCall = post.mock.calls[0];
+    if (!firstCall) {
+      throw new Error("Expected post call");
+    }
+    const item = firstCall[1] as { type: string; message?: { text?: string } };
+    expect(item.type).toBe("message");
+    expect(item.message?.text).toContain("Task:");
+    expect(item.message?.text).toContain("Review PR #99");
   });
 });

@@ -25,5 +25,8 @@ describe("appToolBuild", () => {
     expect(definition.tool.description).toBe("Reviews pull requests");
     expect(definition.tool.parameters.type).toBe("object");
     expect(definition.tool.parameters.required).toEqual(["prompt"]);
+    expect(definition.tool.parameters.properties).toMatchObject({
+      wait: { type: "boolean" }
+    });
   });
 });

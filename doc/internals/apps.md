@@ -19,7 +19,12 @@ sequenceDiagram
   participant X as Real Tool
 
   A->>T: app_<name>({prompt})
-  T->>S: create + post message
+  alt wait omitted/false
+    T->>S: create + post message
+    T-->>A: immediate ack + agentId
+  else wait=true
+    T->>S: create + postAndAwait message
+  end
   S->>R: review(tool call + source intent + allow/deny rules)
   R-->>S: ALLOW or DENY: reason
   alt ALLOW
@@ -28,8 +33,10 @@ sequenceDiagram
   else DENY
     S-->>S: tool error result
   end
-  S-->>T: final response
-  T-->>A: tool result text
+  opt wait=true
+    S-->>T: final response
+    T-->>A: tool result text
+  end
 ```
 
 ## Permission Model

@@ -42,6 +42,22 @@ graph LR
 The app tool response includes the app `agentId` so the caller can continue
 messaging that same app agent when needed.
 
+## Invocation Mode
+
+App tools are asynchronous by default:
+
+- `app_<name>({ prompt })`: queues work and returns immediately with app `agentId`
+- `app_<name>({ prompt, wait: true })`: waits for the app agent response before returning
+
+```mermaid
+flowchart TD
+  A[app_<name> call] --> B{wait?}
+  B -->|false / omitted| C[post to app agent]
+  C --> D[Immediate ack with agentId]
+  B -->|true| E[postAndAwait to app agent]
+  E --> F[Return app response + agentId]
+```
+
 ## APP.md Contract
 
 `APP.md` uses YAML frontmatter plus a required markdown body.

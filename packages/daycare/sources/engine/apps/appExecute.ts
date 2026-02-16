@@ -12,6 +12,7 @@ type AppExecuteInput = {
   app: AppDescriptor;
   prompt: string;
   context: ToolExecutionContext;
+  waitForResponse?: boolean;
 };
 
 export type AppExecuteResult = {
@@ -26,6 +27,7 @@ export type AppExecuteResult = {
 export async function appExecute(input: AppExecuteInput): Promise<AppExecuteResult> {
   const agentSystem = input.context.agentSystem;
   const config = agentSystem.config.current;
+  const waitForResponse = input.waitForResponse ?? false;
   const appPermissions = await appPermissionBuild(config.workspaceDir, input.app.id);
 
   const descriptor = {
@@ -65,15 +67,18 @@ export async function appExecute(input: AppExecuteInput): Promise<AppExecuteResu
     providersOverride: reviewProviders
   });
 
-  const result = await agentSystem.postAndAwait(
-    { agentId },
-    {
-      type: "message",
-      message: { text: appTaskPromptBuild(input.app, input.prompt) },
-      context: {},
-      toolResolverOverride: reviewedExecutor
-    }
-  );
+  const message = {
+    type: "message" as const,
+    message: { text: appTaskPromptBuild(input.app, input.prompt) },
+    context: {},
+    toolResolverOverride: reviewedExecutor
+  };
+  if (!waitForResponse) {
+    await agentSystem.post({ agentId }, message);
+    return { agentId, responseText: null };
+  }
+
+  const result = await agentSystem.postAndAwait({ agentId }, message);
   if (result.type !== "message") {
     return { agentId, responseText: null };
   }
