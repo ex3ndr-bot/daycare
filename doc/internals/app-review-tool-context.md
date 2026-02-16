@@ -41,6 +41,8 @@ sequenceDiagram
 - Added section: `## Execution Mode`:
   - when `rlm` is enabled, prompt explicitly states execution flows through `run_python`
     and Python calls can dispatch to the listed tools
+  - clarifies RLM uses a minimal Monty runtime (not full CPython) and reviewers
+    should not assume Python stdlib/third-party libraries
   - otherwise prompt states normal direct tool execution
 - Added explicit interpretation guard:
   - evaluate against provided tool list only

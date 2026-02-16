@@ -89,6 +89,9 @@ describe("appToolReview", () => {
     expect(prompt).toContain("You are a focused review assistant.");
     expect(prompt).toContain("RLM mode is enabled.");
     expect(prompt).toContain("`run_python` tool");
+    expect(prompt).toContain("minimal Python runtime (Monty)");
+    expect(prompt).toContain("not full CPython");
+    expect(prompt).toContain("`read(...)`, `exec(...)`");
   });
 });
 

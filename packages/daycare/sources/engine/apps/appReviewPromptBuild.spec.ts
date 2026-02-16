@@ -38,6 +38,10 @@ describe("appReviewPromptBuild", () => {
     expect(prompt).toContain("## Execution Mode");
     expect(prompt).toContain("RLM mode is enabled.");
     expect(prompt).toContain("`run_python` tool");
+    expect(prompt).toContain("minimal Python runtime (Monty)");
+    expect(prompt).toContain("not full CPython");
+    expect(prompt).toContain("do not assume standard-library or third-party modules are available");
+    expect(prompt).toContain("`read(...)`, `exec(...)`");
     expect(prompt).toContain("## App System Prompt");
     expect(prompt).toContain("You are a secure review assistant.");
     expect(prompt).toContain("Review pull requests safely.");

@@ -14,7 +14,12 @@ For example: tool "exec" is the Daycare exec tool from this list, not Python exe
 
 ## Execution Mode
 {{#if rlmEnabled}}
-RLM mode is enabled. Runtime execution goes through the `run_python` tool, and Python function calls can dispatch to any tools listed in this prompt.
+RLM mode is enabled.
+- All execution goes through the `run_python` tool.
+- `run_python` uses a minimal Python runtime (Monty), not full CPython.
+- Assume vanilla Python syntax only; do not assume standard-library or third-party modules are available.
+- Function-like calls matching tool names in this prompt (for example `read(...)`, `exec(...)`) dispatch to Daycare tools.
+- Do not reinterpret those tool calls as Python built-ins when arguments match Daycare tool schemas.
 {{else}}
 RLM mode is disabled. Tools execute directly using normal tool-call execution.
 {{/if}}
