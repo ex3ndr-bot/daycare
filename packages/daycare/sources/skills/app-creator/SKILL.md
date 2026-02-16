@@ -57,7 +57,7 @@ app-id/
 │   │   ├── description: (required)
 │   │   └── model: (optional)
 │   └── Markdown body (required)
-│       └── ## System Prompt
+│       └── Full body is system prompt
 ├── PERMISSIONS.md (required)
 │   └── Markdown body (required)
 │       ├── ## Source Intent
@@ -73,7 +73,7 @@ app-id/
 Every `APP.md` consists of:
 
 - **Frontmatter** (YAML): `name`, `title`, `description`, optional `model`.
-- **Body** (Markdown): required `## System Prompt`.
+- **Body** (Markdown): full body is the system prompt.
 
 When parsing or writing `APP.md`:
 
@@ -90,8 +90,6 @@ title: GitHub Reviewer
 description: Reviews pull requests and drafts feedback
 model: default
 ---
-
-## System Prompt
 
 You review pull requests and provide concrete, actionable feedback.
 ```
@@ -175,7 +173,7 @@ If scripts are needed, keep them minimal and app-specific.
 Validation checklist:
 
 - Frontmatter has valid `name`, `title`, `description` (optional `model`)
-- APP.md body includes a non-empty `## System Prompt`
+- APP.md body is non-empty and contains the system prompt
 - Tool name maps cleanly to `app_<name>`
 - Writes are limited to `data/`
 - Allow rules cover intended workflows

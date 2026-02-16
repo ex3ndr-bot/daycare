@@ -22,7 +22,7 @@ Each app registers as a callable tool: `app_<name>`.
     scripts/
 ```
 
-- `APP.md` defines app identity metadata (`name`, `title`, `description`, optional `model`) and the app system prompt in the markdown body.
+- `APP.md` defines app identity metadata (`name`, `title`, `description`, optional `model`) and uses the full markdown body as the app system prompt.
 - `PERMISSIONS.md` defines source intent text and allow/deny rules.
 - `data/` is the only writable location for the app agent.
 - Other agents are denied access to `workspace/apps/*`.
@@ -44,7 +44,7 @@ messaging that same app agent when needed.
 
 ## APP.md Contract
 
-`APP.md` uses YAML frontmatter plus a required `## System Prompt` section in the markdown body.
+`APP.md` uses YAML frontmatter plus a required markdown body.
 
 Required frontmatter fields:
 
@@ -65,9 +65,9 @@ Name rules:
 - `name`: username-style lowercase + optional `-` or `_` separators (for example `github_reviewer`)
 - `title`: free-form human-readable text
 
-Required markdown body section:
+Required markdown body:
 
-- `## System Prompt`: app runtime behavior prompt used as the app agent system prompt.
+- Entire markdown body is the app runtime system prompt.
 
 ### APP.md Example 1: GitHub Reviewer
 
@@ -78,8 +78,6 @@ title: GitHub Reviewer
 description: Reviews pull requests and drafts actionable feedback
 model: gpt-4.1-mini
 ---
-
-## System Prompt
 
 You review pull requests and produce actionable feedback with concrete next steps.
 ```
@@ -92,8 +90,6 @@ name: incident_summarizer
 title: Incident Summarizer
 description: Builds concise incident timelines and status summaries
 ---
-
-## System Prompt
 
 You summarize incident artifacts into timelines, impact, and current status.
 ```
@@ -108,8 +104,6 @@ description: Drafts release notes from git history and changelog files
 model: default
 ---
 
-## System Prompt
-
 You draft release notes grouped by feature area with user-facing language.
 ```
 
@@ -122,8 +116,6 @@ title: SQL Report Builder
 description: Runs approved SQL queries and formats markdown reports
 ---
 
-## System Prompt
-
 You execute approved read-only SQL and convert results into concise markdown reports.
 ```
 
@@ -135,8 +127,6 @@ name: api-contract-checker
 title: API Contract Checker
 description: Compares OpenAPI schemas and flags breaking changes
 ---
-
-## System Prompt
 
 You compare API schemas and report compatibility risks with concrete evidence.
 ```
@@ -277,7 +267,7 @@ Daycare includes a core `app-creator` skill at
 on app definitions.
 
 Use it when building or updating:
-- `APP.md` frontmatter + `## System Prompt`
+- `APP.md` frontmatter + markdown body system prompt
 - `PERMISSIONS.md` source intent + rule sets
 - app allow/deny rule sets
 - app folder layout (`data/`, optional `scripts/`)

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { appManifestParse } from "./appManifestParse.js";
 
 describe("appManifestParse", () => {
-  it("parses frontmatter fields", () => {
+  it("parses frontmatter fields and uses the entire body as system prompt", () => {
     const manifest = appManifestParse(
       [
         "---",
@@ -13,9 +13,9 @@ describe("appManifestParse", () => {
         "model: gpt-4.1-mini",
         "---",
         "",
-        "## System Prompt",
+        "Use concise, actionable review comments.",
         "",
-        "You are a focused PR review assistant."
+        "Focus on correctness, tests, and security."
       ].join("\n")
     );
 
@@ -24,7 +24,11 @@ describe("appManifestParse", () => {
       title: "GitHub Reviewer",
       description: "Reviews pull requests",
       model: "gpt-4.1-mini",
-      systemPrompt: "You are a focused PR review assistant."
+      systemPrompt: [
+        "Use concise, actionable review comments.",
+        "",
+        "Focus on correctness, tests, and security."
+      ].join("\n")
     });
   });
 
@@ -35,8 +39,6 @@ describe("appManifestParse", () => {
       "title: Missing description",
       "---",
       "",
-      "## System Prompt",
-      "",
       "prompt"
     ].join("\n");
 
@@ -45,7 +47,7 @@ describe("appManifestParse", () => {
     );
   });
 
-  it("throws when system prompt section is missing", () => {
+  it("throws when body system prompt is missing", () => {
     const content = [
       "---",
       "name: github-reviewer",
@@ -55,7 +57,7 @@ describe("appManifestParse", () => {
     ].join("\n");
 
     expect(() => appManifestParse(content)).toThrow(
-      "APP.md must include a non-empty `## System Prompt` section."
+      "APP.md must include a non-empty markdown body for the system prompt."
     );
   });
 

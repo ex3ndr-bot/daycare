@@ -43,7 +43,7 @@ sequenceDiagram
 
 ## Files
 
-- `appManifestParse.ts` / `appManifestValidate.ts`: APP.md frontmatter + `## System Prompt` parsing and validation
+- `appManifestParse.ts` / `appManifestValidate.ts`: APP.md frontmatter + body-system-prompt parsing and validation
 - `appPermissionsParse.ts` / `appPermissionsValidate.ts`: PERMISSIONS.md parsing and validation
 - `appDiscover.ts`: app discovery
 - `appExecute.ts`: app-agent creation and execution
