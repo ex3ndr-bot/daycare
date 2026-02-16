@@ -12,7 +12,12 @@ import { listEnabledPlugins } from "../../settings.js";
 import type { PluginEvent, PluginEventInput } from "./events.js";
 import { PluginModuleLoader } from "./loader.js";
 import type { PluginDefinition } from "./catalog.js";
-import type { PluginApi, PluginInstance, PluginModule } from "@/types";
+import type {
+  ExposeProviderRegistrationApi,
+  PluginApi,
+  PluginInstance,
+  PluginModule
+} from "@/types";
 import type { PluginRegistry } from "./registry.js";
 import type { EngineEventBus } from "../ipc/events.js";
 import { resolveExclusivePlugins } from "./exclusive.js";
@@ -30,6 +35,7 @@ export type PluginManagerOptions = {
   pluginCatalog: Map<string, PluginDefinition>;
   inferenceRouter: InferenceRouter;
   processes: Processes;
+  exposes: ExposeProviderRegistrationApi;
   mode?: "runtime" | "validate";
   engineEvents?: EngineEventBus;
   onEvent?: (event: PluginEvent) => void;
@@ -55,6 +61,7 @@ export class PluginManager {
   private onEvent: ((event: PluginEvent) => void) | null;
   private inference: PluginInferenceService;
   private processes: Processes;
+  private exposes: ExposeProviderRegistrationApi;
   private loaded = new Map<string, LoadedPlugin>();
   private logger = getLogger("plugins.manager");
 
@@ -68,6 +75,7 @@ export class PluginManager {
     this.engineEvents = options.engineEvents;
     this.onEvent = options.onEvent ?? null;
     this.processes = options.processes;
+    this.exposes = options.exposes;
     this.inference = new PluginInferenceService({
       router: options.inferenceRouter,
       config: this.config
@@ -262,6 +270,7 @@ export class PluginManager {
       auth: this.auth,
       dataDir,
       registrar,
+      exposes: this.exposes,
       fileStore: this.fileStore,
       inference: this.inference.createClient(instanceId),
       processes: this.processes,

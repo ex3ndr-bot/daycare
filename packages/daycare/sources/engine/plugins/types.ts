@@ -9,6 +9,7 @@ import type { PluginRegistrar } from "./registry.js";
 import type { EngineEventBus } from "../ipc/events.js";
 import type { PluginInference } from "./inference.js";
 import type { Processes } from "../processes/processes.js";
+import type { ExposeProviderRegistrationApi } from "@/types";
 
 export type PluginApi<TSettings = unknown> = {
   instance: PluginInstanceSettings;
@@ -18,6 +19,7 @@ export type PluginApi<TSettings = unknown> = {
   auth: AuthStore;
   dataDir: string;
   registrar: PluginRegistrar;
+  exposes: ExposeProviderRegistrationApi;
   fileStore: FileStore;
   inference: PluginInference;
   processes: Processes;
