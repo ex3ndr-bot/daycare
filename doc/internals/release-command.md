@@ -15,7 +15,7 @@
 9. Create tag `daycare-cli@<version>`.
 10. Run `npm publish --access public --registry https://registry.npmjs.org/ --no-package-lock` from `packages/daycare`.
 11. Push branch and tag to `origin`.
-12. If release fails after commit, delete created tag and create a revert commit.
+12. If release fails after commit, delete created tag and hard-reset the release commit.
 
 ## Sequence
 
@@ -40,5 +40,5 @@ sequenceDiagram
   CLI->>Git: tag daycare-cli@<version>
   CLI->>NPM: npm publish --access public --registry npmjs --no-package-lock
   CLI->>Git: push HEAD + tag
-  CLI-->>Git: revert commit + delete tag on failure
+  CLI-->>Git: hard reset release commit + delete tag on failure
 ```

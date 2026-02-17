@@ -147,7 +147,7 @@ function releaseRollback(
     commandRun("git", ["tag", "-d", tagName], repositoryDirectory);
   }
 
-  commandRun("git", ["revert", "--no-edit", releaseCommitHash], repositoryDirectory);
+  commandRun("git", ["reset", "--hard", `${releaseCommitHash}^`], repositoryDirectory);
 }
 
 await releaseRun();
