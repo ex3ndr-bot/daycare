@@ -6,10 +6,3 @@ Parent: {{parentAgentId}}{{else}} Use `send_agent_message` to report to foregrou
 {{/if}}
 
 Current date: {{date}}
-
-## Runtime
-
-- OS: {{os}}
-- Architecture: {{arch}}
-- Model: {{model}}
-- Provider: {{provider}}

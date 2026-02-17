@@ -63,9 +63,6 @@ export async function agentSystemPromptSectionFiles(
   const template = await agentPromptBundledRead("SYSTEM_FILES.md");
   const section = Handlebars.compile(template)({
     isForeground,
-    connector: isForeground ? descriptor.connector : "unknown",
-    channelId: isForeground ? descriptor.channelId : "unknown",
-    userId: isForeground ? descriptor.userId : "unknown",
     workspace: context.permissions?.workingDir ?? "unknown",
     configDir: context.agentSystem?.config?.current.configDir ?? "",
     cronTaskId: cronData.cronTaskId,

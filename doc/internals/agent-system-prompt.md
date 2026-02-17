@@ -14,6 +14,7 @@ System prompt rendering is centralized in `agentSystemPrompt()` and called from 
 
 `agentSystemPrompt()` renders deterministic sections by calling section functions with the same `AgentSystemPromptContext` input. Each section loads and renders its own data internally:
 - Preamble
+- System Environment
 - Autonomous operation
 - Permissions
 - Workspace
@@ -28,6 +29,8 @@ Top-level composition is plain concatenation with section separators (no Handleb
 Template naming:
 - `SYSTEM.md` is the preamble section template.
 - All other section templates use the `SYSTEM_*.md` prefix.
+- Environment section template is `SYSTEM_ENVIRONMENT.md`.
+- Runtime and foreground channel metadata render in `SYSTEM_ENVIRONMENT.md`.
 - Agency section template is `SYSTEM_AGENCY.md`.
 - Topology section template is `SYSTEM_TOPOLOGY.md`.
 - Topology rendering no longer injects `cronTaskIds`; current cron state is expected to be read via the `topology` tool.
@@ -46,7 +49,7 @@ flowchart TD
   A1 --> A2[agentPromptFilesEnsure]
   A2 --> B[agentSystemPrompt]
   B --> C[Check replace-system prompt]
-  B --> D[Call 9 section functions with same context]
+  B --> D[Call 10 section functions with same context]
   D --> D1[Preamble section loads its own data]
   D --> D2[Autonomous section loads its own data]
   D --> D3[...]

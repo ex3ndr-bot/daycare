@@ -122,6 +122,7 @@ async function renderSystemPrompt(options: RenderSystemPromptOptions): Promise<s
   };
   const [
     preambleSection,
+    environmentSection,
     autonomousOperationSection,
     permissionsSection,
     workspaceSection,
@@ -132,6 +133,7 @@ async function renderSystemPrompt(options: RenderSystemPromptOptions): Promise<s
     filesSection
   ] = await Promise.all([
     sectionRender("SYSTEM.md", sectionContext),
+    sectionRender("SYSTEM_ENVIRONMENT.md", sectionContext),
     sectionRender("SYSTEM_AGENCY.md", sectionContext),
     sectionRender("SYSTEM_PERMISSIONS.md", sectionContext),
     sectionRender("SYSTEM_WORKSPACE.md", sectionContext),
@@ -147,6 +149,7 @@ async function renderSystemPrompt(options: RenderSystemPromptOptions): Promise<s
   ]);
   return [
     preambleSection,
+    environmentSection,
     autonomousOperationSection,
     permissionsSection,
     workspaceSection,

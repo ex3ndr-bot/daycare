@@ -3,6 +3,7 @@ import { agentPromptResolve } from "./agentPromptResolve.js";
 import { agentSystemPromptSectionAgentsTopologySignalsChannels } from "./agentSystemPromptSectionAgentsTopologySignalsChannels.js";
 import { agentSystemPromptSectionAutonomousOperation } from "./agentSystemPromptSectionAutonomousOperation.js";
 import type { AgentSystemPromptContext } from "./agentSystemPromptContext.js";
+import { agentSystemPromptSectionEnvironment } from "./agentSystemPromptSectionEnvironment.js";
 import { agentSystemPromptSectionFiles } from "./agentSystemPromptSectionFiles.js";
 import { agentSystemPromptSectionFormatting } from "./agentSystemPromptSectionFormatting.js";
 import { agentSystemPromptSectionPermissions } from "./agentSystemPromptSectionPermissions.js";
@@ -37,6 +38,7 @@ export async function agentSystemPrompt(
   logger.debug("event: buildSystemPrompt rendering sections");
   const renderedSections = await Promise.all([
     agentSystemPromptSectionPreamble(context),
+    agentSystemPromptSectionEnvironment(context),
     agentSystemPromptSectionAutonomousOperation(context),
     agentSystemPromptSectionPermissions(context),
     agentSystemPromptSectionWorkspace(context),

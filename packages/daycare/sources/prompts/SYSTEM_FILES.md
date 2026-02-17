@@ -1,10 +1,6 @@
 ## Files
 
 {{#if isForeground}}
-### Channel
-
-Connector: {{connector}}, channel: {{channelId}}, user: {{userId}}.
-
 For local skill authoring: create/edit in `{{workspace}}/skills/<name>/` first, then deploy atomically to `{{configDir}}/skills/` with `rm -rf {{configDir}}/skills/<name> && cp -r {{workspace}}/skills/<name> {{configDir}}/skills/`.
 {{/if}}
 
