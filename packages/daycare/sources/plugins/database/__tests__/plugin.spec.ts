@@ -11,7 +11,6 @@ import { ModuleRegistry } from "../../../engine/modules/moduleRegistry.js";
 import { PluginRegistry } from "../../../engine/plugins/registry.js";
 import { Agent } from "../../../engine/agents/agent.js";
 import { AgentInbox } from "../../../engine/agents/ops/agentInbox.js";
-import { agentDescriptorBuild } from "../../../engine/agents/ops/agentDescriptorBuild.js";
 import { Processes } from "../../../engine/processes/processes.js";
 import type { AgentState, SessionPermissions } from "@/types";
 import { getLogger } from "../../../log.js";
@@ -44,7 +43,12 @@ describe("database plugin", () => {
       events: false
     };
     const messageContext = {};
-    const descriptor = agentDescriptorBuild("system", messageContext, agentId);
+    const descriptor = {
+      type: "subagent",
+      id: agentId,
+      parentAgentId: "system",
+      name: "system"
+    } as const;
     const state: AgentState = {
       context: { messages: [] },
       permissions,

@@ -6,7 +6,6 @@ import { createId } from "@paralleldrive/cuid2";
 
 import { Agent } from "../../engine/agents/agent.js";
 import { AgentInbox } from "../../engine/agents/ops/agentInbox.js";
-import { agentDescriptorBuild } from "../../engine/agents/ops/agentDescriptorBuild.js";
 import type { AgentState, ToolExecutionContext } from "@/types";
 import { buildMontyPythonTool } from "./tool.js";
 
@@ -77,7 +76,12 @@ describe("monty python tool", () => {
 function createContext(workingDir: string): ToolExecutionContext {
   const agentId = createId();
   const messageContext = {};
-  const descriptor = agentDescriptorBuild("system", messageContext, agentId);
+  const descriptor = {
+    type: "subagent",
+    id: agentId,
+    parentAgentId: "system",
+    name: "system"
+  } as const;
   const now = Date.now();
   const state: AgentState = {
     context: { messages: [] },
