@@ -34,4 +34,17 @@ describe("rlmNoToolsResultMessageBuild", () => {
     expect(text).toContain("Python execution failed: boom");
     expect(text).toContain("</python_result>");
   });
+
+  it("prepends prefix lines at the beginning of python_result body", () => {
+    const message = rlmNoToolsResultMessageBuild({
+      error: new Error("boom"),
+      prefixLines: ["Notice: post-run_python <say> blocks were not delivered."]
+    });
+
+    const text = Array.isArray(message.content)
+      ? message.content.find((part) => part.type === "text")?.text ?? ""
+      : "";
+    expect(text).toContain("<python_result>\nNotice: post-run_python <say> blocks were not delivered.");
+    expect(text).toContain("Python execution failed: boom");
+  });
 });

@@ -5,9 +5,9 @@
 In no-tools RLM mode, `<say>` blocks are now split around the last `</run_python>` tag:
 - `<say>` before `</run_python>` is sent immediately.
 - `<say>` after `</run_python>` is buffered and sent only when Python execution succeeds.
-- On execution failure, assistant text after the last `</run_python>` is removed from in-memory context before the next model turn.
+- On execution failure, buffered post-`run_python` `<say>` blocks are not sent and a notice is prepended at the beginning of the `<python_result>` body (with singular/plural count).
 
-This keeps user-visible messages aligned with actual execution state without mutating persisted history records.
+This keeps user-visible messages aligned with actual execution state while preserving full assistant text in context/history.
 
 ## Sequence
 
@@ -28,7 +28,6 @@ sequenceDiagram
     L->>M: add <python_result> success message
   else execution failure
     P-->>L: error
-    L->>L: truncate in-memory assistant text at </run_python>
-    L->>M: add <python_result> error message
+    L->>M: add <python_result> error message with undelivered-<say> notice
   end
 ```

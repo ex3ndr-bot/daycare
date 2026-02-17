@@ -7,9 +7,11 @@ import { rlmResultTextBuild } from "./rlmResultTextBuild.js";
 type RlmNoToolsResultMessageBuildOptions =
   | {
       result: RlmExecuteResult;
+      prefixLines?: string[];
     }
   | {
       error: unknown;
+      prefixLines?: string[];
     };
 
 /**
@@ -19,9 +21,11 @@ type RlmNoToolsResultMessageBuildOptions =
 export function rlmNoToolsResultMessageBuild(
   options: RlmNoToolsResultMessageBuildOptions
 ): Context["messages"][number] {
-  const body = "result" in options
+  const bodyBase = "result" in options
     ? rlmResultTextBuild(options.result)
     : rlmErrorTextBuild(options.error);
+  const prefix = options.prefixLines?.filter((line) => line.trim().length > 0) ?? [];
+  const body = [...prefix, bodyBase].join("\n");
   return {
     role: "user",
     content: [

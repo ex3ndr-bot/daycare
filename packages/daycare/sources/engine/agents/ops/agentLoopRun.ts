@@ -262,7 +262,6 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
       let effectiveResponseText: string | null = suppressUserOutput ? null : responseText;
       let deferredSayBlocks: string[] = [];
       let deferredSayFiles: Awaited<ReturnType<typeof sayFileResolve>> = [];
-      let runPythonContextText: string | null = null;
 
       // <say> tag mode: only send text inside <say> blocks, suppress the rest
       if (sayEnabled && effectiveResponseText) {
@@ -271,7 +270,6 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
           const runPythonSplit = runPythonResponseSplit(effectiveResponseText);
           if (runPythonSplit) {
             immediateSayText = runPythonSplit.beforeRunPython;
-            runPythonContextText = runPythonSplit.beforeRunPython;
             deferredSayBlocks = tagExtractAll(runPythonSplit.afterRunPython, "say");
             const deferredFileRefs = sayFileExtract(runPythonSplit.afterRunPython);
             deferredSayFiles =
@@ -516,10 +514,13 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
           } catch (error) {
             const message = error instanceof Error ? error.message : String(error);
             await appendHistoryRecord?.(rlmHistoryCompleteErrorRecordBuild(toolCallId, message));
-            if (runPythonContextText !== null) {
-              stripAssistantTextAfterRunPython(response.message, runPythonContextText);
-            }
-            context.messages.push(rlmNoToolsResultMessageBuild({ error }));
+            const sayUndeliveredLine = sayUndeliveredNoticeBuild(deferredSayBlocks.length);
+            context.messages.push(
+              rlmNoToolsResultMessageBuild({
+                error,
+                prefixLines: sayUndeliveredLine ? [sayUndeliveredLine] : undefined
+              })
+            );
           }
 
           if (iteration === MAX_TOOL_ITERATIONS - 1) {
@@ -857,19 +858,14 @@ function runPythonResponseSplit(text: string): RunPythonResponseSplit | null {
   };
 }
 
-function stripAssistantTextAfterRunPython(
-  message: Context["messages"][number],
-  keptText: string
-): void {
-  if (message.role !== "assistant") {
-    return;
+function sayUndeliveredNoticeBuild(count: number): string | null {
+  if (count <= 0) {
+    return null;
   }
-  if (!Array.isArray(message.content)) {
-    return;
+  if (count === 1) {
+    return "Notice: 1 <say> block after </run_python> was not delivered because Python execution failed.";
   }
-
-  const nonTextBlocks = message.content.filter((block) => block.type !== "text");
-  message.content = [{ type: "text", text: keptText }, ...nonTextBlocks];
+  return `Notice: ${count} <say> blocks after </run_python> were not delivered because Python execution failed.`;
 }
 
 function isContextOverflowError(error: unknown): boolean {

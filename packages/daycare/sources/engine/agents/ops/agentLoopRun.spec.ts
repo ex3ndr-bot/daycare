@@ -673,7 +673,7 @@ describe("agentLoopRun say tag", () => {
     expect(executeOrder).toBeLessThan(afterOrder);
   });
 
-  it("drops post-run_python <say> tags and truncates in-memory context when execution fails", async () => {
+  it("keeps post-run_python <say> in context and prepends undelivered notice on execution failure", async () => {
     const connectorSend = vi.fn(async (_targetId: string, _message: unknown) => undefined);
     const connector = connectorBuild(connectorSend);
     const entry = entryBuild();
@@ -727,7 +727,30 @@ describe("agentLoopRun say tag", () => {
     const assistantMessage = contexts[1]?.messages.find((message) => message.role === "assistant");
     const assistantText = assistantMessage ? messageExtractText(assistantMessage) ?? "" : "";
     expect(assistantText).toContain("</run_python>");
-    expect(assistantText).not.toContain("<say>after</say>");
+    expect(assistantText).toContain("<say>after</say>");
+
+    const pythonResultMessage = contexts[1]?.messages.find((message) => {
+      if (message.role !== "user" || !Array.isArray(message.content)) {
+        return false;
+      }
+      return message.content.some(
+        (part) =>
+          part.type === "text" &&
+          typeof part.text === "string" &&
+          part.text.includes("<python_result>")
+      );
+    });
+    const pythonResultText =
+      pythonResultMessage && Array.isArray(pythonResultMessage.content)
+        ? (
+            pythonResultMessage.content.find(
+              (part) => part.type === "text" && typeof part.text === "string"
+            ) as { type: "text"; text: string } | undefined
+          )?.text ?? ""
+        : "";
+    expect(pythonResultText).toContain(
+      "Notice: 1 <say> block after </run_python> was not delivered because Python execution failed."
+    );
 
     const sentTexts = connectorSend.mock.calls.map((call) => {
       const message = call[1] as { text?: string | null };
