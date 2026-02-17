@@ -24,5 +24,9 @@ describe("rlmNoToolsPromptBuild", () => {
     expect(prompt).toContain("<python_result>...</python_result>");
     expect(prompt).toContain("do not use `print()` for the final return value");
     expect(prompt).toContain("you get another turn and can emit `<say>`");
+    expect(prompt.indexOf("Call functions directly (no `await`).")).toBeLessThan(
+      prompt.indexOf("Available functions:")
+    );
+    expect(prompt.match(/Use `try\/except ToolError` for tool failures\./g)?.length ?? 0).toBe(1);
   });
 });

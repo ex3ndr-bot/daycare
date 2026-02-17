@@ -7,12 +7,15 @@ RLM tool-mode prompt text now lives in bundled markdown templates:
 
 Both builders inject only the Python preamble (`{{{preamble}}}`) and no longer include
 skill lists. Skills are appended once after rendering `SYSTEM_SKILLS.md`.
+For no-tools tag mode, Python execution guidance is merged into one block before
+the generated function list in `SYSTEM_TOOLS_RLM_INLINE.md`.
 
 ```mermaid
 flowchart TD
   A[ToolResolver.listTools] --> B[rlmPreambleBuild]
   B --> C[SYSTEM_TOOLS_RLM.md]
   B --> D[SYSTEM_TOOLS_RLM_INLINE.md]
+  D --> D1[Single execution guidance block<br/>before functions list]
   C --> E[rlmToolDescriptionBuild]
   D --> F[rlmNoToolsPromptBuild]
   E --> G[toolListContextBuild rlm mode]

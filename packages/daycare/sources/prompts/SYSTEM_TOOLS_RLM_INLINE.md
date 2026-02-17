@@ -8,12 +8,6 @@ The system executes everything between the first `<run_python>` and last `</run_
 If you include `<say>` in the same response, all `<say>` blocks must come before `<run_python>`.
 Do not place `<say>` blocks after `<run_python>` in the same response.
 No escaping is needed.
-
-Available functions:
-```python
-{{{preamble}}}
-```
-
 Call functions directly (no `await`).
 Use `try/except ToolError` for tool failures.
 Use `print()` for debug output.
@@ -21,3 +15,8 @@ The value of the final expression is returned.
 Put the value you want to return as the final expression line; do not use `print()` for the final return value.
 Execution results are sent back as user messages wrapped in `<python_result>...</python_result>`.
 After receiving `<python_result>`, you get another turn and can emit `<say>` based on those results.
+
+Available functions:
+```python
+{{{preamble}}}
+```
