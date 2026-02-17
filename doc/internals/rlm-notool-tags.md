@@ -29,9 +29,9 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-  A[python_result injected] --> B{Execution status}
-  B -->|success| C[Next turn emits <say> immediately]
-  B -->|failure| D[Next turn still emits <say> immediately]
+  A[python_result injected] --> B{New user-facing info?}
+  B -->|yes| C[Emit one <say> follow-up]
+  B -->|no| D[No additional <say>]
 ```
 
 ## Key Files
@@ -50,5 +50,6 @@ flowchart TD
 - When both tags are present in one response, `<say>` must come before `<run_python>`.
 - Prompt explicitly requires returning via the final expression line; use `print()` only for debug output.
 - User-facing announcement style (plain-language updates, long-running pre-announcements, and retry dedupe) now lives in the shared system prompt so it applies in all modes, not only RLM tag mode.
-- After execution, `<python_result>` is injected and the model must emit `<say>` immediately on the next turn, including failure cases.
+- After execution, `<python_result>` is injected and follow-up `<say>` is conditional.
+- If `<say>` already delivered the user-facing update before `<run_python>`, do not repeat it.
 - Checkpointing uses generated `toolCallId` values and reuses `appendHistoryRecord` callbacks.
