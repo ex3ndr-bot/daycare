@@ -2,21 +2,31 @@
 
 System prompt rendering is centralized in `agentSystemPrompt()` and called from `Agent`.
 
-It loads prompt files (`SOUL.md`, `USER.md`, `AGENTS.md`, `TOOLS.md`, `MEMORY.md`), renders
-`PERMISSIONS.md` and `AGENTIC.md`, then renders `SYSTEM.md` with the merged context.
+`Agent` now passes runtime context (descriptor, config, plugin manager, and tools), while
+`agentSystemPrompt()` resolves prompt sections internally in a deterministic order.
+
+Sections resolved inside `agentSystemPrompt()`:
+- plugin context (`pluginManager.getSystemPrompts()`)
+- skills prompt (`Skills` + `skillPromptFormat`)
+- permanent agents (`agentPermanentList` + `agentPermanentPrompt`)
+- agent prompt overrides (`agentPromptResolve`)
+- no-tools prompt (`rlmNoToolsPromptBuild`, when enabled)
 
 ```mermaid
 flowchart TD
   A[Agent handleMessage] --> B[agentSystemPrompt]
-  B --> C[promptFileRead x5]
-  B --> D[read PERMISSIONS.md]
-  B --> E[read AGENTIC.md]
-  B --> F[read SYSTEM.md]
-  C --> G[templateContext]
-  D --> H[permissions section]
-  E --> I[agentic section]
-  F --> J[final render]
-  G --> J
-  H --> J
-  I --> J
+  B --> C[Resolve prompt paths]
+  B --> D[Resolve prompt sections]
+  D --> D1[pluginPrompt]
+  D --> D2[skillsPrompt]
+  D --> D3[permanentAgentsPrompt]
+  D --> D4[agentPrompt/replaceSystemPrompt]
+  D --> D5[noToolsPrompt]
+  B --> E[Load prompt files x5]
+  B --> F[Load templates: SYSTEM/PERMISSIONS/AGENTIC]
+  E --> G[Template context]
+  D --> G
+  F --> H[Render permissions + agentic]
+  G --> H
+  H --> I[Render final SYSTEM prompt]
 ```

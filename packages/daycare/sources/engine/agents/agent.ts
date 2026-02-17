@@ -5,19 +5,10 @@ import type { Context } from "@mariozechner/pi-ai";
 import { createId } from "@paralleldrive/cuid2";
 
 import { getLogger } from "../../log.js";
-import {
-  DEFAULT_AGENTS_PATH,
-  DEFAULT_MEMORY_PATH,
-  DEFAULT_SOUL_PATH,
-  DEFAULT_TOOLS_PATH,
-  DEFAULT_USER_PATH
-} from "../../paths.js";
 import { listActiveInferenceProviders } from "../../providers/catalog.js";
 import { cuid2Is } from "../../utils/cuid2Is.js";
-import { agentPromptFilesEnsure } from "./ops/agentPromptFilesEnsure.js";
-import { agentPromptResolve } from "./ops/agentPromptResolve.js";
 import { agentSystemPrompt } from "./ops/agentSystemPrompt.js";
-import type { AgentSkill, MessageContext, ToolExecutionContext } from "@/types";
+import type { MessageContext, ToolExecutionContext } from "@/types";
 import { messageBuildUser } from "../messages/messageBuildUser.js";
 import { messageFormatIncoming } from "../messages/messageFormatIncoming.js";
 import { messageBuildSystemText } from "../messages/messageBuildSystemText.js";
@@ -32,11 +23,8 @@ import { permissionEnsureDefaultFile } from "../permissions/permissionEnsureDefa
 import { permissionMergeDefault } from "../permissions/permissionMergeDefault.js";
 import { permissionTagsApply } from "../permissions/permissionTagsApply.js";
 import { permissionWorkspaceGranted } from "../permissions/permissionWorkspaceGranted.js";
-import { skillPromptFormat } from "../skills/skillPromptFormat.js";
 import { Skills } from "../skills/skills.js";
 import { toolListContextBuild } from "../modules/tools/toolListContextBuild.js";
-import { agentPermanentList } from "./ops/agentPermanentList.js";
-import { agentPermanentPrompt } from "./ops/agentPermanentPrompt.js";
 import { agentDescriptorIsCron } from "./ops/agentDescriptorIsCron.js";
 import { agentDescriptorIsHeartbeat } from "./ops/agentDescriptorIsHeartbeat.js";
 import { agentDescriptorTargetResolve } from "./ops/agentDescriptorTargetResolve.js";
@@ -71,7 +59,6 @@ import { rlmErrorTextBuild } from "../modules/rlm/rlmErrorTextBuild.js";
 import { rlmHistoryCompleteErrorRecordBuild } from "../modules/rlm/rlmHistoryCompleteErrorRecordBuild.js";
 import { RLM_TOOL_NAME } from "../modules/rlm/rlmConstants.js";
 import { rlmNoToolsModeIs } from "../modules/rlm/rlmNoToolsModeIs.js";
-import { rlmNoToolsPromptBuild } from "../modules/rlm/rlmNoToolsPromptBuild.js";
 import { rlmToolDescriptionBuild } from "../modules/rlm/rlmToolDescriptionBuild.js";
 import { rlmRestore } from "../modules/rlm/rlmRestore.js";
 import { rlmResultTextBuild } from "../modules/rlm/rlmResultTextBuild.js";
@@ -369,24 +356,11 @@ export class Agent {
           }
         : { connector: source };
     const pluginManager = this.agentSystem.pluginManager;
-    logger.debug(`load: handleMessage loading plugin prompts agentId=${this.id}`);
-    const pluginPrompts = await pluginManager.getSystemPrompts();
-    const pluginPrompt = pluginPrompts.length > 0 ? pluginPrompts.join("\n\n") : "";
     const configSkillsRoot = path.join(this.agentSystem.config.current.configDir, "skills");
     const skills = new Skills({
       configRoot: configSkillsRoot,
       pluginManager
     });
-    logger.debug(`load: handleMessage loading available skills agentId=${this.id}`);
-    const availableSkills = await skills.list();
-    const skillsPrompt = skillPromptFormat(availableSkills);
-    const permanentAgents = await agentPermanentList(this.agentSystem.config.current);
-    const permanentAgentsPrompt = agentPermanentPrompt(permanentAgents);
-    const promptResolved = await agentPromptResolve(this.descriptor);
-    const agentPrompt = promptResolved.agentPrompt;
-    const replaceSystemPrompt = this.descriptor.type === "system"
-      ? promptResolved.replaceSystemPrompt
-      : false;
     const agentKind = this.resolveAgentKind();
     const allowCronTools = agentDescriptorIsCron(this.descriptor);
 
@@ -404,9 +378,6 @@ export class Agent {
       }
     }
 
-    logger.debug(`event: handleMessage ensuring prompt files agentId=${this.id}`);
-    await agentPromptFilesEnsure();
-
     const toolResolver = item.toolResolverOverride ?? this.agentSystem.toolResolver;
     const providerSettings = providerId
       ? providers.find((provider) => provider.id === providerId)
@@ -417,9 +388,6 @@ export class Agent {
       this.agentSystem.config.current.features.rlm && !noToolsModeEnabled
         ? await rlmToolDescriptionBuild(availableTools)
         : undefined;
-    const noToolsPrompt = noToolsModeEnabled
-      ? await rlmNoToolsPromptBuild(availableTools)
-      : undefined;
 
     logger.debug(`event: handleMessage building system prompt agentId=${this.id}`);
     const appFolderPath = agentAppFolderPathResolve(this.descriptor, this.agentSystem.config.current.workspaceDir);
@@ -444,23 +412,15 @@ export class Agent {
       cronMemoryPath: cronTask?.memoryPath,
       cronFilesPath: cronTask?.filesPath,
       cronTaskIds: cronTaskIds.length > 0 ? cronTaskIds.join(", ") : "",
-      soulPath: DEFAULT_SOUL_PATH,
-      userPath: DEFAULT_USER_PATH,
-      agentsPath: DEFAULT_AGENTS_PATH,
-      toolsPath: DEFAULT_TOOLS_PATH,
-      memoryPath: DEFAULT_MEMORY_PATH,
-      pluginPrompt,
-      skillsPrompt,
-      permanentAgentsPrompt,
-      agentPrompt,
-      noToolsPrompt,
-      replaceSystemPrompt,
       agentKind,
       parentAgentId: this.descriptor.type === "subagent" || this.descriptor.type === "app"
         ? this.descriptor.parentAgentId ?? ""
         : "",
-      configDir: this.agentSystem.config.current.configDir,
-      features: this.agentSystem.config.current.features
+      config: this.agentSystem.config.current,
+      descriptor: this.descriptor,
+      pluginManager,
+      availableTools,
+      ensurePromptFiles: true
     });
 
     try {
