@@ -17,7 +17,7 @@ export async function agentSystemPromptSectionToolCalling(
     config?.features.noTools && availableTools.length > 0
       ? await rlmNoToolsPromptBuild(availableTools)
       : "";
-  const template = await agentPromptBundledRead("SECTION_TOOL_CALLING.md");
+  const template = await agentPromptBundledRead("SYSTEM_TOOL_CALLING.md");
   const section = Handlebars.compile(template)({ noToolsPrompt });
   return section.trim();
 }

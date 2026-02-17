@@ -17,7 +17,7 @@ export async function agentSystemPromptSectionAutonomousOperation(
       ? descriptor.parentAgentId ?? ""
       : "";
   const agentPrompt = descriptor ? (await agentPromptResolve(descriptor)).agentPrompt : "";
-  const template = await agentPromptBundledRead("SECTION_AUTONOMOUS_OPERATION.md");
+  const template = await agentPromptBundledRead("SYSTEM_AUTONOMOUS_OPERATION.md");
   const section = Handlebars.compile(template)({
     isForeground: descriptor?.type === "user",
     parentAgentId,

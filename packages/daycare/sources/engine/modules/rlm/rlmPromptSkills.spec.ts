@@ -134,14 +134,14 @@ async function renderSystemPrompt(options: RenderSystemPromptOptions): Promise<s
     filesSection
   ] = await Promise.all([
     sectionRender("SYSTEM.md", sectionContext),
-    sectionRender("SECTION_PERMISSIONS.md", sectionContext),
-    sectionRender("SECTION_AUTONOMOUS_OPERATION.md", sectionContext),
-    sectionRender("SECTION_WORKSPACE.md", sectionContext),
-    sectionRender("SECTION_TOOL_CALLING.md", sectionContext),
-    sectionRender("SECTION_AGENTS_TOPOLOGY_SIGNALS_CHANNELS.md", sectionContext),
-    sectionRender("SECTION_SKILLS.md", sectionContext),
-    sectionRender("SECTION_MESSAGES.md", sectionContext),
-    sectionRender("SECTION_FILES.md", sectionContext)
+    sectionRender("SYSTEM_PERMISSIONS.md", sectionContext),
+    sectionRender("SYSTEM_AUTONOMOUS_OPERATION.md", sectionContext),
+    sectionRender("SYSTEM_WORKSPACE.md", sectionContext),
+    sectionRender("SYSTEM_TOOL_CALLING.md", sectionContext),
+    sectionRender("SYSTEM_AGENTS_TOPOLOGY_SIGNALS_CHANNELS.md", sectionContext),
+    sectionRender("SYSTEM_SKILLS.md", sectionContext),
+    sectionRender("SYSTEM_MESSAGES.md", sectionContext),
+    sectionRender("SYSTEM_FILES.md", sectionContext)
   ]);
   return [
     preambleSection,

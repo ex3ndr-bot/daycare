@@ -16,7 +16,7 @@ export async function agentSystemPromptSectionMessages(
   const messageFormatPrompt = connector
     ? (context.agentSystem?.connectorRegistry?.get(connector)?.capabilities.messageFormatPrompt ?? "")
     : "";
-  const template = await agentPromptBundledRead("SECTION_MESSAGES.md");
+  const template = await agentPromptBundledRead("SYSTEM_MESSAGES.md");
   const section = Handlebars.compile(template)({
     isForeground,
     messageFormatPrompt,

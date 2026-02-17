@@ -27,7 +27,7 @@ Top-level composition is plain concatenation with section separators (no Handleb
 
 Template naming:
 - `SYSTEM.md` is the preamble section template.
-- All other section templates use the `SECTION_*.md` prefix.
+- All other section templates use the `SYSTEM_*.md` prefix.
 
 ```mermaid
 flowchart TD

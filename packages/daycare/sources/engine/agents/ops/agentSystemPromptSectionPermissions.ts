@@ -46,7 +46,7 @@ export async function agentSystemPromptSectionPermissions(
     )
   ).sort();
 
-  const template = await agentPromptBundledRead("SECTION_PERMISSIONS.md");
+  const template = await agentPromptBundledRead("SYSTEM_PERMISSIONS.md");
   const section = Handlebars.compile(template)({
     workspace,
     appFolderPath,
