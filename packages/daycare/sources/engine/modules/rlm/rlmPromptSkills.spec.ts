@@ -133,7 +133,7 @@ async function renderSystemPrompt(options: RenderSystemPromptOptions): Promise<s
     filesSection
   ] = await Promise.all([
     sectionRender("SYSTEM.md", sectionContext),
-    sectionRender("SYSTEM_AUTONOMOUS_OPERATION.md", sectionContext),
+    sectionRender("SYSTEM_AGENCY.md", sectionContext),
     sectionRender("SYSTEM_PERMISSIONS.md", sectionContext),
     sectionRender("SYSTEM_WORKSPACE.md", sectionContext),
     (async () => {
