@@ -101,8 +101,7 @@ describe("local-expose plugin", () => {
 
     const createdCommand = (api.processes.create as ReturnType<typeof vi.fn>).mock.calls[0]?.[0]
       ?.command;
-    expect(createdCommand).toContain(" -e ");
-    expect(createdCommand).toContain("local-expose forwarder listening on");
+    expect(createdCommand).toContain("localTunnelForwarderEntry.js");
     expect(createdCommand).toContain("3000");
     expect(createdCommand).toContain("18221");
 
@@ -144,7 +143,7 @@ describe("local-expose plugin", () => {
           {
             id: "proc-1",
             name: "local-expose-local-expose-1-3000",
-            command: "node -e <forwarder>",
+            command: "node /tmp/daycare/plugins/local-expose-1/localTunnelForwarderEntry.js",
             cwd: "/tmp/daycare/plugins/local-expose-1",
             home: "/tmp/daycare/plugins/local-expose-1",
             pid: 1234,

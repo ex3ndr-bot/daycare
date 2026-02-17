@@ -1,3 +1,6 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
+
 import { z } from "zod";
 
 import type { ExposeTunnelProvider, SessionPermissions } from "@/types";
@@ -5,6 +8,7 @@ import { definePlugin } from "../../engine/plugins/types.js";
 import { shellQuote } from "../../util/shellQuote.js";
 
 const LOCAL_EXPOSE_DEFAULT_LISTEN_PORT = 18221;
+const LOCAL_FORWARDER_SCRIPT_NAME = "localTunnelForwarderEntry.js";
 
 const settingsSchema = z
   .object({
@@ -16,7 +20,7 @@ const settingsSchema = z
 type LocalExposeSettings = z.infer<typeof settingsSchema>;
 
 const LOCAL_FORWARDER_ALLOWED_DOMAINS = ["127.0.0.1", "localhost"];
-const LOCAL_FORWARDER_INLINE_SCRIPT = `
+const LOCAL_FORWARDER_SCRIPT = `
 import http from "node:http";
 import { pipeline } from "node:stream/promises";
 
@@ -119,6 +123,7 @@ export const plugin = definePlugin({
       if (existing.length > 0) {
         await api.processes.removeByOwner(processOwner);
       }
+      const forwarderScriptPath = await localForwarderScriptEnsure(api.dataDir);
 
       const processPermissions: SessionPermissions = {
         workingDir: api.dataDir,
@@ -130,7 +135,7 @@ export const plugin = definePlugin({
       await api.processes.create(
         {
           name: expectedName,
-          command: processCommandBuild(proxyPort, configuredPort),
+          command: processCommandBuild(proxyPort, configuredPort, forwarderScriptPath),
           cwd: api.dataDir,
           home: api.dataDir,
           keepAlive: true,
@@ -191,10 +196,14 @@ function processNameBuild(instanceId: string, proxyPort: number): string {
   return `local-expose-${instanceId}-${proxyPort}`;
 }
 
-function processCommandBuild(proxyPort: number, listenPort: number): string {
-  return `${shellQuote(process.execPath)} -e ${shellQuote(
-    LOCAL_FORWARDER_INLINE_SCRIPT
-  )} ${shellQuote(String(proxyPort))} ${shellQuote(String(listenPort))}`;
+function processCommandBuild(
+  proxyPort: number,
+  listenPort: number,
+  forwarderScriptPath: string
+): string {
+  return `${shellQuote(process.execPath)} ${shellQuote(forwarderScriptPath)} ${shellQuote(
+    String(proxyPort)
+  )} ${shellQuote(String(listenPort))}`;
 }
 
 function localExposeListenPortResolve(input: string | null | undefined): number {
@@ -207,4 +216,22 @@ function localExposeListenPortResolve(input: string | null | undefined): number 
     throw new Error("Local listen port must be an integer between 1 and 65535.");
   }
   return parsed;
+}
+
+async function localForwarderScriptEnsure(dataDir: string): Promise<string> {
+  await fs.mkdir(dataDir, { recursive: true });
+  const scriptPath = path.join(dataDir, LOCAL_FORWARDER_SCRIPT_NAME);
+  let needsWrite = true;
+  try {
+    const current = await fs.readFile(scriptPath, "utf8");
+    needsWrite = current !== LOCAL_FORWARDER_SCRIPT;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+  }
+  if (needsWrite) {
+    await fs.writeFile(scriptPath, `${LOCAL_FORWARDER_SCRIPT}\n`, { mode: 0o700 });
+  }
+  return scriptPath;
 }
