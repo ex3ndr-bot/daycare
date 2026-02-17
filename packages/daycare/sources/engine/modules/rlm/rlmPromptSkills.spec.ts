@@ -16,7 +16,7 @@ type RenderSystemPromptOptions = {
   featuresSay?: boolean;
 };
 
-let systemTemplatePromise: Promise<HandlebarsTemplateDelegate<Record<string, unknown>>> | null = null;
+const SECTION_SEPARATOR = "\n\n---\n\n";
 
 const skills: AgentSkill[] = [
   {
@@ -79,7 +79,6 @@ describe("system prompt skills rendering", () => {
 });
 
 async function renderSystemPrompt(options: RenderSystemPromptOptions): Promise<string> {
-  const systemTemplate = await systemTemplateCompile();
   const sectionContext = {
     isForeground: options.isForeground ?? true,
     date: "2026-02-17",
@@ -144,7 +143,7 @@ async function renderSystemPrompt(options: RenderSystemPromptOptions): Promise<s
     sectionRender("SYSTEM_SECTION_MESSAGES.md", sectionContext),
     sectionRender("SYSTEM_SECTION_FILES.md", sectionContext)
   ]);
-  return systemTemplate({
+  return [
     preambleSection,
     permissionsSection,
     autonomousOperationSection,
@@ -154,16 +153,10 @@ async function renderSystemPrompt(options: RenderSystemPromptOptions): Promise<s
     skillsSection,
     messagesSection,
     filesSection
-  }).trim();
-}
-
-async function systemTemplateCompile(): Promise<HandlebarsTemplateDelegate<Record<string, unknown>>> {
-  if (systemTemplatePromise) {
-    return systemTemplatePromise;
-  }
-  systemTemplatePromise = agentPromptBundledRead("SYSTEM.md")
-    .then((source) => Handlebars.compile<Record<string, unknown>>(source));
-  return systemTemplatePromise;
+  ]
+    .filter((section) => section.length > 0)
+    .join(SECTION_SEPARATOR)
+    .trim();
 }
 
 async function sectionRender(

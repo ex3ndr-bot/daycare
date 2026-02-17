@@ -62,7 +62,7 @@ The preamble is regenerated from the current tool set when context tools are bui
 - tag mode: rendered through `sources/prompts/TOOLS_RLM_INLINE.md` into the no-tools system section
 
 RLM prompt builders no longer embed skill lists. Skills are injected once via
-`skillPromptFormat()` into the shared `SYSTEM.md` template for all modes.
+`skillPromptFormat()` into the dedicated skills section during system-prompt section rendering.
 
 At execution time, the active runtime tool resolver from current tool execution context is used
 when available (for example app/subagent tool overrides). This keeps Python tool stubs and

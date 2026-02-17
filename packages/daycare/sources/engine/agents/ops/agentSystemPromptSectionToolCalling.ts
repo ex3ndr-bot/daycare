@@ -1,12 +1,23 @@
-import type { AgentSystemPromptSectionContext } from "./agentSystemPromptSectionContext.js";
-import { agentSystemPromptSectionRender } from "./agentSystemPromptSectionRender.js";
+import Handlebars from "handlebars";
+
+import { rlmNoToolsPromptBuild } from "../../modules/rlm/rlmNoToolsPromptBuild.js";
+import { agentPromptBundledRead } from "./agentPromptBundledRead.js";
+import type { AgentSystemPromptContext } from "./agentSystemPromptContext.js";
 
 /**
- * Renders tool-calling instructions for the system prompt.
- * Expects: context includes optional no-tools guidance.
+ * Renders tool-calling guidance and optional no-tools enforcement section.
+ * Expects: context matches agentSystemPrompt input shape.
  */
 export async function agentSystemPromptSectionToolCalling(
-  context: AgentSystemPromptSectionContext
+  context: AgentSystemPromptContext = {}
 ): Promise<string> {
-  return agentSystemPromptSectionRender("SYSTEM_SECTION_TOOL_CALLING.md", context);
+  const config = context.agentSystem?.config?.current;
+  const availableTools = context.agentSystem?.toolResolver?.listTools() ?? [];
+  const noToolsPrompt =
+    config?.features.noTools && availableTools.length > 0
+      ? await rlmNoToolsPromptBuild(availableTools)
+      : "";
+  const template = await agentPromptBundledRead("SYSTEM_SECTION_TOOL_CALLING.md");
+  const section = Handlebars.compile(template)({ noToolsPrompt });
+  return section.trim();
 }

@@ -1,12 +1,26 @@
-import type { AgentSystemPromptSectionContext } from "./agentSystemPromptSectionContext.js";
-import { agentSystemPromptSectionRender } from "./agentSystemPromptSectionRender.js";
+import Handlebars from "handlebars";
+
+import { agentPromptBundledRead } from "./agentPromptBundledRead.js";
+import type { AgentSystemPromptContext } from "./agentSystemPromptContext.js";
 
 /**
- * Renders message-format and delivery behavior guidance for the system prompt.
- * Expects: context includes connector formatting hints.
+ * Renders message formatting and delivery guidance from connector capabilities.
+ * Expects: context matches agentSystemPrompt input shape.
  */
 export async function agentSystemPromptSectionMessages(
-  context: AgentSystemPromptSectionContext
+  context: AgentSystemPromptContext = {}
 ): Promise<string> {
-  return agentSystemPromptSectionRender("SYSTEM_SECTION_MESSAGES.md", context);
+  const descriptor = context.descriptor;
+  const isForeground = descriptor?.type === "user";
+  const connector = isForeground ? descriptor.connector : "";
+  const messageFormatPrompt = connector
+    ? (context.agentSystem?.connectorRegistry?.get(connector)?.capabilities.messageFormatPrompt ?? "")
+    : "";
+  const template = await agentPromptBundledRead("SYSTEM_SECTION_MESSAGES.md");
+  const section = Handlebars.compile(template)({
+    isForeground,
+    messageFormatPrompt,
+    workspace: context.permissions?.workingDir ?? "unknown"
+  });
+  return section.trim();
 }
