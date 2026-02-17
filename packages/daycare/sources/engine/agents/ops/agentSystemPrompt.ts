@@ -6,13 +6,6 @@ import Handlebars from "handlebars";
 import type { Tool } from "@mariozechner/pi-ai";
 
 import { getLogger } from "../../../log.js";
-import {
-  DEFAULT_AGENTS_PATH,
-  DEFAULT_MEMORY_PATH,
-  DEFAULT_SOUL_PATH,
-  DEFAULT_TOOLS_PATH,
-  DEFAULT_USER_PATH
-} from "../../../paths.js";
 import type { AgentDescriptor, Config, SessionPermissions } from "@/types";
 import { permissionWorkspaceGranted } from "../../permissions/permissionWorkspaceGranted.js";
 import { rlmNoToolsPromptBuild } from "../../modules/rlm/rlmNoToolsPromptBuild.js";
@@ -24,8 +17,18 @@ import { agentDescriptorIsCron } from "./agentDescriptorIsCron.js";
 import { agentPermanentList } from "./agentPermanentList.js";
 import { agentPermanentPrompt } from "./agentPermanentPrompt.js";
 import { agentPromptBundledRead } from "./agentPromptBundledRead.js";
-import { agentPromptFilesEnsure } from "./agentPromptFilesEnsure.js";
+import { agentPromptPathsResolve } from "./agentPromptPathsResolve.js";
 import { agentPromptResolve } from "./agentPromptResolve.js";
+import type { AgentSystemPromptSectionContext } from "./agentSystemPromptSectionContext.js";
+import { agentSystemPromptSectionAgentsTopologySignalsChannels } from "./agentSystemPromptSectionAgentsTopologySignalsChannels.js";
+import { agentSystemPromptSectionAutonomousOperation } from "./agentSystemPromptSectionAutonomousOperation.js";
+import { agentSystemPromptSectionFiles } from "./agentSystemPromptSectionFiles.js";
+import { agentSystemPromptSectionMessages } from "./agentSystemPromptSectionMessages.js";
+import { agentSystemPromptSectionPermissions } from "./agentSystemPromptSectionPermissions.js";
+import { agentSystemPromptSectionPreamble } from "./agentSystemPromptSectionPreamble.js";
+import { agentSystemPromptSectionSkills } from "./agentSystemPromptSectionSkills.js";
+import { agentSystemPromptSectionToolCalling } from "./agentSystemPromptSectionToolCalling.js";
+import { agentSystemPromptSectionWorkspace } from "./agentSystemPromptSectionWorkspace.js";
 
 const logger = getLogger("agent.prompt-build");
 
@@ -71,6 +74,18 @@ type AgentSystemPromptSections = {
   replaceSystemPrompt: boolean;
 };
 
+type AgentSystemPromptRenderedSections = {
+  preambleSection: string;
+  permissionsSection: string;
+  autonomousOperationSection: string;
+  workspaceSection: string;
+  toolCallingSection: string;
+  agentsTopologySignalsChannelsSection: string;
+  skillsSection: string;
+  messagesSection: string;
+  filesSection: string;
+};
+
 type AgentSystemPromptRuntime = {
   config: Config | null;
   configDir: string;
@@ -112,19 +127,12 @@ type AgentSystemPromptTemplateRuntime = {
   cronContext: AgentSystemPromptCronContext;
 };
 
-type AgentSystemPromptTemplates = {
-  systemTemplate: string;
-  permissionsTemplate: string;
-  agenticTemplate: string;
-};
-
 export type AgentSystemPromptContext = {
   model?: string;
   provider?: string;
   permissions?: SessionPermissions;
   agentSystem?: AgentSystemPromptAgentSystem;
   descriptor?: AgentDescriptor;
-  ensurePromptFiles?: boolean;
 };
 
 /**
@@ -136,9 +144,6 @@ export async function agentSystemPrompt(
 ): Promise<string> {
   const runtime = resolveRuntime(context);
   const promptPaths = resolvePromptPaths(runtime);
-  if (context.ensurePromptFiles) {
-    await agentPromptFilesEnsure(promptPaths);
-  }
 
   const [sections, templateRuntime] = await Promise.all([
     resolvePromptSections(context, runtime),
@@ -153,10 +158,7 @@ export async function agentSystemPrompt(
     return replaced;
   }
 
-  const [promptFiles, templates] = await Promise.all([
-    loadPromptFiles(promptPaths),
-    loadPromptTemplates()
-  ]);
+  const promptFiles = await loadPromptFiles(promptPaths);
 
   const additionalWriteDirs = resolveAdditionalWriteDirs(
     templateRuntime.writeDirs,
@@ -170,10 +172,9 @@ export async function agentSystemPrompt(
 
   const configDir = runtime.configDir;
   const skillsPath = runtime.skillsPath;
-  const features = runtime.features;
-
-  const templateContext = {
-    date: new Date().toISOString().split("T")[0],
+  const date = new Date().toISOString().slice(0, 10);
+  const templateContext: AgentSystemPromptSectionContext = {
+    date,
     os: `${os.type()} ${os.release()}`,
     arch: os.arch(),
     model: context.model ?? "unknown",
@@ -213,24 +214,17 @@ export async function agentSystemPrompt(
     additionalWriteDirs,
     permanentAgentsPrompt: sections.permanentAgentsPrompt,
     agentPrompt: sections.agentPrompt,
-    noToolsPrompt: sections.noToolsPrompt,
-    features
+    noToolsPrompt: sections.noToolsPrompt
   };
 
-  logger.debug("event: buildSystemPrompt compiling permissions template");
-  const permissions = Handlebars.compile(templates.permissionsTemplate)(templateContext);
-
-  logger.debug("event: buildSystemPrompt compiling agentic template");
-  const agentic = Handlebars.compile(templates.agenticTemplate)(templateContext);
+  logger.debug("event: buildSystemPrompt rendering sections");
+  const resolvedSections = await resolveRenderedSections(templateContext);
+  const systemTemplate = await agentPromptBundledRead("SYSTEM.md");
 
   logger.debug("event: buildSystemPrompt compiling main template");
-  const template = Handlebars.compile(templates.systemTemplate);
+  const template = Handlebars.compile(systemTemplate);
   logger.debug("event: buildSystemPrompt rendering template");
-  const rendered = template({
-    ...templateContext,
-    permissions,
-    agentic
-  });
+  const rendered = template(resolvedSections);
 
   return rendered.trim();
 }
@@ -351,24 +345,7 @@ function resolveRuntime(context: AgentSystemPromptContext): AgentSystemPromptRun
 }
 
 function resolvePromptPaths(runtime: AgentSystemPromptRuntime): AgentSystemPromptPaths {
-  const dataDir = runtime.config?.dataDir?.trim();
-  if (dataDir) {
-    const resolvedDataDir = path.resolve(dataDir);
-    return {
-      soulPath: path.join(resolvedDataDir, "SOUL.md"),
-      userPath: path.join(resolvedDataDir, "USER.md"),
-      agentsPath: path.join(resolvedDataDir, "AGENTS.md"),
-      toolsPath: path.join(resolvedDataDir, "TOOLS.md"),
-      memoryPath: path.join(resolvedDataDir, "MEMORY.md")
-    };
-  }
-  return {
-    soulPath: DEFAULT_SOUL_PATH,
-    userPath: DEFAULT_USER_PATH,
-    agentsPath: DEFAULT_AGENTS_PATH,
-    toolsPath: DEFAULT_TOOLS_PATH,
-    memoryPath: DEFAULT_MEMORY_PATH
-  };
+  return agentPromptPathsResolve(runtime.config?.dataDir);
 }
 
 async function loadPromptFiles(paths: AgentSystemPromptPaths): Promise<AgentSystemPromptFiles> {
@@ -393,22 +370,6 @@ async function loadPromptFiles(paths: AgentSystemPromptPaths): Promise<AgentSyst
   };
 }
 
-async function loadPromptTemplates(): Promise<AgentSystemPromptTemplates> {
-  logger.debug("event: buildSystemPrompt reading system template");
-  logger.debug("event: buildSystemPrompt reading permissions template");
-  logger.debug("event: buildSystemPrompt reading agentic template");
-  const [systemTemplate, permissionsTemplate, agenticTemplate] = await Promise.all([
-    agentPromptBundledRead("SYSTEM.md"),
-    agentPromptBundledRead("PERMISSIONS.md"),
-    agentPromptBundledRead("AGENTIC.md")
-  ]);
-  return {
-    systemTemplate,
-    permissionsTemplate: permissionsTemplate.trim(),
-    agenticTemplate: agenticTemplate.trim()
-  };
-}
-
 async function resolvePromptSections(
   context: AgentSystemPromptContext,
   runtime: AgentSystemPromptRuntime
@@ -428,6 +389,43 @@ async function resolvePromptSections(
     agentPrompt: agentPromptSection.agentPrompt,
     replaceSystemPrompt: agentPromptSection.replaceSystemPrompt,
     noToolsPrompt
+  };
+}
+
+async function resolveRenderedSections(
+  context: AgentSystemPromptSectionContext
+): Promise<AgentSystemPromptRenderedSections> {
+  const [
+    preambleSection,
+    permissionsSection,
+    autonomousOperationSection,
+    workspaceSection,
+    toolCallingSection,
+    agentsTopologySignalsChannelsSection,
+    skillsSection,
+    messagesSection,
+    filesSection
+  ] = await Promise.all([
+    agentSystemPromptSectionPreamble(context),
+    agentSystemPromptSectionPermissions(context),
+    agentSystemPromptSectionAutonomousOperation(context),
+    agentSystemPromptSectionWorkspace(context),
+    agentSystemPromptSectionToolCalling(context),
+    agentSystemPromptSectionAgentsTopologySignalsChannels(context),
+    agentSystemPromptSectionSkills(context),
+    agentSystemPromptSectionMessages(context),
+    agentSystemPromptSectionFiles(context)
+  ]);
+  return {
+    preambleSection,
+    permissionsSection,
+    autonomousOperationSection,
+    workspaceSection,
+    toolCallingSection,
+    agentsTopologySignalsChannelsSection,
+    skillsSection,
+    messagesSection,
+    filesSection
   };
 }
 

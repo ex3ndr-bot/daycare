@@ -8,33 +8,37 @@ System prompt rendering is centralized in `agentSystemPrompt()` and called from 
 - selected `provider`/`model`
 - `agentSystem`
 
-`agentSystemPrompt()` derives connector, cron, app-folder, and feature context internally.
-Prompt file paths are resolved internally from `agentSystem.config.current.dataDir` (`SOUL.md`, `USER.md`, `AGENTS.md`, `TOOLS.md`, `MEMORY.md`) with fallback defaults.
+`Agent` ensures prompt files before prompt rendering using:
+- `agentPromptPathsResolve(config.dataDir)`
+- `agentPromptFilesEnsure(paths)`
 
-Sections resolved inside `agentSystemPrompt()`:
-- plugin context (`pluginManager.getSystemPrompts()`)
-- skills prompt (`Skills` + `skillPromptFormat`)
-- permanent agents (`agentPermanentList` + `agentPermanentPrompt`)
-- agent prompt overrides (`agentPromptResolve`)
-- no-tools prompt (`rlmNoToolsPromptBuild`, when enabled)
+`agentSystemPrompt()` derives connector, cron, app-folder, and feature context internally, loads memory files (`SOUL.md`, `USER.md`, `AGENTS.md`, `TOOLS.md`, `MEMORY.md`), then renders deterministic sections:
+- Preamble
+- Permissions
+- Autonomous operation
+- Workspace
+- Tool Calling
+- Agents, Topology, Signals, Channels
+- Skills
+- Messages
+- Files
 
 ```mermaid
 flowchart TD
-  A[Agent handleMessage] --> B[agentSystemPrompt]
-  B --> C[Resolve prompt paths]
-  B --> C1[Resolve runtime from descriptor + permissions + agentSystem]
-  B --> D[Resolve prompt sections]
+  A[Agent handleMessage] --> A1[Resolve prompt paths from config.dataDir]
+  A1 --> A2[agentPromptFilesEnsure]
+  A2 --> B[agentSystemPrompt]
+  B --> C[Resolve runtime from descriptor + permissions + agentSystem]
+  B --> D[Resolve dynamic prompt parts]
   D --> D1[pluginPrompt]
   D --> D2[skillsPrompt]
   D --> D3[permanentAgentsPrompt]
   D --> D4[agentPrompt/replaceSystemPrompt]
   D --> D5[noToolsPrompt]
-  B --> E[Load prompt files x5]
-  B --> F[Load templates: SYSTEM/PERMISSIONS/AGENTIC]
-  E --> G[Template context]
-  C1 --> G
-  D --> G
-  F --> H[Render permissions + agentic]
-  G --> H
-  H --> I[Render final SYSTEM prompt]
+  B --> E[Load memory files x5]
+  C --> F[Section context]
+  D --> F
+  E --> F
+  F --> G[Render 9 section templates]
+  G --> H[Render SYSTEM.md composition template]
 ```

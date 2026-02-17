@@ -80,19 +80,20 @@ describe("system prompt skills rendering", () => {
 
 async function renderSystemPrompt(options: RenderSystemPromptOptions): Promise<string> {
   const systemTemplate = await systemTemplateCompile();
-  return systemTemplate({
+  const sectionContext = {
     isForeground: options.isForeground ?? true,
     date: "2026-02-17",
-    permissions: "permissions",
-    agentic: "agentic",
-    permanentAgentsPrompt: "",
-    noToolsPrompt: options.noToolsPrompt ?? "",
     os: "Darwin 24.0.0",
     arch: "arm64",
     model: "test-model",
     provider: "test-provider",
     workspace: "/tmp/workspace",
+    network: false,
+    events: false,
     connector: "test",
+    canSendFiles: false,
+    fileSendModes: "",
+    messageFormatPrompt: "",
     channelId: "channel-1",
     userId: "user-1",
     cronTaskId: "",
@@ -100,26 +101,59 @@ async function renderSystemPrompt(options: RenderSystemPromptOptions): Promise<s
     cronMemoryPath: "",
     cronFilesPath: "",
     cronTaskIds: "",
+    appFolderPath: "",
+    workspacePermissionGranted: false,
     soulPath: "/tmp/SOUL.md",
     userPath: "/tmp/USER.md",
     agentsPath: "/tmp/AGENTS.md",
     toolsPath: "/tmp/TOOLS.md",
     memoryPath: "/tmp/MEMORY.md",
-    user: "user",
+    pluginPrompt: "",
+    skillsPrompt: options.skillsPrompt,
+    parentAgentId: "",
+    configDir: "/tmp/.daycare",
+    skillsPath: "/tmp/.daycare/skills",
     soul: "soul",
+    user: "user",
     agents: "agents",
     tools: options.toolsText,
     memory: "memory",
-    skillsPrompt: options.skillsPrompt,
-    pluginPrompt: "",
-    messageFormatPrompt: "",
-    canSendFiles: false,
-    fileSendModes: "",
+    additionalWriteDirs: [],
+    permanentAgentsPrompt: "",
     agentPrompt: "",
-    configDir: "/tmp/.daycare",
-    features: {
-      say: options.featuresSay ?? false
-    }
+    noToolsPrompt: options.noToolsPrompt ?? ""
+  };
+  const [
+    preambleSection,
+    permissionsSection,
+    autonomousOperationSection,
+    workspaceSection,
+    toolCallingSection,
+    agentsTopologySignalsChannelsSection,
+    skillsSection,
+    messagesSection,
+    filesSection
+  ] = await Promise.all([
+    sectionRender("SYSTEM_SECTION_PREAMBLE.md", sectionContext),
+    sectionRender("SYSTEM_SECTION_PERMISSIONS.md", sectionContext),
+    sectionRender("SYSTEM_SECTION_AUTONOMOUS_OPERATION.md", sectionContext),
+    sectionRender("SYSTEM_SECTION_WORKSPACE.md", sectionContext),
+    sectionRender("SYSTEM_SECTION_TOOL_CALLING.md", sectionContext),
+    sectionRender("SYSTEM_SECTION_AGENTS_TOPOLOGY_SIGNALS_CHANNELS.md", sectionContext),
+    sectionRender("SYSTEM_SECTION_SKILLS.md", sectionContext),
+    sectionRender("SYSTEM_SECTION_MESSAGES.md", sectionContext),
+    sectionRender("SYSTEM_SECTION_FILES.md", sectionContext)
+  ]);
+  return systemTemplate({
+    preambleSection,
+    permissionsSection,
+    autonomousOperationSection,
+    workspaceSection,
+    toolCallingSection,
+    agentsTopologySignalsChannelsSection,
+    skillsSection,
+    messagesSection,
+    filesSection
   }).trim();
 }
 
@@ -130,6 +164,14 @@ async function systemTemplateCompile(): Promise<HandlebarsTemplateDelegate<Recor
   systemTemplatePromise = agentPromptBundledRead("SYSTEM.md")
     .then((source) => Handlebars.compile<Record<string, unknown>>(source));
   return systemTemplatePromise;
+}
+
+async function sectionRender(
+  templateName: string,
+  context: Record<string, unknown>
+): Promise<string> {
+  const source = await agentPromptBundledRead(templateName);
+  return Handlebars.compile<Record<string, unknown>>(source)(context).trim();
 }
 
 function occurrences(haystack: string, needle: string): number {

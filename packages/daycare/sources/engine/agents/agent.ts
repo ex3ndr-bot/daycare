@@ -8,6 +8,8 @@ import { getLogger } from "../../log.js";
 import { listActiveInferenceProviders } from "../../providers/catalog.js";
 import { cuid2Is } from "../../utils/cuid2Is.js";
 import { agentSystemPrompt } from "./ops/agentSystemPrompt.js";
+import { agentPromptFilesEnsure } from "./ops/agentPromptFilesEnsure.js";
+import { agentPromptPathsResolve } from "./ops/agentPromptPathsResolve.js";
 import type { MessageContext, ToolExecutionContext } from "@/types";
 import { messageBuildUser } from "../messages/messageBuildUser.js";
 import { messageFormatIncoming } from "../messages/messageFormatIncoming.js";
@@ -371,14 +373,16 @@ export class Agent {
         ? await rlmToolDescriptionBuild(availableTools)
         : undefined;
 
+    await agentPromptFilesEnsure(
+      agentPromptPathsResolve(this.agentSystem.config.current.dataDir)
+    );
     logger.debug(`event: handleMessage building system prompt agentId=${this.id}`);
     const systemPrompt = await agentSystemPrompt({
       provider: providerSettings?.id,
       model: providerSettings?.model,
       permissions: this.state.permissions,
       descriptor: this.descriptor,
-      agentSystem: this.agentSystem,
-      ensurePromptFiles: true
+      agentSystem: this.agentSystem
     });
 
     try {

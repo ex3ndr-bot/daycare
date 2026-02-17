@@ -10,7 +10,7 @@ import {
 } from "../../../paths.js";
 import { agentPromptBundledRead } from "./agentPromptBundledRead.js";
 
-type AgentPromptFilesPaths = {
+export type AgentPromptFilesPaths = {
   soulPath: string;
   userPath: string;
   agentsPath: string;
