@@ -193,6 +193,19 @@ describe("exec tool allowedDomains", () => {
     ).rejects.toThrow("Network permission is required");
   });
 
+  it("throws when network permission is provided without allowedDomains", async () => {
+    const tool = buildExecTool();
+    const context = createContext(workingDir, true);
+
+    await expect(
+      tool.execute(
+        { command: "echo ok", permissions: ["@network"] },
+        context,
+        execToolCall
+      )
+    ).rejects.toThrow("Network cannot be enabled without allowedDomains.");
+  });
+
   it("throws when allowedDomains includes '*'", async () => {
     const tool = buildExecTool();
     const context = createContext(workingDir, true);
@@ -359,7 +372,8 @@ describe("exec tool allowedDomains", () => {
       const result = await tool.execute(
         {
           command: "echo ok",
-          permissions: ["@network", `@write:${writeDir}`]
+          permissions: ["@network", `@write:${writeDir}`],
+          allowedDomains: ["example.com"]
         },
         context,
         execToolCall

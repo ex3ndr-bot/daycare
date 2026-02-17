@@ -33,6 +33,10 @@ Bias toward action. If you can do it, do it. Finish unblocked work first, then r
 - **Network**: {{#if network}}enabled{{else}}not enabled{{/if}}.
 - **Events**: {{#if events}}enabled{{else}}not enabled{{/if}} (`@events` allows Unix socket access to Daycare CLI control endpoint).
 
+### Exec Networking
+
+For `exec` to use outbound network access, include `allowedDomains` in the tool call. `@network` permission alone is not enough.
+
 ### Permission Requests
 
 {{#if isForeground}}

@@ -13,5 +13,8 @@ export function sandboxAllowedDomainsValidate(
   if (allowedDomains.length > 0 && !networkAllowed) {
     issues.push("Network permission is required to set allowedDomains.");
   }
+  if (networkAllowed && allowedDomains.length === 0) {
+    issues.push("Network cannot be enabled without allowedDomains.");
+  }
   return issues;
 }

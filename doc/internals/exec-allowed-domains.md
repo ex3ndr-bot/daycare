@@ -25,6 +25,7 @@ as a subset of the caller's existing permissions.
 - `rust` -> `crates.io`, `index.crates.io`, `static.crates.io`
 
 Presets are merged with explicit `allowedDomains`, deduped, then validated.
+If network permission is enabled but the resolved allowlist is empty, execution is rejected.
 
 ```mermaid
 flowchart TD
@@ -42,5 +43,7 @@ flowchart TD
   E -- yes --> F[error: wildcard not allowed]
   E -- no --> G{network permission enabled?}
   G -- no --> H[error: network permission required]
-  G -- yes --> I[build sandbox config with resolved allowedDomains]
+  G -- yes --> J{resolved domains empty?}
+  J -- yes --> K[error: network cannot be enabled without allowedDomains]
+  J -- no --> I[build sandbox config with resolved allowedDomains]
 ```

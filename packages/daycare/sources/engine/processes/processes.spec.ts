@@ -96,7 +96,8 @@ describe("Processes", () => {
           command: `node -e "console.log('local-bind-enabled')"`,
           keepAlive: false,
           cwd: workspaceDir,
-          allowLocalBinding: true
+          allowLocalBinding: true,
+          allowedDomains: ["example.com"]
         },
         { ...permissions, network: true }
       );
@@ -106,6 +107,25 @@ describe("Processes", () => {
         network?: { allowLocalBinding?: boolean };
       };
       expect(config.network?.allowLocalBinding).toBe(true);
+    },
+    TEST_TIMEOUT_MS
+  );
+
+  it(
+    "rejects network permission when allowedDomains are omitted",
+    async () => {
+      const manager = await createManager(baseDir);
+
+      await expect(
+        manager.create(
+          {
+            command: `node -e "console.log('network-without-domains')"`,
+            keepAlive: false,
+            cwd: workspaceDir
+          },
+          { ...permissions, network: true }
+        )
+      ).rejects.toThrow("Network cannot be enabled without allowedDomains.");
     },
     TEST_TIMEOUT_MS
   );

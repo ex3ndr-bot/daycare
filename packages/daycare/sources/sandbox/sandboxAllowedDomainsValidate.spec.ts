@@ -16,4 +16,9 @@ describe("sandboxAllowedDomainsValidate", () => {
   it("returns no issues for explicit domains with network permission", () => {
     expect(sandboxAllowedDomainsValidate(["example.com"], true)).toEqual([]);
   });
+
+  it("requires allowedDomains when network permission is enabled", () => {
+    expect(sandboxAllowedDomainsValidate([], true))
+      .toEqual(["Network cannot be enabled without allowedDomains."]);
+  });
 });
