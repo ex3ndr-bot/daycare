@@ -25,6 +25,15 @@ sequenceDiagram
   M-->>L: Next assistant turn (repeat until no <run_python>)
 ```
 
+## `<python_result>` Follow-up Behavior
+
+```mermaid
+flowchart TD
+  A[python_result injected] --> B{Execution status}
+  B -->|success| C[Next turn emits <say> immediately]
+  B -->|failure| D[Next turn still emits <say> immediately]
+```
+
 ## Key Files
 
 - `packages/daycare/sources/engine/modules/rlm/rlmNoToolsPromptBuild.ts`
@@ -41,5 +50,5 @@ sequenceDiagram
 - When both tags are present in one response, `<say>` must come before `<run_python>`.
 - Prompt explicitly requires returning via the final expression line; use `print()` only for debug output.
 - User-facing announcement style (plain-language updates, long-running pre-announcements, and retry dedupe) now lives in the shared system prompt so it applies in all modes, not only RLM tag mode.
-- After execution, `<python_result>` is injected and the model gets a follow-up turn to emit `<say>` based on results.
+- After execution, `<python_result>` is injected and the model must emit `<say>` immediately on the next turn, including failure cases.
 - Checkpointing uses generated `toolCallId` values and reuses `appendHistoryRecord` callbacks.
