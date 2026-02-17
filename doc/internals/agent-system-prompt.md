@@ -1,4 +1,4 @@
-# Agent System Prompt Build
+# Agent System Prompt
 
 System prompt rendering is centralized in `agentSystemPrompt()` and called from `Agent`.
 
@@ -9,6 +9,7 @@ System prompt rendering is centralized in `agentSystemPrompt()` and called from 
 - `agentSystem`
 
 `agentSystemPrompt()` derives connector, cron, app-folder, and feature context internally.
+Prompt file paths are resolved internally from `agentSystem.config.current.dataDir` (`SOUL.md`, `USER.md`, `AGENTS.md`, `TOOLS.md`, `MEMORY.md`) with fallback defaults.
 
 Sections resolved inside `agentSystemPrompt()`:
 - plugin context (`pluginManager.getSystemPrompts()`)

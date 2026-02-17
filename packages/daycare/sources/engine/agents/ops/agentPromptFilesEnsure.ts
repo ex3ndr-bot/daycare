@@ -10,16 +10,32 @@ import {
 } from "../../../paths.js";
 import { agentPromptBundledRead } from "./agentPromptBundledRead.js";
 
+type AgentPromptFilesPaths = {
+  soulPath: string;
+  userPath: string;
+  agentsPath: string;
+  toolsPath: string;
+  memoryPath: string;
+};
+
 /**
  * Ensures the default prompt files (SOUL, USER, AGENTS, TOOLS, MEMORY) exist on disk.
  * Expects: caller wants bundled defaults written when missing.
  */
-export async function agentPromptFilesEnsure(): Promise<void> {
-  await promptFileEnsure(DEFAULT_SOUL_PATH, "SOUL.md");
-  await promptFileEnsure(DEFAULT_USER_PATH, "USER.md");
-  await promptFileEnsure(DEFAULT_AGENTS_PATH, "AGENTS.md");
-  await promptFileEnsure(DEFAULT_TOOLS_PATH, "TOOLS.md");
-  await promptFileEnsure(DEFAULT_MEMORY_PATH, "MEMORY.md");
+export async function agentPromptFilesEnsure(
+  paths: AgentPromptFilesPaths = {
+    soulPath: DEFAULT_SOUL_PATH,
+    userPath: DEFAULT_USER_PATH,
+    agentsPath: DEFAULT_AGENTS_PATH,
+    toolsPath: DEFAULT_TOOLS_PATH,
+    memoryPath: DEFAULT_MEMORY_PATH
+  }
+): Promise<void> {
+  await promptFileEnsure(paths.soulPath, "SOUL.md");
+  await promptFileEnsure(paths.userPath, "USER.md");
+  await promptFileEnsure(paths.agentsPath, "AGENTS.md");
+  await promptFileEnsure(paths.toolsPath, "TOOLS.md");
+  await promptFileEnsure(paths.memoryPath, "MEMORY.md");
 }
 
 async function promptFileEnsure(filePath: string, bundledName: string): Promise<void> {

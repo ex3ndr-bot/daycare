@@ -34,7 +34,7 @@ describe("agentSystemPrompt", () => {
     ).rejects.toThrow("Unknown system agent tag: unknown-system-agent");
   });
 
-  it("renders the bundled templates with provided prompt files", async () => {
+  it("renders bundled templates with prompt files from agent system data dir", async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-system-prompt-build-"));
     try {
       const soulPath = path.join(dir, "SOUL.md");
@@ -48,6 +48,25 @@ describe("agentSystemPrompt", () => {
       await writeFile(agentsPath, "Agents prompt text\n", "utf8");
       await writeFile(toolsPath, "Tools prompt text\n", "utf8");
       await writeFile(memoryPath, "Memory prompt text\n", "utf8");
+
+      const agentSystem = {
+        config: {
+          current: {
+            dataDir: dir,
+            configDir: path.join(dir, ".daycare"),
+            agentsDir: path.join(dir, "agents"),
+            workspaceDir: "/tmp/workspace",
+            features: {
+              noTools: false,
+              rlm: false,
+              say: false
+            }
+          }
+        },
+        toolResolver: {
+          listTools: () => []
+        }
+      } as unknown as NonNullable<AgentSystemPromptParameter["agentSystem"]>;
 
       const rendered = await agentSystemPrompt({
         provider: "openai",
@@ -66,11 +85,7 @@ describe("agentSystemPrompt", () => {
           channelId: "channel-1",
           userId: "user-1"
         },
-        soulPath,
-        userPath,
-        agentsPath,
-        toolsPath,
-        memoryPath
+        agentSystem
       });
 
       expect(rendered).toContain("## Skills");
@@ -109,6 +124,7 @@ describe("agentSystemPrompt", () => {
       const agentSystem = {
         config: {
           current: {
+            dataDir: dir,
             configDir,
             agentsDir,
             workspaceDir: "/tmp/workspace",
@@ -151,11 +167,6 @@ describe("agentSystemPrompt", () => {
           network: false,
           events: false
         },
-        soulPath,
-        userPath,
-        agentsPath,
-        toolsPath,
-        memoryPath,
         descriptor: {
           type: "permanent",
           id: "agent-id",

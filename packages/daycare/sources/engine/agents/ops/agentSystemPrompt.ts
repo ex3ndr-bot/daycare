@@ -122,17 +122,10 @@ export type AgentSystemPromptContext = {
   model?: string;
   provider?: string;
   permissions?: SessionPermissions;
-  soulPath?: string;
-  userPath?: string;
-  agentsPath?: string;
-  toolsPath?: string;
-  memoryPath?: string;
   agentSystem?: AgentSystemPromptAgentSystem;
   descriptor?: AgentDescriptor;
   ensurePromptFiles?: boolean;
 };
-
-export type AgentSystemPromptBuildContext = AgentSystemPromptContext;
 
 /**
  * Builds the system prompt text from deterministic sections and bundled templates.
@@ -142,9 +135,9 @@ export async function agentSystemPrompt(
   context: AgentSystemPromptContext = {}
 ): Promise<string> {
   const runtime = resolveRuntime(context);
-  const promptPaths = resolvePromptPaths(context);
+  const promptPaths = resolvePromptPaths(runtime);
   if (context.ensurePromptFiles) {
-    await agentPromptFilesEnsure();
+    await agentPromptFilesEnsure(promptPaths);
   }
 
   const [sections, templateRuntime] = await Promise.all([
@@ -357,13 +350,24 @@ function resolveRuntime(context: AgentSystemPromptContext): AgentSystemPromptRun
   };
 }
 
-function resolvePromptPaths(context: AgentSystemPromptContext): AgentSystemPromptPaths {
+function resolvePromptPaths(runtime: AgentSystemPromptRuntime): AgentSystemPromptPaths {
+  const dataDir = runtime.config?.dataDir?.trim();
+  if (dataDir) {
+    const resolvedDataDir = path.resolve(dataDir);
+    return {
+      soulPath: path.join(resolvedDataDir, "SOUL.md"),
+      userPath: path.join(resolvedDataDir, "USER.md"),
+      agentsPath: path.join(resolvedDataDir, "AGENTS.md"),
+      toolsPath: path.join(resolvedDataDir, "TOOLS.md"),
+      memoryPath: path.join(resolvedDataDir, "MEMORY.md")
+    };
+  }
   return {
-    soulPath: context.soulPath ?? DEFAULT_SOUL_PATH,
-    userPath: context.userPath ?? DEFAULT_USER_PATH,
-    agentsPath: context.agentsPath ?? DEFAULT_AGENTS_PATH,
-    toolsPath: context.toolsPath ?? DEFAULT_TOOLS_PATH,
-    memoryPath: context.memoryPath ?? DEFAULT_MEMORY_PATH
+    soulPath: DEFAULT_SOUL_PATH,
+    userPath: DEFAULT_USER_PATH,
+    agentsPath: DEFAULT_AGENTS_PATH,
+    toolsPath: DEFAULT_TOOLS_PATH,
+    memoryPath: DEFAULT_MEMORY_PATH
   };
 }
 
