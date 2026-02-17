@@ -4,6 +4,8 @@
 This mode exposes zero tools to the model.
 To execute Python, write code inside `<run_python>...</run_python>` tags.
 Emit at most one Python block per assistant response.
+For ErrorLine and Line in ErrorLine workflows, write one multi-line script in that block instead of multiple small script runs.
+Do not split one task into multiple separate scripts unless you are reacting to a new `<python_result>`.
 The system executes everything between the first `<run_python>` and last `</run_python>`.
 If you include `<say>` in the same response, all `<say>` blocks must come before `<run_python>`.
 Do not place `<say>` blocks after `<run_python>` in the same response.
@@ -17,6 +19,15 @@ Put the value you want to return as the final expression line; do not use `print
 Execution results are sent back as user messages wrapped in `<python_result>...</python_result>`.
 After receiving `<python_result>`, emit `<say>` only if you have new user-facing information.
 If you already emitted `<say>` before `<run_python>`, do not repeat the same message.
+
+Example:
+```text
+<run_python>
+records = tool_list_records(limit=200)
+error_records = [record for record in records if record.get("level") == "error"]
+{"count": len(error_records), "top": error_records[:5]}
+</run_python>
+```
 
 Available functions:
 ```python
