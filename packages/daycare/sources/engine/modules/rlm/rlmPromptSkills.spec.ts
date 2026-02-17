@@ -121,17 +121,16 @@ async function renderSystemPrompt(options: RenderSystemPromptOptions): Promise<s
   };
   const [
     preambleSection,
-    environmentSection,
     autonomousOperationSection,
     permissionsSection,
     toolCallingSection,
     agentsTopologySignalsChannelsSection,
     skillsSection,
     formattingSection,
-    memorySection
+    memorySection,
+    environmentSection
   ] = await Promise.all([
     sectionRender("SYSTEM.md", sectionContext),
-    sectionRender("SYSTEM_ENVIRONMENT.md", sectionContext),
     sectionRender("SYSTEM_AGENCY.md", sectionContext),
     sectionRender("SYSTEM_PERMISSIONS.md", sectionContext),
     (async () => {
@@ -146,18 +145,19 @@ async function renderSystemPrompt(options: RenderSystemPromptOptions): Promise<s
       return [base, dynamicSkills].filter((section) => section.length > 0).join("\n\n");
     })(),
     sectionRender("SYSTEM_FORMATTING.md", sectionContext),
-    sectionRender("SYSTEM_MEMORY.md", sectionContext)
+    sectionRender("SYSTEM_MEMORY.md", sectionContext),
+    sectionRender("SYSTEM_ENVIRONMENT.md", sectionContext)
   ]);
   return [
     preambleSection,
-    environmentSection,
     autonomousOperationSection,
     permissionsSection,
     toolCallingSection,
     agentsTopologySignalsChannelsSection,
     skillsSection,
     formattingSection,
-    memorySection
+    memorySection,
+    environmentSection
   ]
     .filter((section) => section.length > 0)
     .join(SECTION_SEPARATOR)

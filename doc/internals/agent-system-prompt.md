@@ -14,7 +14,6 @@ System prompt rendering is centralized in `agentSystemPrompt()` and called from 
 
 `agentSystemPrompt()` renders deterministic sections by calling section functions with the same `AgentSystemPromptContext` input. Each section loads and renders its own data internally:
 - Preamble
-- System Environment
 - Autonomous operation
 - Permissions
 - Tool Calling
@@ -22,6 +21,7 @@ System prompt rendering is centralized in `agentSystemPrompt()` and called from 
 - Skills
 - Formatting
 - Memory
+- System Environment
 
 Top-level composition is plain concatenation with section separators (no Handlebars composition step).
 

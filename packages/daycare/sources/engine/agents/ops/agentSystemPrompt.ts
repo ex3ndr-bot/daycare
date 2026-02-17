@@ -37,14 +37,14 @@ export async function agentSystemPrompt(
   logger.debug("event: buildSystemPrompt rendering sections");
   const renderedSections = await Promise.all([
     agentSystemPromptSectionPreamble(context),
-    agentSystemPromptSectionEnvironment(context),
     agentSystemPromptSectionAutonomousOperation(context),
     agentSystemPromptSectionPermissions(context),
     agentSystemPromptSectionToolCalling(context),
     agentSystemPromptSectionAgentsTopologySignalsChannels(context),
     agentSystemPromptSectionSkills(context),
     agentSystemPromptSectionFormatting(context),
-    agentSystemPromptSectionMemory(context)
+    agentSystemPromptSectionMemory(context),
+    agentSystemPromptSectionEnvironment(context)
   ]);
 
   return renderedSections
