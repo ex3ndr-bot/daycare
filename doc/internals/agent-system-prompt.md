@@ -25,6 +25,10 @@ System prompt rendering is centralized in `agentSystemPrompt()` and called from 
 
 Top-level composition is plain concatenation with section separators (no Handlebars composition step).
 
+Template naming:
+- `SYSTEM.md` is the preamble section template.
+- All other section templates use the `SECTION_*.md` prefix.
+
 ```mermaid
 flowchart TD
   A[Agent handleMessage] --> A1[Resolve prompt paths from config.dataDir]

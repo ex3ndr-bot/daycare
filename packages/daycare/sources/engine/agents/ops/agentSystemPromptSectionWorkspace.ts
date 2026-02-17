@@ -10,7 +10,7 @@ import type { AgentSystemPromptContext } from "./agentSystemPromptContext.js";
 export async function agentSystemPromptSectionWorkspace(
   context: AgentSystemPromptContext = {}
 ): Promise<string> {
-  const template = await agentPromptBundledRead("SYSTEM_SECTION_WORKSPACE.md");
+  const template = await agentPromptBundledRead("SECTION_WORKSPACE.md");
   const section = Handlebars.compile(template)({
     workspace: context.permissions?.workingDir ?? "unknown",
     isForeground: context.descriptor?.type === "user"

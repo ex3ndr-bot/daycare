@@ -60,7 +60,7 @@ export async function agentSystemPromptSectionFiles(
     })()
   ]);
 
-  const template = await agentPromptBundledRead("SYSTEM_SECTION_FILES.md");
+  const template = await agentPromptBundledRead("SECTION_FILES.md");
   const section = Handlebars.compile(template)({
     isForeground,
     connector: isForeground ? descriptor.connector : "unknown",

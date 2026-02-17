@@ -34,7 +34,7 @@ export async function agentSystemPromptSectionSkills(
     })()
   ]);
 
-  const template = await agentPromptBundledRead("SYSTEM_SECTION_SKILLS.md");
+  const template = await agentPromptBundledRead("SECTION_SKILLS.md");
   const section = Handlebars.compile(template)({
     skillsPrompt,
     pluginPrompt

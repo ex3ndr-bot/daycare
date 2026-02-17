@@ -31,7 +31,7 @@ export async function agentSystemPromptSectionAgentsTopologySignalsChannels(
   ]);
 
   const template = await agentPromptBundledRead(
-    "SYSTEM_SECTION_AGENTS_TOPOLOGY_SIGNALS_CHANNELS.md"
+    "SECTION_AGENTS_TOPOLOGY_SIGNALS_CHANNELS.md"
   );
   const section = Handlebars.compile(template)({
     permanentAgentsPrompt,

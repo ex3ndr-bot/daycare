@@ -13,7 +13,7 @@ export async function agentSystemPromptSectionPreamble(
   context: AgentSystemPromptContext = {}
 ): Promise<string> {
   const descriptor = context.descriptor;
-  const template = await agentPromptBundledRead("SYSTEM_SECTION_PREAMBLE.md");
+  const template = await agentPromptBundledRead("SYSTEM.md");
   const parentAgentId =
     descriptor && (descriptor.type === "subagent" || descriptor.type === "app")
       ? descriptor.parentAgentId ?? ""
