@@ -33,6 +33,8 @@ import type { Heartbeats } from "../../heartbeat/heartbeats.js";
 import { tokensResolve } from "./tokensResolve.js";
 import type { Skills } from "../../skills/skills.js";
 import { agentHistoryPendingToolResults } from "./agentHistoryPendingToolResults.js";
+import { agentMessageRunPythonFailureTrim } from "./agentMessageRunPythonFailureTrim.js";
+import { agentMessageRunPythonSayAfterTrim } from "./agentMessageRunPythonSayAfterTrim.js";
 import { tagExtract, tagExtractAll } from "../../../util/tagExtract.js";
 import { sayFileExtract } from "../../modules/say/sayFileExtract.js";
 import { sayFileResolve } from "../../modules/say/sayFileResolve.js";
@@ -272,8 +274,8 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
         ignoredPostRunPythonSayCount
       );
       if (noToolsModeEnabled && hasRunPythonTag && responseText) {
-        const stripped = runPythonSayAfterStrip(responseText);
-        if (stripped !== responseText) {
+        const stripped = agentMessageRunPythonSayAfterTrim(responseText);
+        if (stripped !== null) {
           historyResponseText = stripped;
           messageAssistantTextRewrite(response.message, stripped);
           logger.debug("event: Rewrote assistant message in context history after <run_python>");
@@ -458,8 +460,8 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               await appendHistoryRecord?.(rlmHistoryCompleteErrorRecordBuild(toolCallId, message));
-              const truncated = runPythonAfterFailureTrim(historyResponseText, index);
-              if (truncated !== historyResponseText) {
+              const truncated = agentMessageRunPythonFailureTrim(historyResponseText, index);
+              if (truncated !== null) {
                 historyResponseText = truncated;
                 messageAssistantTextRewrite(response.message, truncated);
                 logger.debug(
@@ -812,29 +814,6 @@ function sayAfterRunPythonIgnoredNoticeBuild(count: number): string | null {
     return null;
   }
   return "<say> after <run_python> was ignored";
-}
-
-function runPythonSayAfterStrip(text: string): string {
-  const split = runPythonResponseSplit(text);
-  if (!split) {
-    return text;
-  }
-  const strippedAfter = split.afterRunPython.replace(/<say(\s[^>]*)?>[\s\S]*?<\/say\s*>/gi, "");
-  return `${split.beforeRunPython}${strippedAfter}`;
-}
-
-function runPythonAfterFailureTrim(text: string, failedIndex: number): string {
-  if (failedIndex < 0) {
-    return text;
-  }
-  const blockPattern = /<run_python(\s[^>]*)?>[\s\S]*?<\/run_python\s*>/gi;
-  const blocks = [...text.matchAll(blockPattern)];
-  const failedBlock = blocks[failedIndex];
-  if (!failedBlock || failedBlock.index === undefined) {
-    return text;
-  }
-  const failedBlockEnd = failedBlock.index + failedBlock[0].length;
-  return text.slice(0, failedBlockEnd);
 }
 
 function messageAssistantTextRewrite(

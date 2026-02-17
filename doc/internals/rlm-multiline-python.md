@@ -8,6 +8,8 @@ Updated prompt guidance for inline RLM Python execution and response-tag handlin
 - Added strict post-`<run_python>` `<say>` suppression with an explicit notice line.
 - Rewrote assistant text in context history to remove `<say>` tags after `<run_python>`.
 - On first failed `<run_python>` block, rewrote context history to drop everything after the failed block.
+- Extracted trim logic into ops helpers:
+  `agentMessageRunPythonSayAfterTrim()` and `agentMessageRunPythonFailureTrim(successfulExecutionCount)`.
 - Updated inline prompt examples to show multi-tag execution and ignored post-run `<say>`.
 - Clarified that tool calls return plain LLM strings, not structured payloads.
 - Added test assertions so these instructions stay present.
