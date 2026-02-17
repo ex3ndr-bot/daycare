@@ -36,7 +36,7 @@
 - [ ] Remove `files: []` from all tool returns across the codebase (~40 tools):
   - Engine tools: `send-file.ts`, `channelCreateTool.ts`, `channelSendTool.ts`, `channelHistoryTool.ts`, `channelMemberTool.ts`, `heartbeat.ts`, `permissions.ts`, `signal.ts`, `signalSubscribeToolBuild.ts`, `signalUnsubscribeToolBuild.ts`, `signalEventsCsvToolBuild.ts`, `background.ts`, `cron.ts`, `reaction.ts`, `sessionHistoryToolBuild.ts`, `topologyToolBuild.ts`, `permanentAgentToolBuild.ts`, `skillToolBuild.ts`, `exposeCreateToolBuild.ts`, `exposeListToolBuild.ts`, `exposeUpdateToolBuild.ts`, `exposeRemoveToolBuild.ts`, `sendUserMessageTool.ts`
   - Plugin tools: `shell/tool.ts` (6 returns), `shell/processTools.ts`, `monty-python/tool.ts`, `memory/tool.ts`, `web-fetch/plugin.ts`, `firecrawl/plugin.ts`, `database/plugin.ts`, `anthropic-search/plugin.ts`, `anthropic-fetch/plugin.ts`, `openai-search/plugin.ts`, `gemini-search/plugin.ts`, `perplexity-search/plugin.ts`, `brave-search/plugin.ts`, `exa-ai/plugin.ts`
-  - Infrastructure: `toolResolver.ts` (error returns), `agentHistoryPendingToolResultsBuild.ts`, `rlmToolResultBuild.ts`, `appToolExecutorBuild.ts`
+  - Infrastructure: `toolResolver.ts` (error returns), `agentHistoryPendingToolResults.ts`, `rlmToolResultBuild.ts`, `appToolExecutorBuild.ts`
 - [ ] Update `toolResultFormatVerbose.ts`: remove `result.files.length` file info display
 - [ ] Update `toolResolver.ts:69`: remove `fileCount=` from log
 - [ ] Update `FileReference` re-export in `sources/types.ts` if orphaned

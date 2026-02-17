@@ -131,8 +131,10 @@ describe("agentLoopRun", () => {
 
     expect(skillsList).toHaveBeenCalledTimes(2);
     expect(toolDescriptionsSeen).toHaveLength(2);
-    expect(toolDescriptionsSeen[0]).toContain("alpha");
-    expect(toolDescriptionsSeen[1]).toContain("beta");
+    expect(toolDescriptionsSeen[0]).toContain("Execute Python code to complete the task.");
+    expect(toolDescriptionsSeen[1]).toContain("Execute Python code to complete the task.");
+    expect(toolDescriptionsSeen[0]).not.toContain("alpha");
+    expect(toolDescriptionsSeen[1]).not.toContain("beta");
     expect(toolResolverSkills).toHaveLength(1);
     expect(toolResolverSkills[0]).toEqual(firstSkills);
   });

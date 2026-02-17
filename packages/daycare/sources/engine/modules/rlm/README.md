@@ -58,8 +58,11 @@ def tool_name(arg1: type, arg2: type) -> str:
 
 The preamble is regenerated from the current tool set when context tools are built:
 
-- tool-call mode: embedded into the `run_python` tool description
-- tag mode: embedded into the system prompt no-tools Python section
+- tool-call mode: rendered through `sources/prompts/TOOLS_RLM.md` into the `run_python` description
+- tag mode: rendered through `sources/prompts/TOOLS_RLM_INLINE.md` into the no-tools system section
+
+RLM prompt builders no longer embed skill lists. Skills are injected once via
+`skillPromptFormat()` into the shared `SYSTEM.md` template for all modes.
 
 At execution time, the active runtime tool resolver from current tool execution context is used
 when available (for example app/subagent tool overrides). This keeps Python tool stubs and

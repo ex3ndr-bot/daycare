@@ -1,44 +1,33 @@
 import type { Tool } from "@mariozechner/pi-ai";
-import type { AgentSkill } from "@/types";
+import Handlebars from "handlebars";
 
+import { agentPromptBundledRead } from "../../agents/ops/agentPromptBundledRead.js";
 import { rlmPreambleBuild } from "./rlmPreambleBuild.js";
+
+type RlmToolDescriptionTemplateContext = {
+  preamble: string;
+};
+
+let rlmToolDescriptionTemplatePromise:
+  Promise<HandlebarsTemplateDelegate<RlmToolDescriptionTemplateContext>> | null = null;
 
 /**
  * Builds the run_python tool description with the generated Python tool preamble.
  * Expects: tools contains the full current tool list from ToolResolver.
  */
-export function rlmToolDescriptionBuild(tools: Tool[], skills: AgentSkill[] = []): string {
+export async function rlmToolDescriptionBuild(tools: Tool[]): Promise<string> {
   const preamble = rlmPreambleBuild(tools);
-  const skillsSection = rlmSkillsSectionBuild(skills);
-  return [
-    "Execute Python code to complete the task.",
-    "",
-    "The following functions are available:",
-    "```python",
-    preamble,
-    "```",
-    "",
-    "Call tool functions directly (no `await`).",
-    "Use `try/except ToolError` for tool failures.",
-    ...skillsSection,
-    "Use `print()` for debug output.",
-    "The value of the final expression is returned."
-  ].join("\n");
+  const template = await rlmToolDescriptionTemplateCompile();
+  return template({ preamble }).trim();
 }
 
-function rlmSkillsSectionBuild(skills: AgentSkill[]): string[] {
-  if (skills.length === 0) {
-    return [];
+async function rlmToolDescriptionTemplateCompile(): Promise<
+  HandlebarsTemplateDelegate<RlmToolDescriptionTemplateContext>
+> {
+  if (rlmToolDescriptionTemplatePromise) {
+    return rlmToolDescriptionTemplatePromise;
   }
-
-  const lines = [
-    "",
-    "Available skills (use the `skill(...)` function stub to load/run them):"
-  ];
-  for (const skill of skills) {
-    const description = skill.description ?? "";
-    const sandbox = skill.sandbox ? " sandbox=true" : "";
-    lines.push(`- ${skill.name}${sandbox}${description ? ` - ${description}` : ""}`);
-  }
-  return lines;
+  rlmToolDescriptionTemplatePromise = agentPromptBundledRead("TOOLS_RLM.md")
+    .then((source) => Handlebars.compile<RlmToolDescriptionTemplateContext>(source));
+  return rlmToolDescriptionTemplatePromise;
 }

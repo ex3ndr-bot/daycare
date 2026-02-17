@@ -13,7 +13,7 @@ import { providerModelSelectBySize } from "../../../providers/providerModelSelec
 import { stringTruncate } from "../../../utils/stringTruncate.js";
 import { agentDescriptorRead } from "../../agents/ops/agentDescriptorRead.js";
 import { agentHistoryLoad } from "../../agents/ops/agentHistoryLoad.js";
-import { agentHistorySummaryBuild } from "../../agents/ops/agentHistorySummaryBuild.js";
+import { agentHistorySummary } from "../../agents/ops/agentHistorySummary.js";
 import { agentPromptBundledRead } from "../../agents/ops/agentPromptBundledRead.js";
 import { messageExtractText } from "../../messages/messageExtractText.js";
 import { toolResultFormatVerbose } from "./toolResultFormatVerbose.js";
@@ -151,7 +151,7 @@ function rawHistoryTextBuild(agentId: string, records: AgentHistoryRecord[]): st
 }
 
 function summaryInputBuild(agentId: string, records: AgentHistoryRecord[]): string {
-  const summary = agentHistorySummaryBuild(records);
+  const summary = agentHistorySummary(records);
   const tail = records.slice(-MAX_SUMMARY_RECORDS);
   const omittedCount = records.length - tail.length;
   const lines = [

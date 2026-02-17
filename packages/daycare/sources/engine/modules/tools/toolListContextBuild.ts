@@ -1,18 +1,16 @@
 import type { Tool } from "@mariozechner/pi-ai";
-import type { AgentSkill } from "@/types";
 
 import type { ConnectorRegistry } from "../connectorRegistry.js";
 import type { ImageGenerationRegistry } from "../imageGenerationRegistry.js";
 import { RLM_TOOL_NAME } from "../rlm/rlmConstants.js";
-import { rlmToolDescriptionBuild } from "../rlm/rlmToolDescriptionBuild.js";
 
 type ToolListOptions = {
   tools: Tool[];
-  skills?: AgentSkill[];
   source?: string;
   agentKind?: "background" | "foreground";
   allowCronTools?: boolean;
   rlm?: boolean;
+  rlmToolDescription?: string;
   noTools?: boolean;
   connectorRegistry: Pick<ConnectorRegistry, "get" | "list">;
   imageRegistry: Pick<ImageGenerationRegistry, "list">;
@@ -37,7 +35,7 @@ export function toolListContextBuild(options: ToolListOptions): Tool[] {
   }
 
   if (options.rlm) {
-    return toolListRlmBuild(options.tools, options.skills ?? []);
+    return toolListRlmBuild(options.tools, options.rlmToolDescription);
   }
 
   const source = options.source;
@@ -79,7 +77,7 @@ export function toolListContextBuild(options: ToolListOptions): Tool[] {
   return toolListFilterConnectorCapabilities(filtered, supportsFiles, supportsReactions);
 }
 
-function toolListRlmBuild(tools: Tool[], skills: AgentSkill[]): Tool[] {
+function toolListRlmBuild(tools: Tool[], rlmToolDescription?: string): Tool[] {
   const runPython = tools.find((tool) => tool.name === RLM_TOOL_NAME);
   if (!runPython) {
     return [];
@@ -88,7 +86,7 @@ function toolListRlmBuild(tools: Tool[], skills: AgentSkill[]): Tool[] {
   return [
     {
       ...runPython,
-      description: rlmToolDescriptionBuild(tools, skills)
+      description: rlmToolDescription ?? runPython.description
     }
   ];
 }

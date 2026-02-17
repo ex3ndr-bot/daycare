@@ -13,7 +13,7 @@
 - **History types**: `engine/agents/ops/agentTypes.ts` — `AgentHistoryRecord` discriminated union
 - **History write**: `engine/agents/ops/agentHistoryAppend.ts` — appends JSONL records
 - **History validation**: `engine/agents/ops/agentHistoryRecordsLoad.ts` — Zod schema for parsing
-- **Crash recovery**: `engine/agents/ops/agentHistoryPendingToolResultsBuild.ts` — synthetic error results for incomplete tool calls
+- **Crash recovery**: `engine/agents/ops/agentHistoryPendingToolResults.ts` — synthetic error results for incomplete tool calls
 - **Agent restore**: `agent.ts` `completePendingToolCalls()` (line 897) and `handleMessage()` (line 340)
 - **Agent loop**: `engine/agents/ops/agentLoopRun.ts` — tool execution + history recording flow
 - **History→context**: `agent.ts` `buildHistoryContext()` (line 1027) — reconstructs messages from records

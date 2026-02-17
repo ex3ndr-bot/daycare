@@ -22,6 +22,7 @@ import { rlmNoToolsExtract } from "../../modules/rlm/rlmNoToolsExtract.js";
 import { rlmNoToolsModeIs } from "../../modules/rlm/rlmNoToolsModeIs.js";
 import { rlmNoToolsResultMessageBuild } from "../../modules/rlm/rlmNoToolsResultMessageBuild.js";
 import { rlmPreambleBuild } from "../../modules/rlm/rlmPreambleBuild.js";
+import { rlmToolDescriptionBuild } from "../../modules/rlm/rlmToolDescriptionBuild.js";
 import type { EngineEventBus } from "../../ipc/events.js";
 import type { Agent } from "../agent.js";
 import type { AgentHistoryRecord, AgentMessage } from "./agentTypes.js";
@@ -31,7 +32,7 @@ import type { AgentSystem } from "../agentSystem.js";
 import type { Heartbeats } from "../../heartbeat/heartbeats.js";
 import { tokensResolve } from "./tokensResolve.js";
 import type { Skills } from "../../skills/skills.js";
-import { agentHistoryPendingToolResultsBuild } from "./agentHistoryPendingToolResultsBuild.js";
+import { agentHistoryPendingToolResults } from "./agentHistoryPendingToolResults.js";
 import { tagExtract, tagExtractAll } from "../../../util/tagExtract.js";
 import { sayFileExtract } from "../../modules/say/sayFileExtract.js";
 import { sayFileResolve } from "../../modules/say/sayFileResolve.js";
@@ -133,14 +134,19 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
       const noToolsModeEnabled = rlmNoToolsModeIs(agentSystem.config.current.features);
       try {
         activeSkills = await skills.list();
+        const availableTools = toolResolver.listTools();
+        const rlmToolDescription =
+          agentSystem.config.current.features.rlm && !noToolsModeEnabled
+            ? await rlmToolDescriptionBuild(availableTools)
+            : undefined;
         context.tools = toolListContextBuild({
-          tools: toolResolver.listTools(),
-          skills: activeSkills,
+          tools: availableTools,
           source,
           agentKind,
           allowCronTools,
           noTools: noToolsModeEnabled,
           rlm: agentSystem.config.current.features.rlm,
+          rlmToolDescription,
           connectorRegistry,
           imageRegistry: agentSystem.imageRegistry
         });
@@ -676,7 +682,7 @@ async function historyPendingToolCallsComplete(
   reason: "session_crashed" | "user_aborted",
   appendHistoryRecord?: (record: AgentHistoryRecord) => Promise<void>
 ): Promise<void> {
-  const completionRecords = agentHistoryPendingToolResultsBuild(
+  const completionRecords = agentHistoryPendingToolResults(
     historyRecords,
     reason,
     Date.now()

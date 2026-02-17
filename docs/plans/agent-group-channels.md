@@ -53,7 +53,7 @@ How it integrates:
 
 - [x] Add `username?: string` field to permanent variant in `AgentDescriptor` (`agentDescriptorTypes.ts`)
 - [x] Update `create_permanent_agent` tool to accept optional `username` parameter
-- [x] Update `agentDescriptorBuild.ts` / `agentDescriptorKeyBuild.ts` if they reference permanent fields
+- [x] Update `agentDescriptor.ts` / `agentDescriptorKeyBuild.ts` if they reference permanent fields
 - [x] Update `agentDescriptorLabel` to include username for permanent agents (used by topology tool)
 - [x] Write tests for descriptor creation with username
 - [x] Run tests — must pass before next task
