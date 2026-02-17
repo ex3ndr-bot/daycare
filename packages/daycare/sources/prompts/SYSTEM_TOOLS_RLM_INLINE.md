@@ -14,8 +14,8 @@ Use `print()` for debug output.
 The value of the final expression is returned.
 Put the value you want to return as the final expression line; do not use `print()` for the final return value.
 Execution results are sent back as user messages wrapped in `<python_result>...</python_result>`.
-After receiving `<python_result>`, respond immediately with `<say>` in the next turn.
-Do this for both successful and failed Python execution results.
+After receiving `<python_result>`, emit `<say>` only if you have new user-facing information.
+If you already emitted `<say>` before `<run_python>`, do not repeat the same message.
 
 Available functions:
 ```python
