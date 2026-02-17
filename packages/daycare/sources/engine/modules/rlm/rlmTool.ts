@@ -1,12 +1,14 @@
-import type { ToolResultMessage } from "@mariozechner/pi-ai";
-import { MontyRuntimeError, MontySyntaxError } from "@pydantic/monty";
 import { Type, type Static } from "@sinclair/typebox";
 
-import type { ToolDefinition, ToolExecutionResult } from "@/types";
+import type { ToolDefinition } from "@/types";
 import type { ToolResolverApi } from "../toolResolver.js";
 import { rlmExecute } from "./rlmExecute.js";
+import { rlmHistoryCompleteErrorRecordBuild } from "./rlmHistoryCompleteErrorRecordBuild.js";
 import { RLM_TOOL_NAME } from "./rlmConstants.js";
+import { rlmErrorTextBuild } from "./rlmErrorTextBuild.js";
 import { rlmPreambleBuild } from "./rlmPreambleBuild.js";
+import { rlmResultTextBuild } from "./rlmResultTextBuild.js";
+import { rlmToolResultBuild } from "./rlmToolResultBuild.js";
 
 const schema = Type.Object(
   {
@@ -33,66 +35,23 @@ export function rlmToolBuild(toolResolver: ToolResolverApi): ToolDefinition {
       const payload = args as RlmArgs;
       const runtimeResolver = context.toolResolver ?? toolResolver;
       const preamble = rlmPreambleBuild(runtimeResolver.listTools());
+      const appendHistoryRecord = context.appendHistoryRecord;
 
       try {
-        const result = await rlmExecute(payload.code, preamble, context, runtimeResolver);
-        return buildResult(
-          toolCall,
-          [
-            "Python execution completed.",
-            `Tool calls: ${result.toolCallCount}`,
-            result.printOutput.length > 0
-              ? `Print output:\n${result.printOutput.join("\n")}`
-              : "Print output: (none)",
-            `Output:\n${result.output.length > 0 ? result.output : "(empty)"}`
-          ].join("\n\n"),
-          false
+        const result = await rlmExecute(
+          payload.code,
+          preamble,
+          context,
+          runtimeResolver,
+          toolCall.id,
+          appendHistoryRecord
         );
+        return rlmToolResultBuild(toolCall, rlmResultTextBuild(result), false);
       } catch (error) {
-        if (error instanceof MontySyntaxError) {
-          return buildResult(
-            toolCall,
-            [
-              "Python syntax error. Fix the code and retry.",
-              error.display("type-msg")
-            ].join("\n\n"),
-            true
-          );
-        }
-        if (error instanceof MontyRuntimeError) {
-          return buildResult(
-            toolCall,
-            [
-              "Python runtime error.",
-              error.display("traceback")
-            ].join("\n\n"),
-            true
-          );
-        }
-
         const message = error instanceof Error ? error.message : String(error);
-        return buildResult(toolCall, `Python execution failed: ${message}`, true);
+        await appendHistoryRecord?.(rlmHistoryCompleteErrorRecordBuild(toolCall.id, message));
+        return rlmToolResultBuild(toolCall, rlmErrorTextBuild(error), true);
       }
     }
-  };
-}
-
-function buildResult(
-  toolCall: { id: string; name: string },
-  text: string,
-  isError: boolean
-): ToolExecutionResult {
-  const toolMessage: ToolResultMessage = {
-    role: "toolResult",
-    toolCallId: toolCall.id,
-    toolName: toolCall.name,
-    content: [{ type: "text", text }],
-    isError,
-    timestamp: Date.now()
-  };
-
-  return {
-    toolMessage,
-    files: []
   };
 }

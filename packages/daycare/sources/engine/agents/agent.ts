@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import type { Context, ToolCall } from "@mariozechner/pi-ai";
+import type { Context } from "@mariozechner/pi-ai";
 import { createId } from "@paralleldrive/cuid2";
 import Handlebars from "handlebars";
 
@@ -19,7 +19,7 @@ import { cuid2Is } from "../../utils/cuid2Is.js";
 import { agentPromptBundledRead } from "./ops/agentPromptBundledRead.js";
 import { agentPromptFilesEnsure } from "./ops/agentPromptFilesEnsure.js";
 import { agentPromptResolve } from "./ops/agentPromptResolve.js";
-import type { AgentSkill, MessageContext } from "@/types";
+import type { AgentSkill, MessageContext, ToolExecutionContext } from "@/types";
 import { messageBuildUser } from "../messages/messageBuildUser.js";
 import { messageFormatIncoming } from "../messages/messageFormatIncoming.js";
 import { messageBuildSystemText } from "../messages/messageBuildSystemText.js";
@@ -65,8 +65,16 @@ import { agentStateWrite } from "./ops/agentStateWrite.js";
 import { agentDescriptorWrite } from "./ops/agentDescriptorWrite.js";
 import { agentSystemPromptWrite } from "./ops/agentSystemPromptWrite.js";
 import { agentRestoreContextResolve } from "./ops/agentRestoreContextResolve.js";
+import { agentHistoryContextBuild } from "./ops/agentHistoryContextBuild.js";
+import { agentHistoryPendingRlmResolve } from "./ops/agentHistoryPendingRlmResolve.js";
 import { agentHistoryPendingToolResultsBuild } from "./ops/agentHistoryPendingToolResultsBuild.js";
 import { agentAppFolderPathResolve } from "./ops/agentAppFolderPathResolve.js";
+import { rlmErrorTextBuild } from "../modules/rlm/rlmErrorTextBuild.js";
+import { rlmHistoryCompleteErrorRecordBuild } from "../modules/rlm/rlmHistoryCompleteErrorRecordBuild.js";
+import { RLM_TOOL_NAME } from "../modules/rlm/rlmConstants.js";
+import { rlmRestore } from "../modules/rlm/rlmRestore.js";
+import { rlmResultTextBuild } from "../modules/rlm/rlmResultTextBuild.js";
+import { rlmToolResultBuild } from "../modules/rlm/rlmToolResultBuild.js";
 import { signalMessageBuild } from "../signals/signalMessageBuild.js";
 import { channelMessageBuild, channelSignalDataParse } from "../channels/channelMessageBuild.js";
 import type { AgentSystem } from "./agentSystem.js";
@@ -898,21 +906,130 @@ export class Agent {
     reason: "session_crashed" | "user_aborted"
   ): Promise<void> {
     const records = await agentHistoryLoadAll(this.agentSystem.config.current, this.id);
-    const completionRecords = agentHistoryPendingToolResultsBuild(records, reason, Date.now());
-    if (completionRecords.length === 0) {
-      return;
-    }
+    const pendingRlm = reason === "session_crashed" ? agentHistoryPendingRlmResolve(records) : null;
+    const pendingRlmToolCallId = pendingRlm?.start.toolCallId ?? null;
+    const completionRecords = agentHistoryPendingToolResultsBuild(records, reason, Date.now()).filter(
+      (record) =>
+        !(
+          pendingRlmToolCallId &&
+          record.type === "tool_result" &&
+          record.toolCallId === pendingRlmToolCallId
+        )
+    );
+    let completedToolCalls = 0;
     for (const record of completionRecords) {
       await agentHistoryAppend(this.agentSystem.config.current, this.id, record);
+      records.push(record);
+      completedToolCalls += 1;
     }
-    logger.warn(
-      {
-        agentId: this.id,
-        reason,
-        completedToolCalls: completionRecords.length
-      },
-      "event: Completed pending tool calls in history"
-    );
+
+    if (pendingRlm) {
+      const appendRecord = async (record: AgentHistoryRecord): Promise<void> => {
+        await agentHistoryAppend(this.agentSystem.config.current, this.id, record);
+        records.push(record);
+      };
+      const toolCall = pendingRlm.start.toolCallId;
+      let toolResultText = "";
+      let toolResultIsError = false;
+      let restoreMessage = "RLM execution completed after restart. Output: (empty)";
+
+      if (!pendingRlm.lastSnapshot) {
+        const message = "Process was restarted before any tool call";
+        await appendRecord(rlmHistoryCompleteErrorRecordBuild(toolCall, message));
+        toolResultText = rlmErrorTextBuild(new Error(message));
+        toolResultIsError = true;
+        restoreMessage = `RLM execution failed after restart. ${message}`;
+      } else {
+        const source =
+          this.descriptor.type === "user"
+            ? this.descriptor.connector
+            : this.descriptor.type === "system"
+              ? this.descriptor.tag
+              : this.descriptor.type;
+        try {
+          const restored = await rlmRestore(
+            pendingRlm.lastSnapshot,
+            pendingRlm.start,
+            this.agentSystem.toolResolver,
+            this.rlmRestoreContextBuild(source),
+            appendRecord
+          );
+          toolResultText = rlmResultTextBuild(restored);
+          restoreMessage = `RLM execution completed after restart. Output: ${
+            restored.output.length > 0 ? restored.output : "(empty)"
+          }`;
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          await appendRecord(
+            rlmHistoryCompleteErrorRecordBuild(
+              toolCall,
+              message,
+              pendingRlm.lastSnapshot.printOutput,
+              pendingRlm.lastSnapshot.toolCallCount
+            )
+          );
+          toolResultText = rlmErrorTextBuild(error);
+          toolResultIsError = true;
+          restoreMessage = `RLM execution failed after restart. ${message}`;
+        }
+      }
+
+      const result = rlmToolResultBuild(
+        { id: toolCall, name: RLM_TOOL_NAME },
+        toolResultText,
+        toolResultIsError
+      );
+      await appendRecord({
+        type: "tool_result",
+        at: Date.now(),
+        toolCallId: toolCall,
+        output: result
+      });
+      await appendRecord({
+        type: "user_message",
+        at: Date.now(),
+        text: messageBuildSystemText(restoreMessage, "rlm_restore"),
+        files: []
+      });
+      completedToolCalls += 1;
+    }
+
+    if (completedToolCalls > 0) {
+      const history = await agentHistoryLoad(this.agentSystem.config.current, this.id);
+      const historyMessages = await this.buildHistoryContext(history);
+      this.state.context = {
+        messages: agentRestoreContextResolve(this.state.context.messages ?? [], historyMessages)
+      };
+      this.state.updatedAt = Date.now();
+      await agentStateWrite(this.agentSystem.config.current, this.id, this.state);
+      logger.warn(
+        {
+          agentId: this.id,
+          reason,
+          completedToolCalls
+        },
+        "event: Completed pending tool calls in history"
+      );
+    }
+  }
+
+  private rlmRestoreContextBuild(source: string): ToolExecutionContext {
+    return {
+      connectorRegistry: this.agentSystem.connectorRegistry,
+      fileStore: this.agentSystem.fileStore,
+      auth: this.agentSystem.authStore,
+      logger,
+      assistant: this.agentSystem.config.current.settings.assistant ?? null,
+      permissions: this.state.permissions,
+      agent: this,
+      source,
+      messageContext: {},
+      agentSystem: this.agentSystem,
+      heartbeats: this.agentSystem.heartbeats,
+      toolResolver: this.agentSystem.toolResolver,
+      skills: [],
+      permissionRequestRegistry: this.agentSystem.permissionRequestRegistry
+    };
   }
 
   /**
@@ -1027,66 +1144,7 @@ export class Agent {
   private async buildHistoryContext(
     records: AgentHistoryRecord[]
   ): Promise<Context["messages"]> {
-    const messages: Context["messages"] = [];
-    for (const record of records) {
-      if (record.type === "reset" && record.message && record.message.trim().length > 0) {
-        messages.push(buildResetSystemMessage(record.message, record.at, this.id));
-      }
-      if (record.type === "user_message") {
-        const context: MessageContext = {};
-        const message = messageFormatIncoming(
-          {
-            text: record.text,
-            files: record.files.map((file) => ({ ...file }))
-          },
-          context,
-          new Date(record.at)
-        );
-        const userEntry: AgentMessage = {
-          id: createId(),
-          message,
-          context,
-          receivedAt: record.at
-        };
-        messages.push(await messageBuildUser(userEntry));
-      }
-      if (record.type === "assistant_message") {
-        const content: Array<{ type: "text"; text: string } | ToolCall> = [];
-        if (record.text.length > 0) {
-          content.push({ type: "text", text: record.text });
-        }
-        for (const toolCall of record.toolCalls) {
-          content.push(toolCall);
-        }
-        messages.push({
-          role: "assistant",
-          content,
-          api: "history",
-          provider: "history",
-          model: "history",
-          usage: {
-            input: 0,
-            output: 0,
-            cacheRead: 0,
-            cacheWrite: 0,
-            totalTokens: 0,
-            cost: {
-              input: 0,
-              output: 0,
-              cacheRead: 0,
-              cacheWrite: 0,
-              total: 0
-            }
-          },
-          stopReason: "stop",
-          timestamp: record.at
-        });
-      }
-      if (record.type === "tool_result") {
-        messages.push(record.output.toolMessage);
-      }
-    }
-    return messages;
+    return agentHistoryContextBuild(records, this.id);
   }
 
   private async applyCompactionSummary(summaryText: string): Promise<number> {

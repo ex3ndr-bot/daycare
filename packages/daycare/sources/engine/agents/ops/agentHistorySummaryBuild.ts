@@ -71,6 +71,10 @@ function buildEmptyCounts(): AgentHistorySummaryCounts {
     user_message: 0,
     assistant_message: 0,
     tool_result: 0,
+    rlm_start: 0,
+    rlm_tool_call: 0,
+    rlm_tool_result: 0,
+    rlm_complete: 0,
     note: 0
   };
 }

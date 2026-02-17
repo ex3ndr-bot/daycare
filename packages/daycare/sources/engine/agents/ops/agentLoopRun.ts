@@ -376,7 +376,8 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
           heartbeats,
           toolResolver,
           skills: activeSkills,
-          permissionRequestRegistry: agentSystem.permissionRequestRegistry
+          permissionRequestRegistry: agentSystem.permissionRequestRegistry,
+          appendHistoryRecord
         });
         logger.debug(
           `event: Tool execution completed toolName=${toolCall.name} isError=${toolResult.toolMessage.isError} fileCount=${toolResult.files.length}`

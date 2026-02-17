@@ -114,6 +114,31 @@ describe("rlmToolBuild", () => {
     expect(runtimeExecute).toHaveBeenCalledTimes(1);
     expect(fallbackExecute).not.toHaveBeenCalled();
   });
+
+  it("writes checkpoint history through appendHistoryRecord when provided", async () => {
+    const resolver = createResolver(async (name, args) => {
+      if (name !== "echo") {
+        throw new Error(`Unexpected tool ${name}`);
+      }
+      const payload = args as { text: string };
+      return okResult(name, payload.text);
+    });
+    const appendHistoryRecord = vi.fn<[unknown], Promise<void>>(async () => undefined);
+    const tool = rlmToolBuild(resolver);
+
+    const result = await tool.execute(
+      { code: "echo('runtime')" },
+      createContext({ appendHistoryRecord }),
+      { id: "tool-call-history", name: "run_python" }
+    );
+
+    expect(result.toolMessage.isError).toBe(false);
+    expect(appendHistoryRecord).toHaveBeenCalled();
+    const historyTypes = appendHistoryRecord.mock.calls.map(
+      (call) => (call[0] as { type?: string } | undefined)?.type
+    );
+    expect(historyTypes).toContain("rlm_complete");
+  });
 });
 
 function createResolver(

@@ -49,6 +49,45 @@ export type AgentState = {
 
 export type AgentLifecycleState = "active" | "sleeping" | "dead";
 
+export type AgentHistoryRlmStartRecord = {
+  type: "rlm_start";
+  at: number;
+  toolCallId: string;
+  code: string;
+  preamble: string;
+};
+
+export type AgentHistoryRlmToolCallRecord = {
+  type: "rlm_tool_call";
+  at: number;
+  toolCallId: string;
+  snapshot: string;
+  printOutput: string[];
+  toolCallCount: number;
+  toolName: string;
+  toolArgs: unknown;
+};
+
+export type AgentHistoryRlmToolResultRecord = {
+  type: "rlm_tool_result";
+  at: number;
+  toolCallId: string;
+  toolName: string;
+  toolResult: string;
+  toolIsError: boolean;
+};
+
+export type AgentHistoryRlmCompleteRecord = {
+  type: "rlm_complete";
+  at: number;
+  toolCallId: string;
+  output: string;
+  printOutput: string[];
+  toolCallCount: number;
+  isError: boolean;
+  error?: string;
+};
+
 export type AgentHistoryRecord =
   | { type: "start"; at: number }
   | { type: "reset"; at: number; message?: string }
@@ -72,6 +111,10 @@ export type AgentHistoryRecord =
       toolCallId: string;
       output: ToolExecutionResult;
     }
+  | AgentHistoryRlmStartRecord
+  | AgentHistoryRlmToolCallRecord
+  | AgentHistoryRlmToolResultRecord
+  | AgentHistoryRlmCompleteRecord
   | { type: "note"; at: number; text: string };
 
 export type AgentInboxItem =

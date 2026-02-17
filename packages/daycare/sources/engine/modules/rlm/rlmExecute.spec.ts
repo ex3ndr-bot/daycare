@@ -34,7 +34,8 @@ describe("rlmExecute", () => {
       "value = echo('hello')\nvalue",
       rlmPreambleBuild(resolver.listTools()),
       createContext(),
-      resolver
+      resolver,
+      "tool-call-1"
     );
 
     expect(result.output).toBe("hello");
@@ -68,7 +69,8 @@ describe("rlmExecute", () => {
       code,
       rlmPreambleBuild(resolver.listTools()),
       createContext(),
-      resolver
+      resolver,
+      "tool-call-1"
     );
 
     expect(result.output).toBe("echo:echo:one");
@@ -84,7 +86,8 @@ describe("rlmExecute", () => {
       "print('hello', 'world')\n'done'",
       rlmPreambleBuild(resolver.listTools()),
       createContext(),
-      resolver
+      resolver,
+      "tool-call-1"
     );
 
     expect(result.output).toBe("done");
@@ -106,11 +109,36 @@ describe("rlmExecute", () => {
       "value = echo('hello')\nvalue",
       rlmPreambleBuild(resolver.listTools()),
       createContext(),
-      resolver
+      resolver,
+      "tool-call-1"
     );
 
     expect(loadSpy).toHaveBeenCalledTimes(1);
     loadSpy.mockRestore();
+  });
+
+  it("emits checkpoint records through history callback", async () => {
+    const resolver = createResolver(async (name, args) => {
+      if (name !== "echo") {
+        throw new Error(`Unexpected tool ${name}`);
+      }
+      const payload = args as { text: string };
+      return okResult(name, payload.text);
+    });
+    const records: string[] = [];
+
+    await rlmExecute(
+      "value = echo('hello')\nvalue",
+      rlmPreambleBuild(resolver.listTools()),
+      createContext(),
+      resolver,
+      "outer-run-python",
+      async (record) => {
+        records.push(record.type);
+      }
+    );
+
+    expect(records).toEqual(["rlm_start", "rlm_tool_call", "rlm_tool_result", "rlm_complete"]);
   });
 });
 

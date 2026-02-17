@@ -203,6 +203,39 @@ describe("agentLoopRun", () => {
     expect(appended).toEqual(["assistant_message", "tool_result", "tool_result"]);
   });
 
+  it("passes appendHistoryRecord through tool execution context", async () => {
+    const appendHistoryRecord = vi.fn(async () => undefined);
+    const connector = connectorBuild(vi.fn(async () => undefined));
+    const entry = entryBuild();
+    const context = contextBuild();
+    const inferenceRouter = inferenceRouterBuild([
+      assistantMessageBuild([toolCallBuild("call-1", "read_file", { path: "x" })]),
+      assistantMessageBuild([])
+    ]);
+    const execute = vi.fn(async () => toolResultTextBuild("call-1", "read_file", "ok"));
+    const toolResolver = {
+      listTools: () => [],
+      execute
+    } as unknown as ToolResolverApi;
+
+    await agentLoopRun(
+      optionsBuild({
+        entry,
+        context,
+        connector,
+        inferenceRouter,
+        toolResolver,
+        appendHistoryRecord
+      })
+    );
+
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ appendHistoryRecord })
+    );
+  });
+
   it("uses persisted inference session id for inference calls", async () => {
     const connector = connectorBuild(vi.fn(async () => undefined));
     const entry = entryBuild();

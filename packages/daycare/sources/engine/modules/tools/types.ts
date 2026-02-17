@@ -2,6 +2,7 @@ import type { Tool, ToolResultMessage } from "@mariozechner/pi-ai";
 import type { TSchema } from "@sinclair/typebox";
 
 import type { FileReference, MessageContext } from "@/types";
+import type { AgentHistoryRecord } from "../../agents/ops/agentTypes.js";
 import type { ConnectorRegistry } from "../connectorRegistry.js";
 import type { FileStore } from "../../../files/store.js";
 import type { Agent } from "../../agents/agent.js";
@@ -30,6 +31,7 @@ export type ToolExecutionContext<State = Record<string, unknown>> = {
   toolResolver?: ToolResolverApi;
   skills?: AgentSkill[];
   permissionRequestRegistry?: PermissionRequestRegistry;
+  appendHistoryRecord?: (record: AgentHistoryRecord) => Promise<void>;
 };
 
 export type ToolExecutionResult = {

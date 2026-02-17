@@ -88,6 +88,49 @@ const historyRecordSchema = z.discriminatedUnion("type", [
     .strict(),
   z
     .object({
+      type: z.literal("rlm_start"),
+      at: z.number().int(),
+      toolCallId: z.string().min(1),
+      code: z.string(),
+      preamble: z.string()
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("rlm_tool_call"),
+      at: z.number().int(),
+      toolCallId: z.string().min(1),
+      snapshot: z.string().min(1),
+      printOutput: z.array(z.string()),
+      toolCallCount: z.number().int().nonnegative(),
+      toolName: z.string().min(1),
+      toolArgs: z.unknown()
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("rlm_tool_result"),
+      at: z.number().int(),
+      toolCallId: z.string().min(1),
+      toolName: z.string().min(1),
+      toolResult: z.string(),
+      toolIsError: z.boolean()
+    })
+    .strict(),
+  z
+    .object({
+      type: z.literal("rlm_complete"),
+      at: z.number().int(),
+      toolCallId: z.string().min(1),
+      output: z.string(),
+      printOutput: z.array(z.string()),
+      toolCallCount: z.number().int().nonnegative(),
+      isError: z.boolean(),
+      error: z.string().optional()
+    })
+    .strict(),
+  z
+    .object({
       type: z.literal("note"),
       at: z.number().int(),
       text: z.string()

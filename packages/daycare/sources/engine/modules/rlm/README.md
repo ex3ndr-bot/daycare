@@ -61,3 +61,21 @@ inside the external Daycare tool does not count against the 30-second budget.
 - `MontyRuntimeError`: returned as tool error with traceback output
 - Tool execution errors: resumed into Python as `ToolError`, so user code can catch them via
   `try/except ToolError`
+
+## Checkpointing and Restore
+
+RLM now persists execution checkpoints into agent history:
+
+- `rlm_start`: run metadata (`toolCallId`, code, preamble)
+- `rlm_tool_call`: snapshot before each inner tool call
+- `rlm_tool_result`: inner tool result after each call
+- `rlm_complete`: terminal execution record (success or error)
+
+On process restart, incomplete RLM runs are detected and resumed from the latest
+`rlm_tool_call.snapshot`. The first resumed frame receives a runtime exception with
+message `Process was restarted`, so Python can catch `ToolError` or fail normally.
+
+Recovery appends:
+
+- synthetic outer `tool_result` for the original `run_python` call
+- synthetic user-side system message with `origin="rlm_restore"`

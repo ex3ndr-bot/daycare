@@ -228,6 +228,18 @@ function recordSummaryLineBuild(record: AgentHistoryRecord): string {
   if (record.type === "note") {
     return `${prefix} note text="${singleLine(stringTruncate(record.text, 400))}"`;
   }
+  if (record.type === "rlm_start") {
+    return `${prefix} rlm_start toolCallId=${record.toolCallId} code="${singleLine(stringTruncate(record.code, 400))}"`;
+  }
+  if (record.type === "rlm_tool_call") {
+    return `${prefix} rlm_tool_call toolCallId=${record.toolCallId} toolName=${record.toolName}`;
+  }
+  if (record.type === "rlm_tool_result") {
+    return `${prefix} rlm_tool_result toolCallId=${record.toolCallId} toolName=${record.toolName} isError=${record.toolIsError}`;
+  }
+  if (record.type === "rlm_complete") {
+    return `${prefix} rlm_complete toolCallId=${record.toolCallId} isError=${record.isError} toolCalls=${record.toolCallCount}`;
+  }
   return `${prefix} tool_result toolCallId=${record.toolCallId} ${singleLine(toolResultFormatVerbose(record.output))}`;
 }
 

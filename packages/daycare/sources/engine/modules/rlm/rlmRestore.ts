@@ -1,60 +1,42 @@
-import { Monty, MontyComplete, MontySnapshot } from "@pydantic/monty";
+import { MontyComplete, MontySnapshot } from "@pydantic/monty";
 import { createId } from "@paralleldrive/cuid2";
 
-import type { AgentHistoryRecord, ToolExecutionContext } from "@/types";
+import type {
+  AgentHistoryRlmStartRecord,
+  AgentHistoryRlmToolCallRecord,
+  ToolExecutionContext
+} from "@/types";
 import type { ToolResolverApi } from "../toolResolver.js";
 import { rlmArgsConvert, rlmResultConvert } from "./rlmConvert.js";
 import { RLM_PRINT_FUNCTION_NAME, RLM_TOOL_NAME } from "./rlmConstants.js";
+import type { RlmExecuteResult, RlmHistoryCallback } from "./rlmExecute.js";
 
-const RLM_LIMITS = {
-  maxDurationSecs: 30,
-  maxMemory: 50 * 1024 * 1024,
-  maxRecursionDepth: 100,
-  maxAllocations: 1_000_000
-};
-
-export type RlmExecuteResult = {
-  output: string;
-  printOutput: string[];
-  toolCallCount: number;
-};
-
-export type RlmHistoryCallback = (record: AgentHistoryRecord) => Promise<void>;
+const RLM_RESTART_MESSAGE = "Process was restarted";
 
 /**
- * Executes Monty Python code by routing external function calls into ToolResolver.
- * Expects: preamble matches the currently available tool names.
+ * Restores RLM execution from a persisted tool-call snapshot and continues execution.
+ * Expects: snapshot is captured from `rlm_tool_call` immediately before an inner tool call.
  */
-export async function rlmExecute(
-  code: string,
-  preamble: string,
-  context: ToolExecutionContext,
+export async function rlmRestore(
+  lastToolCall: AgentHistoryRlmToolCallRecord,
+  startRecord: AgentHistoryRlmStartRecord,
   toolResolver: ToolResolverApi,
-  toolCallId: string,
+  context: ToolExecutionContext,
   historyCallback?: RlmHistoryCallback
 ): Promise<RlmExecuteResult> {
   const availableTools = toolResolver
     .listTools()
     .filter((tool) => tool.name !== RLM_TOOL_NAME);
   const toolByName = new Map(availableTools.map((tool) => [tool.name, tool]));
-  const externalFunctions = [...toolByName.keys(), RLM_PRINT_FUNCTION_NAME];
-  const rewrittenCode = printCallsRewrite(code);
-  const script = [preamble.trim(), rewrittenCode].filter((chunk) => chunk.length > 0).join("\n\n");
-  await historyCallback?.({
-    type: "rlm_start",
-    at: Date.now(),
-    toolCallId,
-    code,
-    preamble
+  const printOutput = [...lastToolCall.printOutput];
+  let toolCallCount = lastToolCall.toolCallCount;
+  const restored = MontySnapshot.load(Buffer.from(lastToolCall.snapshot, "base64"));
+  let progress: MontySnapshot | MontyComplete = restored.resume({
+    exception: {
+      type: "RuntimeError",
+      message: RLM_RESTART_MESSAGE
+    }
   });
-  const monty = new Monty(script, {
-    scriptName: "run_python.py",
-    externalFunctions
-  });
-
-  const printOutput: string[] = [];
-  let toolCallCount = 0;
-  let progress: MontySnapshot | MontyComplete = monty.start({ limits: RLM_LIMITS });
 
   while (progress instanceof MontySnapshot) {
     if (progress.functionName === RLM_PRINT_FUNCTION_NAME) {
@@ -88,7 +70,7 @@ export async function rlmExecute(
     await historyCallback?.({
       type: "rlm_tool_call",
       at,
-      toolCallId,
+      toolCallId: startRecord.toolCallId,
       snapshot: snapshotEncode(snapshotDump),
       printOutput: [...printOutput],
       toolCallCount,
@@ -146,13 +128,11 @@ export async function rlmExecute(
     await historyCallback?.({
       type: "rlm_tool_result",
       at: Date.now(),
-      toolCallId,
+      toolCallId: startRecord.toolCallId,
       toolName: tool.name,
       toolResult: toolResultText,
       toolIsError
     });
-
-    // Reload snapshot before resume so maxDurationSecs applies to active interpreter work only.
     progress = snapshotResumeWithDurationReset(snapshotDump, resumeOptions);
   }
 
@@ -164,7 +144,7 @@ export async function rlmExecute(
   await historyCallback?.({
     type: "rlm_complete",
     at: Date.now(),
-    toolCallId,
+    toolCallId: startRecord.toolCallId,
     output: result.output,
     printOutput: [...result.printOutput],
     toolCallCount: result.toolCallCount,
@@ -185,10 +165,6 @@ function snapshotResumeWithDurationReset(
 
 function snapshotEncode(snapshotDump: Uint8Array): string {
   return Buffer.from(snapshotDump).toString("base64");
-}
-
-function printCallsRewrite(code: string): string {
-  return code.replace(/(^|[^A-Za-z0-9_])print\s*\(/gm, `$1${RLM_PRINT_FUNCTION_NAME}(`);
 }
 
 function printLineBuild(args: unknown[]): string {
