@@ -27,6 +27,7 @@
 - Keep files concise; extract helpers instead of "V2" copies.
 - Aim to keep files under ~700 LOC; guideline only (not a hard guardrail). Split/refactor when it improves clarity or testability.
 - Naming: use **Daycare** for product/app/docs headings; use `daycare` for CLI command, package/binary, paths, and config keys.
+- Function naming: do not use the `Build` suffix. Prefer direct names such as `contextForAgent` (not `contextForAgentBuild`).
 - Use `@/types` for shared types whenever available instead of deep module imports.
 
 ## Logging
@@ -296,7 +297,7 @@ engine/
     permissionTypes.ts         # types can share a file
   agents/
     agentNormalize.ts
-    agentDescriptorBuild.ts
+    agentDescriptorTargetResolve.ts
     agentKeyBuild.ts
   messages/
     messageBuildUser.ts

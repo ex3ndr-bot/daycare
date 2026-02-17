@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import type { Config } from "@/types";
 import type { AgentState } from "./agentTypes.js";
-import { agentPathBuild } from "./agentPathBuild.js";
+import { agentPath } from "./agentPath.js";
 
 const permissionsSchema = z
   .object({
@@ -65,7 +65,7 @@ const agentStateSchema = z
  * Expects: state.json exists and contains JSON data.
  */
 export async function agentStateRead(config: Config, agentId: string): Promise<AgentState | null> {
-  const basePath = agentPathBuild(config, agentId);
+  const basePath = agentPath(config, agentId);
   const filePath = path.join(basePath, "state.json");
   let raw = "";
   try {

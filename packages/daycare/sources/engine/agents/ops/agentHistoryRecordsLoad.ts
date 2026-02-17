@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import type { Config } from "@/types";
 import type { AgentHistoryRecord } from "./agentTypes.js";
-import { agentPathBuild } from "./agentPathBuild.js";
+import { agentPath } from "./agentPath.js";
 
 const fileReferenceSchema = z
   .object({
@@ -146,7 +146,7 @@ export async function agentHistoryRecordsLoad(
   config: Config,
   agentId: string
 ): Promise<AgentHistoryRecord[]> {
-  const basePath = agentPathBuild(config, agentId);
+  const basePath = agentPath(config, agentId);
   const filePath = path.join(basePath, "history.jsonl");
   try {
     await fs.access(filePath);

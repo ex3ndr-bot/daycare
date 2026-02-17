@@ -3,7 +3,7 @@ import path from "node:path";
 
 import type { Config } from "@/types";
 import type { AgentState } from "./agentTypes.js";
-import { agentPathBuild } from "./agentPathBuild.js";
+import { agentPath } from "./agentPath.js";
 import { atomicWrite } from "../../../util/atomicWrite.js";
 
 /**
@@ -15,7 +15,7 @@ export async function agentStateWrite(
   agentId: string,
   state: AgentState
 ): Promise<void> {
-  const basePath = agentPathBuild(config, agentId);
+  const basePath = agentPath(config, agentId);
   await fs.mkdir(basePath, { recursive: true });
   const filePath = path.join(basePath, "state.json");
   const payload = `${JSON.stringify(

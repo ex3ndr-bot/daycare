@@ -3,7 +3,7 @@ import path from "node:path";
 
 import type { Config } from "@/types";
 import { atomicWrite } from "../../../util/atomicWrite.js";
-import { agentPathBuild } from "./agentPathBuild.js";
+import { agentPath } from "./agentPath.js";
 
 const systemPromptCache = new Map<string, string>();
 
@@ -20,7 +20,7 @@ export async function agentSystemPromptWrite(
     return false;
   }
 
-  const basePath = agentPathBuild(config, sessionId);
+  const basePath = agentPath(config, sessionId);
   await fs.mkdir(basePath, { recursive: true });
   const filePath = path.join(basePath, "SYSTEM.md");
   const payload = prompt.endsWith("\n") ? prompt : `${prompt}\n`;

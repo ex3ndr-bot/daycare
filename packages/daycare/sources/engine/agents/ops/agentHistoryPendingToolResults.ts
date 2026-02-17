@@ -13,7 +13,7 @@ type PendingToolCall = {
  * Builds synthetic tool_result records for unfinished tool calls.
  * Expects: records are ordered chronologically from oldest to newest.
  */
-export function agentHistoryPendingToolResultsBuild(
+export function agentHistoryPendingToolResults(
   records: AgentHistoryRecord[],
   reason: AgentHistoryPendingReason,
   at: number

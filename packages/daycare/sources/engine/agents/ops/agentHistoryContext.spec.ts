@@ -2,9 +2,9 @@ import type { ToolCall } from "@mariozechner/pi-ai";
 import { describe, expect, it } from "vitest";
 
 import type { AgentHistoryRecord } from "@/types";
-import { agentHistoryContextBuild } from "./agentHistoryContextBuild.js";
+import { agentHistoryContext } from "./agentHistoryContext.js";
 
-describe("agentHistoryContextBuild", () => {
+describe("agentHistoryContext", () => {
   it("skips RLM checkpoint records while rebuilding context messages", async () => {
     const toolCall: ToolCall = {
       type: "toolCall",
@@ -75,7 +75,7 @@ describe("agentHistoryContextBuild", () => {
       }
     ];
 
-    const messages = await agentHistoryContextBuild(records, "agent-1");
+    const messages = await agentHistoryContext(records, "agent-1");
 
     expect(messages).toHaveLength(4);
     expect(messages[1]?.role).toBe("user");

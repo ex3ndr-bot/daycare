@@ -3,7 +3,7 @@ import path from "node:path";
 
 import type { Config } from "@/types";
 import type { AgentHistoryRecord } from "./agentTypes.js";
-import { agentPathBuild } from "./agentPathBuild.js";
+import { agentPath } from "./agentPath.js";
 
 /**
  * Appends a history record to the agent history log.
@@ -14,7 +14,7 @@ export async function agentHistoryAppend(
   agentId: string,
   record: AgentHistoryRecord
 ): Promise<void> {
-  const basePath = agentPathBuild(config, agentId);
+  const basePath = agentPath(config, agentId);
   await fs.mkdir(basePath, { recursive: true });
   const filePath = path.join(basePath, "history.jsonl");
   const line = `${JSON.stringify(record)}\n`;

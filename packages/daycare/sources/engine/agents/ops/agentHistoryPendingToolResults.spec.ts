@@ -2,9 +2,9 @@ import type { ToolCall } from "@mariozechner/pi-ai";
 import { describe, expect, it } from "vitest";
 
 import type { AgentHistoryRecord } from "@/types";
-import { agentHistoryPendingToolResultsBuild } from "./agentHistoryPendingToolResultsBuild.js";
+import { agentHistoryPendingToolResults } from "./agentHistoryPendingToolResults.js";
 
-describe("agentHistoryPendingToolResultsBuild", () => {
+describe("agentHistoryPendingToolResults", () => {
   it("builds completion records for unfinished calls on session crash", () => {
     const records: AgentHistoryRecord[] = [
       assistantRecordBuild(10, [
@@ -14,7 +14,7 @@ describe("agentHistoryPendingToolResultsBuild", () => {
       toolResultRecordBuild(11, "tool-1", "read_file")
     ];
 
-    const completion = agentHistoryPendingToolResultsBuild(records, "session_crashed", 50);
+    const completion = agentHistoryPendingToolResults(records, "session_crashed", 50);
 
     expect(completion).toHaveLength(1);
     expect(completion[0]).toEqual(
@@ -27,7 +27,7 @@ describe("agentHistoryPendingToolResultsBuild", () => {
       assistantRecordBuild(10, [toolCallBuild("tool-9", "run_task")])
     ];
 
-    const completion = agentHistoryPendingToolResultsBuild(records, "user_aborted", 70);
+    const completion = agentHistoryPendingToolResults(records, "user_aborted", 70);
 
     expect(completion).toHaveLength(1);
     expect(completion[0]).toEqual(
@@ -41,7 +41,7 @@ describe("agentHistoryPendingToolResultsBuild", () => {
       toolResultRecordBuild(11, "tool-1", "read_file")
     ];
 
-    const completion = agentHistoryPendingToolResultsBuild(records, "session_crashed", 90);
+    const completion = agentHistoryPendingToolResults(records, "session_crashed", 90);
 
     expect(completion).toEqual([]);
   });

@@ -1,5 +1,5 @@
 import type { AgentDescriptor, ConnectorMessage, MessageContext } from "@/types";
-import { agentPathForDescriptor } from "../agents/ops/agentPathForDescriptor.js";
+import { agentDescriptorCacheKey } from "../agents/ops/agentDescriptorCacheKey.js";
 
 export type IncomingMessageInput = {
   descriptor: AgentDescriptor;
@@ -118,20 +118,7 @@ function batchBuild(inputs: IncomingMessageInput[]): IncomingMessageBatch[] {
 }
 
 function batchKeyBuild(descriptor: AgentDescriptor): string {
-  const path = agentPathForDescriptor(descriptor);
-  if (path) {
-    return path;
-  }
-  if (descriptor.type === "subagent") {
-    return `/subagent/${descriptor.id}`;
-  }
-  if (descriptor.type === "app") {
-    return `/app/${descriptor.id}`;
-  }
-  if (descriptor.type === "permanent") {
-    return `/permanent/${descriptor.id}`;
-  }
-  return JSON.stringify(descriptor);
+  return agentDescriptorCacheKey(descriptor);
 }
 
 function connectorMessageMerge(left: ConnectorMessage, right: ConnectorMessage): ConnectorMessage {

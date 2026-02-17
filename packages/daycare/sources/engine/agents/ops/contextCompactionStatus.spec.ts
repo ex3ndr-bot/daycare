@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { contextCompactionStatusBuild } from "./contextCompactionStatusBuild.js";
+import { contextCompactionStatus } from "./contextCompactionStatus.js";
 import type { AgentHistoryRecord } from "./agentTypes.js";
 
 function buildHistory(textLength: number): AgentHistoryRecord[] {
@@ -14,27 +14,27 @@ function buildHistory(textLength: number): AgentHistoryRecord[] {
   ];
 }
 
-describe("contextCompactionStatusBuild", () => {
+describe("contextCompactionStatus", () => {
   it("returns ok when under warning threshold", () => {
     const history = buildHistory(200); // 50 tokens
-    const status = contextCompactionStatusBuild(history, 100);
+    const status = contextCompactionStatus(history, 100);
     expect(status.estimatedTokens).toBe(50);
     expect(status.severity).toBe("ok");
   });
 
   it("returns warning and critical at thresholds", () => {
     const warningHistory = buildHistory(300); // 75 tokens
-    const warningStatus = contextCompactionStatusBuild(warningHistory, 100);
+    const warningStatus = contextCompactionStatus(warningHistory, 100);
     expect(warningStatus.severity).toBe("warning");
 
     const criticalHistory = buildHistory(360); // 90 tokens
-    const criticalStatus = contextCompactionStatusBuild(criticalHistory, 100);
+    const criticalStatus = contextCompactionStatus(criticalHistory, 100);
     expect(criticalStatus.severity).toBe("critical");
   });
 
   it("includes heuristic extras in the estimate", () => {
     const history = buildHistory(0);
-    const status = contextCompactionStatusBuild(history, 100, {
+    const status = contextCompactionStatus(history, 100, {
       extras: { systemPrompt: "x".repeat(48) }
     });
     expect(status.estimatedTokens).toBe(12);

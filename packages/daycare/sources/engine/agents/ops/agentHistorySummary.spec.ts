@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
 
-import { agentHistorySummaryBuild } from "./agentHistorySummaryBuild.js";
+import { agentHistorySummary } from "./agentHistorySummary.js";
 import type { AgentHistoryRecord } from "@/types";
 
 function buildRecord(record: AgentHistoryRecord): AgentHistoryRecord {
   return record;
 }
 
-describe("agentHistorySummaryBuild", () => {
+describe("agentHistorySummary", () => {
   it("returns zeroed summary for empty history", () => {
-    const summary = agentHistorySummaryBuild([]);
+    const summary = agentHistorySummary([]);
 
     expect(summary.recordCount).toBe(0);
     expect(summary.firstAt).toBeNull();
@@ -58,7 +58,7 @@ describe("agentHistorySummaryBuild", () => {
       buildRecord({ type: "note", at: 140, text: "done" })
     ];
 
-    const summary = agentHistorySummaryBuild(records);
+    const summary = agentHistorySummary(records);
 
     expect(summary.recordCount).toBe(5);
     expect(summary.firstAt).toBe(100);

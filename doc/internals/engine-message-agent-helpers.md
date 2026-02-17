@@ -14,7 +14,7 @@ flowchart TD
   Engine --> MsgIsSystem[messageIsSystemText.ts]
   Engine --> MsgUserFacing[messageBuildUserFacing.ts]
   Engine --> MsgIsUserFacing[messageIsUserFacing.ts]
-  Engine --> AgentBuild[agentDescriptorBuild.ts]
+  Engine --> AgentTypes[agentDescriptorTypes.ts]
   Engine --> AgentKey[agentKeyBuild.ts]
   Engine --> AgentTarget[agentDescriptorTargetResolve.ts]
   Engine --> AgentCron[agentDescriptorIsCron.ts]

@@ -18,7 +18,7 @@ type AgentHistorySummary = {
  * Builds compact summary metadata from agent history records.
  * Expects: records are in chronological order from oldest to newest.
  */
-export function agentHistorySummaryBuild(records: AgentHistoryRecord[]): AgentHistorySummary {
+export function agentHistorySummary(records: AgentHistoryRecord[]): AgentHistorySummary {
   const counts = buildEmptyCounts();
   let firstAt: number | null = null;
   let lastAt: number | null = null;

@@ -10,7 +10,7 @@ import { messageFormatIncoming } from "../../messages/messageFormatIncoming.js";
  * Rebuilds conversation context messages from persisted history records.
  * Expects: records are in chronological order and belong to one agent.
  */
-export async function agentHistoryContextBuild(
+export async function agentHistoryContext(
   records: AgentHistoryRecord[],
   agentId: string
 ): Promise<Context["messages"]> {

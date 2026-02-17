@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { agentPermanentPromptBuild } from "./agentPermanentPromptBuild.js";
+import { agentPermanentPrompt } from "./agentPermanentPrompt.js";
 
 const baseAgent = {
   type: "permanent" as const,
@@ -10,13 +10,13 @@ const baseAgent = {
   description: ""
 };
 
-describe("agentPermanentPromptBuild", () => {
+describe("agentPermanentPrompt", () => {
   it("returns empty string when no agents are provided", () => {
-    expect(agentPermanentPromptBuild([])).toBe("");
+    expect(agentPermanentPrompt([])).toBe("");
   });
 
   it("formats and sorts permanent agents", () => {
-    const result = agentPermanentPromptBuild([
+    const result = agentPermanentPrompt([
       {
         agentId: "b-id",
         descriptor: {

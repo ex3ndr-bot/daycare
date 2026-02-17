@@ -1,10 +1,8 @@
 import { promises as fs } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 
 import type { Context } from "@mariozechner/pi-ai";
 import { createId } from "@paralleldrive/cuid2";
-import Handlebars from "handlebars";
 
 import { getLogger } from "../../log.js";
 import {
@@ -16,9 +14,9 @@ import {
 } from "../../paths.js";
 import { listActiveInferenceProviders } from "../../providers/catalog.js";
 import { cuid2Is } from "../../utils/cuid2Is.js";
-import { agentPromptBundledRead } from "./ops/agentPromptBundledRead.js";
 import { agentPromptFilesEnsure } from "./ops/agentPromptFilesEnsure.js";
 import { agentPromptResolve } from "./ops/agentPromptResolve.js";
+import { agentSystemPrompt } from "./ops/agentSystemPrompt.js";
 import type { AgentSkill, MessageContext, ToolExecutionContext } from "@/types";
 import { messageBuildUser } from "../messages/messageBuildUser.js";
 import { messageFormatIncoming } from "../messages/messageFormatIncoming.js";
@@ -26,7 +24,7 @@ import { messageBuildSystemText } from "../messages/messageBuildSystemText.js";
 import { messageBuildSystemSilentText } from "../messages/messageBuildSystemSilentText.js";
 import { messageExtractText } from "../messages/messageExtractText.js";
 import { contextCompact } from "./ops/contextCompact.js";
-import { contextCompactionStatusBuild } from "./ops/contextCompactionStatusBuild.js";
+import { contextCompactionStatus } from "./ops/contextCompactionStatus.js";
 import { contextEstimateTokens } from "./ops/contextEstimateTokens.js";
 import { messageContextReset } from "./ops/messageContextReset.js";
 import { permissionClone } from "../permissions/permissionClone.js";
@@ -38,7 +36,7 @@ import { skillPromptFormat } from "../skills/skillPromptFormat.js";
 import { Skills } from "../skills/skills.js";
 import { toolListContextBuild } from "../modules/tools/toolListContextBuild.js";
 import { agentPermanentList } from "./ops/agentPermanentList.js";
-import { agentPermanentPromptBuild } from "./ops/agentPermanentPromptBuild.js";
+import { agentPermanentPrompt } from "./ops/agentPermanentPrompt.js";
 import { agentDescriptorIsCron } from "./ops/agentDescriptorIsCron.js";
 import { agentDescriptorIsHeartbeat } from "./ops/agentDescriptorIsHeartbeat.js";
 import { agentDescriptorTargetResolve } from "./ops/agentDescriptorTargetResolve.js";
@@ -65,15 +63,16 @@ import { agentStateWrite } from "./ops/agentStateWrite.js";
 import { agentDescriptorWrite } from "./ops/agentDescriptorWrite.js";
 import { agentSystemPromptWrite } from "./ops/agentSystemPromptWrite.js";
 import { agentRestoreContextResolve } from "./ops/agentRestoreContextResolve.js";
-import { agentHistoryContextBuild } from "./ops/agentHistoryContextBuild.js";
+import { agentHistoryContext } from "./ops/agentHistoryContext.js";
 import { agentHistoryPendingRlmResolve } from "./ops/agentHistoryPendingRlmResolve.js";
-import { agentHistoryPendingToolResultsBuild } from "./ops/agentHistoryPendingToolResultsBuild.js";
+import { agentHistoryPendingToolResults } from "./ops/agentHistoryPendingToolResults.js";
 import { agentAppFolderPathResolve } from "./ops/agentAppFolderPathResolve.js";
 import { rlmErrorTextBuild } from "../modules/rlm/rlmErrorTextBuild.js";
 import { rlmHistoryCompleteErrorRecordBuild } from "../modules/rlm/rlmHistoryCompleteErrorRecordBuild.js";
 import { RLM_TOOL_NAME } from "../modules/rlm/rlmConstants.js";
 import { rlmNoToolsModeIs } from "../modules/rlm/rlmNoToolsModeIs.js";
 import { rlmNoToolsPromptBuild } from "../modules/rlm/rlmNoToolsPromptBuild.js";
+import { rlmToolDescriptionBuild } from "../modules/rlm/rlmToolDescriptionBuild.js";
 import { rlmRestore } from "../modules/rlm/rlmRestore.js";
 import { rlmResultTextBuild } from "../modules/rlm/rlmResultTextBuild.js";
 import { rlmToolResultBuild } from "../modules/rlm/rlmToolResultBuild.js";
@@ -382,7 +381,7 @@ export class Agent {
     const availableSkills = await skills.list();
     const skillsPrompt = skillPromptFormat(availableSkills);
     const permanentAgents = await agentPermanentList(this.agentSystem.config.current);
-    const permanentAgentsPrompt = agentPermanentPromptBuild(permanentAgents);
+    const permanentAgentsPrompt = agentPermanentPrompt(permanentAgents);
     const promptResolved = await agentPromptResolve(this.descriptor);
     const agentPrompt = promptResolved.agentPrompt;
     const replaceSystemPrompt = this.descriptor.type === "system"
@@ -412,15 +411,20 @@ export class Agent {
     const providerSettings = providerId
       ? providers.find((provider) => provider.id === providerId)
       : providers[0];
+    const availableTools = toolResolver.listTools();
     const noToolsModeEnabled = rlmNoToolsModeIs(this.agentSystem.config.current.features);
+    const rlmToolDescription =
+      this.agentSystem.config.current.features.rlm && !noToolsModeEnabled
+        ? await rlmToolDescriptionBuild(availableTools)
+        : undefined;
     const noToolsPrompt = noToolsModeEnabled
-      ? rlmNoToolsPromptBuild(toolResolver.listTools(), availableSkills)
+      ? await rlmNoToolsPromptBuild(availableTools)
       : undefined;
 
     logger.debug(`event: handleMessage building system prompt agentId=${this.id}`);
     const appFolderPath = agentAppFolderPathResolve(this.descriptor, this.agentSystem.config.current.workspaceDir);
     const workspacePermissionGranted = permissionWorkspaceGranted(this.state.permissions);
-    const systemPrompt = await this.buildSystemPrompt({
+    const systemPrompt = await agentSystemPrompt({
       provider: providerSettings?.id,
       model: providerSettings?.model,
       workspace: this.state.permissions.workingDir,
@@ -455,7 +459,8 @@ export class Agent {
       parentAgentId: this.descriptor.type === "subagent" || this.descriptor.type === "app"
         ? this.descriptor.parentAgentId ?? ""
         : "",
-      configDir: this.agentSystem.config.current.configDir
+      configDir: this.agentSystem.config.current.configDir,
+      features: this.agentSystem.config.current.features
     });
 
     try {
@@ -468,12 +473,12 @@ export class Agent {
     }
 
     const history = await agentHistoryLoad(this.agentSystem.config.current, this.id);
-    const contextTools = this.listContextTools(toolResolver, source, {
+    const contextTools = await this.listContextTools(toolResolver, source, {
       agentKind,
       allowCronTools,
-      skills: availableSkills
+      rlmToolDescription
     });
-    const compactionStatus = contextCompactionStatusBuild(
+    const compactionStatus = contextCompactionStatus(
       history,
       this.agentSystem.config.current.settings.agents.emergencyContextLimit,
       {
@@ -915,7 +920,7 @@ export class Agent {
     const records = await agentHistoryLoadAll(this.agentSystem.config.current, this.id);
     const pendingRlm = reason === "session_crashed" ? agentHistoryPendingRlmResolve(records) : null;
     const pendingRlmToolCallId = pendingRlm?.start.toolCallId ?? null;
-    const completionRecords = agentHistoryPendingToolResultsBuild(records, reason, Date.now()).filter(
+    const completionRecords = agentHistoryPendingToolResults(records, reason, Date.now()).filter(
       (record) =>
         !(
           pendingRlmToolCallId &&
@@ -1087,23 +1092,30 @@ export class Agent {
     return task?.id ?? null;
   }
 
-  private listContextTools(
+  private async listContextTools(
     toolResolver: ToolResolverApi,
     source?: string,
     options?: {
       agentKind?: "background" | "foreground";
       allowCronTools?: boolean;
-      skills?: AgentSkill[];
+      rlmToolDescription?: string;
     }
-  ) {
+  ): Promise<Context["tools"]> {
+    const tools = toolResolver.listTools();
+    const noToolsModeEnabled = rlmNoToolsModeIs(this.agentSystem.config.current.features);
+    let rlmToolDescription = options?.rlmToolDescription;
+    if (!rlmToolDescription && this.agentSystem.config.current.features.rlm && !noToolsModeEnabled) {
+      rlmToolDescription = await rlmToolDescriptionBuild(tools);
+    }
+
     return toolListContextBuild({
-      tools: toolResolver.listTools(),
-      skills: options?.skills,
+      tools,
       source,
       agentKind: options?.agentKind,
       allowCronTools: options?.allowCronTools,
-      noTools: rlmNoToolsModeIs(this.agentSystem.config.current.features),
+      noTools: noToolsModeEnabled,
       rlm: this.agentSystem.config.current.features.rlm,
+      rlmToolDescription,
       connectorRegistry: this.agentSystem.connectorRegistry,
       imageRegistry: this.agentSystem.imageRegistry
     });
@@ -1152,7 +1164,7 @@ export class Agent {
   private async buildHistoryContext(
     records: AgentHistoryRecord[]
   ): Promise<Context["messages"]> {
-    return agentHistoryContextBuild(records, this.id);
+    return agentHistoryContext(records, this.id);
   }
 
   private async applyCompactionSummary(summaryText: string): Promise<number> {
@@ -1184,200 +1196,10 @@ export class Agent {
     return compactionAt;
   }
 
-  /**
-   * Builds the system prompt text for the current agent.
-   * Expects: prompt templates exist under engine/prompts.
-   */
-  private async buildSystemPrompt(
-    context: AgentSystemPromptContext = {}
-  ): Promise<string> {
-    if (context.replaceSystemPrompt) {
-      const replaced = (context.agentPrompt ?? "").trim();
-      if (!replaced) {
-        throw new Error("System prompt replacement requires a non-empty agent prompt.");
-      }
-      return replaced;
-    }
-
-    const soulPath = context.soulPath ?? DEFAULT_SOUL_PATH;
-    const userPath = context.userPath ?? DEFAULT_USER_PATH;
-    const agentsPath = context.agentsPath ?? DEFAULT_AGENTS_PATH;
-    const toolsPath = context.toolsPath ?? DEFAULT_TOOLS_PATH;
-    const memoryPath = context.memoryPath ?? DEFAULT_MEMORY_PATH;
-    logger.debug(`event: buildSystemPrompt reading soul prompt path=${soulPath}`);
-    const soul = await promptFileRead(soulPath, "SOUL.md");
-    logger.debug(`event: buildSystemPrompt reading user prompt path=${userPath}`);
-    const user = await promptFileRead(userPath, "USER.md");
-    logger.debug(`event: buildSystemPrompt reading agents prompt path=${agentsPath}`);
-    const agents = await promptFileRead(agentsPath, "AGENTS.md");
-    logger.debug(`event: buildSystemPrompt reading tools prompt path=${toolsPath}`);
-    const tools = await promptFileRead(toolsPath, "TOOLS.md");
-    logger.debug(`event: buildSystemPrompt reading memory prompt path=${memoryPath}`);
-    const memory = await promptFileRead(memoryPath, "MEMORY.md");
-    logger.debug("event: buildSystemPrompt reading system template");
-    const systemTemplate = await agentPromptBundledRead("SYSTEM.md");
-    logger.debug("event: buildSystemPrompt reading permissions template");
-    const permissionsTemplate = (await agentPromptBundledRead("PERMISSIONS.md")).trim();
-    logger.debug("event: buildSystemPrompt reading agentic template");
-    const agenticTemplate = (await agentPromptBundledRead("AGENTIC.md")).trim();
-    const additionalWriteDirs = resolveAdditionalWriteDirs(
-      context.writeDirs ?? [],
-      context.workspace ?? "",
-      soulPath,
-      userPath,
-      agentsPath,
-      toolsPath,
-      memoryPath
-    );
-
-    const isForeground = context.agentKind !== "background";
-    const skillsPath =
-      context.skillsPath ?? (context.configDir ? `${context.configDir}/skills` : "");
-
-    // Build shared context for both permissions and main templates
-    const templateContext = {
-      date: new Date().toISOString().split("T")[0],
-      os: `${os.type()} ${os.release()}`,
-      arch: os.arch(),
-      model: context.model ?? "unknown",
-      provider: context.provider ?? "unknown",
-      workspace: context.workspace ?? "unknown",
-      network: context.network ?? false,
-      events: context.events ?? false,
-      connector: context.connector ?? "unknown",
-      canSendFiles: context.canSendFiles ?? false,
-      fileSendModes: context.fileSendModes ?? "",
-      messageFormatPrompt: context.messageFormatPrompt ?? "",
-      channelId: context.channelId ?? "unknown",
-      userId: context.userId ?? "unknown",
-      cronTaskId: context.cronTaskId ?? "",
-      cronTaskName: context.cronTaskName ?? "",
-      cronMemoryPath: context.cronMemoryPath ?? "",
-      cronFilesPath: context.cronFilesPath ?? "",
-      cronTaskIds: context.cronTaskIds ?? "",
-      appFolderPath: context.appFolderPath ?? "",
-      workspacePermissionGranted: context.workspacePermissionGranted ?? false,
-      soulPath,
-      userPath,
-      agentsPath,
-      toolsPath,
-      memoryPath,
-      pluginPrompt: context.pluginPrompt ?? "",
-      skillsPrompt: context.skillsPrompt ?? "",
-      parentAgentId: context.parentAgentId ?? "",
-      configDir: context.configDir ?? "",
-      skillsPath,
-      isForeground,
-      soul,
-      user,
-      agents,
-      tools,
-      memory,
-      additionalWriteDirs,
-      permanentAgentsPrompt: context.permanentAgentsPrompt ?? "",
-      agentPrompt: context.agentPrompt ?? "",
-      noToolsPrompt: context.noToolsPrompt ?? "",
-      features: this.agentSystem.config.current.features
-    };
-
-    // Render permissions template first (it contains Handlebars expressions)
-    logger.debug("event: buildSystemPrompt compiling permissions template");
-    const permissions = Handlebars.compile(permissionsTemplate)(templateContext);
-
-    logger.debug("event: buildSystemPrompt compiling agentic template");
-    const agentic = Handlebars.compile(agenticTemplate)(templateContext);
-
-    logger.debug("event: buildSystemPrompt compiling main template");
-    const template = Handlebars.compile(systemTemplate);
-    logger.debug("event: buildSystemPrompt rendering template");
-    const rendered = template({
-      ...templateContext,
-      permissions,
-      agentic
-    });
-
-    return rendered.trim();
-  }
 }
 
 function isChannelSignalType(type: string): boolean {
   return type.startsWith("channel.") && type.endsWith(":message");
-}
-
-type AgentSystemPromptContext = {
-  model?: string;
-  provider?: string;
-  workspace?: string;
-  writeDirs?: string[];
-  network?: boolean;
-  events?: boolean;
-  connector?: string;
-  canSendFiles?: boolean;
-  fileSendModes?: string;
-  messageFormatPrompt?: string;
-  channelId?: string;
-  userId?: string;
-  cronTaskId?: string;
-  cronTaskName?: string;
-  cronMemoryPath?: string;
-  cronFilesPath?: string;
-  cronTaskIds?: string;
-  appFolderPath?: string;
-  workspacePermissionGranted?: boolean;
-  soulPath?: string;
-  userPath?: string;
-  agentsPath?: string;
-  toolsPath?: string;
-  memoryPath?: string;
-  pluginPrompt?: string;
-  skillsPrompt?: string;
-  permanentAgentsPrompt?: string;
-  agentPrompt?: string;
-  noToolsPrompt?: string;
-  replaceSystemPrompt?: boolean;
-  agentKind?: "background" | "foreground";
-  parentAgentId?: string;
-  configDir?: string;
-  skillsPath?: string;
-};
-
-function resolveAdditionalWriteDirs(
-  writeDirs: string[],
-  workspace: string,
-  soulPath: string,
-  userPath: string,
-  agentsPath: string,
-  toolsPath: string,
-  memoryPath: string
-): string[] {
-  const excluded = new Set(
-    [workspace, soulPath, userPath, agentsPath, toolsPath, memoryPath]
-      .filter((entry) => entry && entry.trim().length > 0)
-      .map((entry) => path.resolve(entry))
-  );
-  const filtered = writeDirs
-    .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
-    .map((entry) => path.resolve(entry))
-    .filter((entry) => !excluded.has(entry));
-  return Array.from(new Set(filtered)).sort();
-}
-
-async function promptFileRead(filePath: string, fallbackPrompt: string): Promise<string> {
-  const resolvedPath = path.resolve(filePath);
-  try {
-    const content = await fs.readFile(resolvedPath, "utf8");
-    const trimmed = content.trim();
-    if (trimmed.length > 0) {
-      return trimmed;
-    }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
-      throw error;
-    }
-  }
-
-  const defaultContent = await agentPromptBundledRead(fallbackPrompt);
-  return defaultContent.trim();
 }
 
 function toFileReferences(files: Array<{ id: string; name: string; path: string; mimeType: string; size: number }>): Array<{ id: string; name: string; path: string; mimeType: string; size: number }> {

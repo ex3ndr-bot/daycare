@@ -1,3 +1,7 @@
+/**
+ * Keep `agentDescriptorCacheKey()` in sync with this union.
+ * Any new descriptor `type` must add a matching cache-key case.
+ */
 export type AgentDescriptor =
   | { type: "user"; connector: string; userId: string; channelId: string }
   | { type: "cron"; id: string; name?: string }

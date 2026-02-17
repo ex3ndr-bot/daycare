@@ -5,7 +5,7 @@ import { z } from "zod";
 
 import type { Config } from "@/types";
 import type { AgentDescriptor } from "./agentDescriptorTypes.js";
-import { agentPathBuild } from "./agentPathBuild.js";
+import { agentPath } from "./agentPath.js";
 
 const descriptorSchema = z.discriminatedUnion("type", [
   z
@@ -68,7 +68,7 @@ export async function agentDescriptorRead(
   config: Config,
   agentId: string
 ): Promise<AgentDescriptor | null> {
-  const basePath = agentPathBuild(config, agentId);
+  const basePath = agentPath(config, agentId);
   const filePath = path.join(basePath, "descriptor.json");
   let raw = "";
   try {

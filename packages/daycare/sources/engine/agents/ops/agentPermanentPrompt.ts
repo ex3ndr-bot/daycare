@@ -5,7 +5,7 @@ import { xmlEscape } from "../../../util/xmlEscape.js";
  * Formats permanent agents into an XML prompt segment for the system prompt.
  * Expects: summaries include non-empty name and systemPrompt strings.
  */
-export function agentPermanentPromptBuild(agents: PermanentAgentSummary[]): string {
+export function agentPermanentPrompt(agents: PermanentAgentSummary[]): string {
   if (agents.length === 0) {
     return "";
   }

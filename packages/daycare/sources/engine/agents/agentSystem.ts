@@ -35,7 +35,7 @@ import type {
 } from "./ops/agentTypes.js";
 import type { AgentDescriptor, AgentFetchStrategy } from "./ops/agentDescriptorTypes.js";
 import { agentDescriptorMatchesStrategy } from "./ops/agentDescriptorMatchesStrategy.js";
-import { agentPathForDescriptor } from "./ops/agentPathForDescriptor.js";
+import { agentDescriptorCacheKey } from "./ops/agentDescriptorCacheKey.js";
 import { agentTimestampGet } from "./ops/agentTimestampGet.js";
 import { agentDescriptorRead } from "./ops/agentDescriptorRead.js";
 import { agentStateRead } from "./ops/agentStateRead.js";
@@ -205,10 +205,8 @@ export class AgentSystem {
             deliverAt: state.updatedAt + AGENT_POISON_PILL_DELAY_MS
           });
         }
-        const key = agentPathForDescriptor(descriptor);
-        if (key) {
-          this.keyMap.set(key, agentId);
-        }
+        const key = agentDescriptorCacheKey(descriptor);
+        this.keyMap.set(key, agentId);
         logger.info({ agentId }, "restore: Agent restore skipped (sleeping)");
         continue;
       }
@@ -531,10 +529,7 @@ export class AgentSystem {
     if ("agentId" in target) {
       return this.entries.get(target.agentId) ?? null;
     }
-    const key = agentPathForDescriptor(target.descriptor);
-    if (!key) {
-      return null;
-    }
+    const key = agentDescriptorCacheKey(target.descriptor);
     const agentId = this.keyMap.get(key);
     if (!agentId) {
       return null;
@@ -562,21 +557,19 @@ export class AgentSystem {
     }
 
     const descriptor = target.descriptor;
-    const key = agentPathForDescriptor(descriptor);
-    if (key) {
-      const agentId = this.keyMap.get(key);
-      if (agentId) {
-        const existing = this.entries.get(agentId);
-        if (existing) {
-          if (existing.agent.state.state === "dead" || existing.terminating) {
-            throw deadErrorBuild(agentId);
-          }
-          return existing;
+    const key = agentDescriptorCacheKey(descriptor);
+    const existingAgentId = this.keyMap.get(key);
+    if (existingAgentId) {
+      const existing = this.entries.get(existingAgentId);
+      if (existing) {
+        if (existing.agent.state.state === "dead" || existing.terminating) {
+          throw deadErrorBuild(existingAgentId);
         }
-        const restored = await this.restoreAgent(agentId, { allowSleeping: true });
-        if (restored) {
-          return restored;
-        }
+        return existing;
+      }
+      const restored = await this.restoreAgent(existingAgentId, { allowSleeping: true });
+      if (restored) {
+        return restored;
       }
     }
 
@@ -630,10 +623,8 @@ export class AgentSystem {
       lock: new AsyncLock()
     };
     this.entries.set(input.agentId, entry);
-    const key = agentPathForDescriptor(input.descriptor);
-    if (key) {
-      this.keyMap.set(key, input.agentId);
-    }
+    const key = agentDescriptorCacheKey(input.descriptor);
+    this.keyMap.set(key, input.agentId);
     return entry;
   }
 
@@ -853,10 +844,8 @@ export class AgentSystem {
     }
     entry.running = false;
     this.entries.delete(entry.agentId);
-    const key = agentPathForDescriptor(entry.descriptor);
-    if (key) {
-      this.keyMap.delete(key);
-    }
+    const key = agentDescriptorCacheKey(entry.descriptor);
+    this.keyMap.delete(key);
     const deadError = deadErrorBuild(entry.agentId);
     for (const queued of pending) {
       queued.completion?.reject(deadError);

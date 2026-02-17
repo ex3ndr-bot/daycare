@@ -26,7 +26,7 @@ export type ContextCompactionStatusOptions = {
  * Evaluates compaction pressure against the emergency context limit.
  * Expects: emergencyLimit is a positive integer.
  */
-export function contextCompactionStatusBuild(
+export function contextCompactionStatus(
   history: AgentHistoryRecord[],
   emergencyLimit: number,
   options: ContextCompactionStatusOptions = {}
