@@ -3,13 +3,13 @@
 
 This mode exposes zero tools to the model.
 To execute Python, write code inside `<run_python>...</run_python>` tags.
-Emit at most one Python block per assistant response.
-For ErrorLine and Line in ErrorLine workflows, write one multi-line script in that block instead of multiple small script runs.
-Do not split one task into multiple separate scripts unless you are reacting to a new `<python_result>`.
-The system executes everything between the first `<run_python>` and last `</run_python>`.
-If you include `<say>` in the same response, all `<say>` blocks must come before `<run_python>`.
-Do not place `<say>` blocks after `<run_python>` in the same response.
-`<say>` blocks before `<run_python>` are delivered immediately. `<say>` blocks after `</run_python>` are delivered only if execution succeeds.
+You may include multiple `<run_python>` blocks in one response.
+Blocks are executed sequentially from top to bottom.
+If one block fails, all remaining `<run_python>` blocks in that response are skipped.
+For ErrorLine and Line in ErrorLine workflows, still prefer one multi-line script when possible.
+If you include `<say>` in the same response, put all `<say>` blocks before the first `<run_python>`.
+Any `<say>` block after the first `<run_python>` is ignored.
+When ignored, the system adds this line in `<python_result>`: `<say> after <run_python> was ignored`.
 No escaping is needed.
 Call functions directly (no `await`).
 Use `try/except ToolError` for tool failures.
@@ -23,6 +23,7 @@ If you already emitted `<say>` before `<run_python>`, do not repeat the same mes
 
 Example:
 ```text
+<say>Starting checks</say>
 <run_python>
 report = tool_errorline_read(file_path="logs/app.log")
 if "ERROR" in report:
@@ -31,6 +32,11 @@ else:
     summary = "No error lines found."
 summary
 </run_python>
+<run_python>
+tool_errorline_store(note=summary)
+"saved"
+</run_python>
+<say>This will be ignored</say>
 ```
 
 Available functions:

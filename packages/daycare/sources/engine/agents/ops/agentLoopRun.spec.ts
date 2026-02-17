@@ -331,6 +331,95 @@ describe("agentLoopRun", () => {
     expect(appendHistoryTypes).toContain("rlm_complete");
   });
 
+  it("executes multiple run_python tags sequentially and stops at the first failure", async () => {
+    const contexts: Context[] = [];
+    const connector = connectorBuild(vi.fn(async () => undefined));
+    const entry = entryBuild();
+    const context = contextBuild();
+    const inferenceRouter = {
+      complete: vi.fn(async (incomingContext: Context) => {
+        contexts.push(structuredClone(incomingContext));
+        if (contexts.length === 1) {
+          return {
+            message: assistantMessageBuild([
+              {
+                type: "text",
+                text: [
+                  "<run_python>echo()</run_python>",
+                  "<run_python>fail()</run_python>",
+                  "<run_python>echo()</run_python>"
+                ].join("")
+              }
+            ]),
+            providerId: "provider-1",
+            modelId: "model-1"
+          };
+        }
+        return {
+          message: assistantMessageBuild([{ type: "text", text: "done" }]),
+          providerId: "provider-1",
+          modelId: "model-1"
+        };
+      })
+    } as unknown as InferenceRouter;
+    const execute = vi.fn(async (toolCall: { id: string; name: string }) => {
+      if (toolCall.name === "echo") {
+        return toolResultTextBuild(toolCall.id, toolCall.name, "ok");
+      }
+      if (toolCall.name === "fail") {
+        throw new Error("boom");
+      }
+      throw new Error(`Unexpected tool: ${toolCall.name}`);
+    });
+    const toolResolver = {
+      listTools: vi.fn(() => [
+        { name: "run_python", description: "", parameters: {} },
+        { name: "echo", description: "", parameters: {} },
+        { name: "fail", description: "", parameters: {} }
+      ]),
+      execute
+    } as unknown as ToolResolverApi;
+
+    await agentLoopRun(
+      optionsBuild({
+        entry,
+        context,
+        connector,
+        inferenceRouter,
+        toolResolver,
+        noTools: true,
+        rlm: true,
+        say: true
+      })
+    );
+
+    expect(inferenceRouter.complete).toHaveBeenCalledTimes(2);
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(execute).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ name: "echo" }),
+      expect.anything()
+    );
+    expect(execute).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ name: "fail" }),
+      expect.anything()
+    );
+    const secondIterationMessages = contexts[1]?.messages ?? [];
+    const pythonResultTexts = secondIterationMessages
+      .filter((message) => message.role === "user")
+      .flatMap((message) => (Array.isArray(message.content) ? message.content : []))
+      .filter(
+        (part): part is { type: "text"; text: string } =>
+          part.type === "text" && typeof part.text === "string" && part.text.includes("<python_result>")
+      )
+      .map((part) => part.text);
+    expect(pythonResultTexts).toHaveLength(2);
+    expect(pythonResultTexts[0]).toContain("Python execution completed.");
+    expect(pythonResultTexts[1]).toContain("Python runtime error.");
+    expect(pythonResultTexts[1]).toContain("ToolError: boom");
+  });
+
   it("suppresses raw run_python text delivery in noTools mode", async () => {
     const connectorSend = vi.fn(async () => undefined);
     const connector = connectorBuild(connectorSend);
@@ -610,7 +699,7 @@ describe("agentLoopRun say tag", () => {
     expect(firstSendOrder).toBeLessThan(firstExecuteOrder);
   });
 
-  it("defers post-run_python <say> tags until execution succeeds", async () => {
+  it("ignores post-run_python <say> tags even when execution succeeds", async () => {
     const connectorSend = vi.fn(async () => undefined);
     const connector = connectorBuild(connectorSend);
     const entry = entryBuild();
@@ -648,32 +737,24 @@ describe("agentLoopRun say tag", () => {
       })
     );
 
-    expect(connectorSend).toHaveBeenCalledTimes(2);
+    expect(connectorSend).toHaveBeenCalledTimes(1);
     expect(connectorSend).toHaveBeenNthCalledWith(1, "channel-1", {
       text: "before",
-      files: undefined,
-      replyToMessageId: undefined
-    });
-    expect(connectorSend).toHaveBeenNthCalledWith(2, "channel-1", {
-      text: "after",
       files: undefined,
       replyToMessageId: undefined
     });
     expect(execute).toHaveBeenCalledTimes(1);
     const beforeOrder = connectorSend.mock.invocationCallOrder[0];
     const executeOrder = execute.mock.invocationCallOrder[0];
-    const afterOrder = connectorSend.mock.invocationCallOrder[1];
     expect(beforeOrder).toBeDefined();
     expect(executeOrder).toBeDefined();
-    expect(afterOrder).toBeDefined();
-    if (beforeOrder === undefined || executeOrder === undefined || afterOrder === undefined) {
+    if (beforeOrder === undefined || executeOrder === undefined) {
       throw new Error("Expected ordered send/execute calls to be recorded.");
     }
     expect(beforeOrder).toBeLessThan(executeOrder);
-    expect(executeOrder).toBeLessThan(afterOrder);
   });
 
-  it("keeps post-run_python <say> in context and prepends undelivered notice on execution failure", async () => {
+  it("keeps post-run_python <say> in context and prepends ignored notice", async () => {
     const connectorSend = vi.fn(async (_targetId: string, _message: unknown) => undefined);
     const connector = connectorBuild(connectorSend);
     const entry = entryBuild();
@@ -749,7 +830,7 @@ describe("agentLoopRun say tag", () => {
           )?.text ?? ""
         : "";
     expect(pythonResultText).toContain(
-      "Notice: 1 <say> block after </run_python> was not delivered because Python execution failed."
+      "<say> after <run_python> was ignored"
     );
 
     const sentTexts = connectorSend.mock.calls.map((call) => {

@@ -3,19 +3,25 @@
 Updated prompt guidance for ErrorLine and Line in ErrorLine to prefer one multiline Python script per task.
 
 ## Summary
-- Added explicit instruction in tool-call mode prompt to keep work in one script.
-- Added explicit instruction in inline tag mode prompt to keep work in one `<run_python>` block.
-- Added examples showing a multiline script pattern with vanilla Python only.
+- Added inline-mode support for multiple `<run_python>` tags per assistant response.
+- Added sequential execution semantics: execute in order and stop at first failed block.
+- Added strict post-`<run_python>` `<say>` suppression with an explicit notice line.
+- Updated inline prompt examples to show multi-tag execution and ignored post-run `<say>`.
 - Clarified that tool calls return plain LLM strings, not structured payloads.
 - Added test assertions so these instructions stay present.
 
 ## Flow
 ```mermaid
 flowchart TD
-  U[User task] --> A[Assistant writes one multiline Python script]
-  A --> B[Single run_python execution]
-  B --> C[python_result returned]
-  C --> D{New info needed?}
-  D -- No --> E[Respond to user]
-  D -- Yes --> F[Run another script based on new result]
+  U[Assistant response] --> A[Collect run_python blocks in order]
+  A --> B[Execute block 1]
+  B --> C{Success?}
+  C -- Yes --> D[Execute next block]
+  C -- No --> E[Skip remaining blocks]
+  D --> F[All blocks done]
+  E --> G[Emit python_result with failure]
+  F --> H[Emit python_result messages]
+  U --> I[Detect say tags after first run_python]
+  I --> J[Ignore those say tags]
+  J --> K[Prefix python_result: say after run_python was ignored]
 ```

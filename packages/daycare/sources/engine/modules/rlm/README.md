@@ -40,6 +40,9 @@ Tag mode:
 - no tools are exposed to inference contexts
 - system prompt includes Python stubs and `<run_python>` usage instructions
 - model execution results are injected back as user messages wrapped in `<python_result>`
+- multiple `<run_python>` blocks in one assistant message execute sequentially
+- first failed `<run_python>` block stops execution of remaining blocks in that same message
+- any `<say>` tags after the first `<run_python>` are ignored
 
 Tag mode is active only when all three are enabled: `noTools`, `rlm`, and `say`.
 
