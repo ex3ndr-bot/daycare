@@ -113,7 +113,7 @@ export async function rlmExecute(
           name: tool.name,
           arguments: parsedArgs as Record<string, unknown>
         },
-        context
+        { ...context, rlmToolOnly: false }
       );
       const value = rlmResultConvert(toolResult);
       toolResultText = valueFormat(value);

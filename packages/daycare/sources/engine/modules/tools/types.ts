@@ -32,6 +32,7 @@ export type ToolExecutionContext<State = Record<string, unknown>> = {
   skills?: AgentSkill[];
   permissionRequestRegistry?: PermissionRequestRegistry;
   appendHistoryRecord?: (record: AgentHistoryRecord) => Promise<void>;
+  rlmToolOnly?: boolean;
 };
 
 export type ToolExecutionResult = {

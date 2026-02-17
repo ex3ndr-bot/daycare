@@ -1,6 +1,6 @@
 # RLM Python Tool Mode
 
-This change adds an engine-level **RLM** mode controlled by the root config key `rlm`.
+This change adds an engine-level **RLM** mode controlled by `features.rlm`.
 When `rlm` is enabled, agent contexts expose only the `run_python` tool while keeping the
 full tool registry available behind the scenes.
 
@@ -8,8 +8,24 @@ full tool registry available behind the scenes.
 
 - `rlm: false` (default): classic tool exposure/filtering behavior remains unchanged.
 - `rlm: true`: `toolListContextBuild()` returns only `run_python`.
+- `rlm: true`: direct non-`run_python` tool calls from model/tool mode are rejected with
+  `RLM mode only allows calling "run_python".`
 - `run_python` executes Monty Python code and routes external function calls to `ToolResolver.execute()`.
 - Python tool stubs are generated from currently registered tools and embedded in `run_python` description.
+
+## Guardrail Flow
+
+```mermaid
+flowchart TD
+  A[Model emits tool call] --> B{features.rlm?}
+  B -->|no| C[Execute requested tool]
+  B -->|yes| D{tool name == run_python?}
+  D -->|yes| E[Execute run_python]
+  D -->|no| F[Throw guard error]
+  F --> G[tool_result error: only run_python allowed]
+  E --> H[Monty dispatches inner tools]
+  H --> I[Inner calls bypass outer guard]
+```
 
 ## Data Flow
 

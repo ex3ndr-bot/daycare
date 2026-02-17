@@ -377,7 +377,8 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
           toolResolver,
           skills: activeSkills,
           permissionRequestRegistry: agentSystem.permissionRequestRegistry,
-          appendHistoryRecord
+          appendHistoryRecord,
+          rlmToolOnly: agentSystem.config.current.features.rlm
         });
         logger.debug(
           `event: Tool execution completed toolName=${toolCall.name} isError=${toolResult.toolMessage.isError} fileCount=${toolResult.files.length}`

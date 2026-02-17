@@ -4,6 +4,7 @@ import { validateToolCall } from "@mariozechner/pi-ai";
 import { getLogger } from "../../log.js";
 import type { ToolDefinition, ToolExecutionContext, ToolExecutionResult } from "@/types";
 import { toolResultTruncate } from "./tools/toolResultTruncate.js";
+import { RLM_TOOL_NAME } from "./rlm/rlmConstants.js";
 
 type RegisteredTool = ToolDefinition & { pluginId: string };
 
@@ -56,6 +57,9 @@ export class ToolResolver {
     }
 
     try {
+      if (context.rlmToolOnly && toolCall.name !== RLM_TOOL_NAME) {
+        throw new Error(`RLM mode only allows calling "${RLM_TOOL_NAME}".`);
+      }
       logger.debug(`event: Validating tool call arguments toolName=${toolCall.name}`);
       const args = validateToolCall([entry.tool], toolCall);
       logger.debug(`execute: Arguments validated, executing tool toolName=${toolCall.name}`);

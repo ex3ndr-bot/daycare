@@ -225,14 +225,15 @@ describe("agentLoopRun", () => {
         connector,
         inferenceRouter,
         toolResolver,
-        appendHistoryRecord
+        appendHistoryRecord,
+        rlm: true
       })
     );
 
     expect(execute).toHaveBeenCalledTimes(1);
     expect(execute).toHaveBeenCalledWith(
       expect.anything(),
-      expect.objectContaining({ appendHistoryRecord })
+      expect.objectContaining({ appendHistoryRecord, rlmToolOnly: true })
     );
   });
 
