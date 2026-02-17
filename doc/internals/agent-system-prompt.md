@@ -30,6 +30,7 @@ Template naming:
 - All other section templates use the `SYSTEM_*.md` prefix.
 - Topology section template is `SYSTEM_TOPOLOGY.md`.
 - Topology rendering no longer injects `cronTaskIds`; current cron state is expected to be read via the `topology` tool.
+- In `SYSTEM_SKILLS.md`, both `skillsPrompt` and `pluginPrompt` are appended as raw rendered blocks (no injected `## Plugin Context` header).
 
 ```mermaid
 flowchart LR

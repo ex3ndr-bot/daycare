@@ -10,8 +10,5 @@ Invoke skills via the `skill` tool. Do not read `SKILL.md` files directly.
 {{/if}}
 
 {{#if pluginPrompt}}
-
-## Plugin Context
-
 {{{pluginPrompt}}}
 {{/if}}
