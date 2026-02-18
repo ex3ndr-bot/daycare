@@ -26,8 +26,7 @@ describe("rlmNoToolsPromptBuild", () => {
     expect(prompt).not.toContain("Available skills");
     expect(prompt).toContain("<python_result>...</python_result>");
     expect(prompt).toContain("do not use `print()` for the final return value");
-    expect(prompt).toContain("emit `<say>` only if you have new user-facing information");
-    expect(prompt).toContain("do not repeat the same message");
+    expect(prompt).toContain("you MUST emit `<say>` with your response");
     expect(prompt.indexOf("Call functions directly (no `await`).")).toBeLessThan(
       prompt.indexOf("Available functions:")
     );
@@ -43,7 +42,7 @@ describe("rlmNoToolsPromptBuild", () => {
     const prompt = await rlmNoToolsPromptBuild(tools, { isForeground: false });
 
     expect(prompt).not.toContain("If you include `<say>` in the same response");
-    expect(prompt).not.toContain("emit `<say>` only if you have new user-facing information");
+    expect(prompt).not.toContain("you MUST emit `<say>` with your response");
     expect(prompt).not.toContain("<say>Starting checks</say>");
     expect(prompt).toContain("<run_python>...</run_python>");
   });

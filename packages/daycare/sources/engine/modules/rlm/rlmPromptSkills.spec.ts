@@ -88,7 +88,7 @@ describe("system prompt skills rendering", () => {
 
     expect(prompt).toContain("## Python Execution");
     expect(prompt).not.toContain("If you include `<say>` in the same response");
-    expect(prompt).not.toContain("emit `<say>` only if you have new user-facing information");
+    expect(prompt).not.toContain("you MUST emit `<say>` with your response");
   });
 });
 

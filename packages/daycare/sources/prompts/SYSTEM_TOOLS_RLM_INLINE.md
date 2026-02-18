@@ -20,8 +20,7 @@ The value of the final expression is returned.
 Put the value you want to return as the final expression line; do not use `print()` for the final return value.
 Execution results are sent back as user messages wrapped in `<python_result>...</python_result>`.
 {{#if isForeground}}
-After receiving `<python_result>`, emit `<say>` only if you have new user-facing information.
-If you already emitted `<say>` before `<run_python>`, do not repeat the same message.
+After receiving `<python_result>`, you MUST emit `<say>` with your response. Text outside `<say>` tags is never shown to the user. If you do not emit `<say>`, the user sees nothing.
 {{/if}}
 
 Example:
