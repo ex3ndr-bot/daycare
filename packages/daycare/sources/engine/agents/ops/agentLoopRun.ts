@@ -33,6 +33,7 @@ import type { Heartbeats } from "../../heartbeat/heartbeats.js";
 import { tokensResolve } from "./tokensResolve.js";
 import type { Skills } from "../../skills/skills.js";
 import { agentHistoryPendingToolResults } from "./agentHistoryPendingToolResults.js";
+import { agentInferencePromptWrite } from "./agentInferencePromptWrite.js";
 import { agentMessageRunPythonFailureTrim } from "./agentMessageRunPythonFailureTrim.js";
 import { agentMessageRunPythonSayAfterTrim } from "./agentMessageRunPythonSayAfterTrim.js";
 import { tagExtract, tagExtractAll } from "../../../util/tagExtract.js";
@@ -164,9 +165,20 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
       logger.debug(
         `event: Inference loop iteration=${iteration} agentId=${agent.id} messageCount=${context.messages.length}`
       );
+      const inferenceSessionId = agent.state.inferenceSessionId ?? agent.id;
+      try {
+        await agentInferencePromptWrite(agentSystem.config.current, agent.id, {
+          context,
+          sessionId: inferenceSessionId,
+          providersOverride: providersForAgent,
+          iteration
+        });
+      } catch (error) {
+        logger.warn({ agentId: agent.id, error }, "error: Failed to write inference prompt snapshot");
+      }
       response = await inferenceRouter.complete(
         context,
-        agent.state.inferenceSessionId ?? agent.id,
+        inferenceSessionId,
         {
           providersOverride: providersForAgent,
           signal: abortSignal,
