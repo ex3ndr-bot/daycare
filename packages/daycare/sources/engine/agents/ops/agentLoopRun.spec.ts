@@ -420,8 +420,9 @@ describe("agentLoopRun", () => {
           part.type === "text" && typeof part.text === "string" && part.text.includes("<python_result>")
       )
       .map((part) => part.text);
-    expect(pythonResultTexts).toHaveLength(1);
+    expect(pythonResultTexts).toHaveLength(2);
     expect(pythonResultTexts[0]).toContain("Python execution completed.");
+    expect(pythonResultTexts[1]).toContain("Python runtime error.");
   });
 
   it("suppresses raw run_python text delivery in noTools mode", async () => {
@@ -898,6 +899,17 @@ describe("agentLoopRun say tag", () => {
     expect(assistantText).toContain("</run_python>");
     expect(assistantText).not.toContain("<say>after</say>");
 
+    const pythonResultTexts = (contexts[1]?.messages ?? [])
+      .filter((message) => message.role === "user")
+      .flatMap((message) => (Array.isArray(message.content) ? message.content : []))
+      .filter(
+        (part): part is { type: "text"; text: string } =>
+          part.type === "text" && typeof part.text === "string" && part.text.includes("<python_result>")
+      )
+      .map((part) => part.text);
+    expect(pythonResultTexts).toHaveLength(1);
+    expect(pythonResultTexts[0]).toContain("Python syntax error. Fix the code and retry.");
+
     const hasPythonResultMessage = (contexts[1]?.messages ?? []).some((message) => {
       if (message.role !== "user" || !Array.isArray(message.content)) {
         return false;
@@ -909,7 +921,7 @@ describe("agentLoopRun say tag", () => {
           part.text.includes("<python_result>")
       );
     });
-    expect(hasPythonResultMessage).toBe(false);
+    expect(hasPythonResultMessage).toBe(true);
 
     const sentTexts = connectorSend.mock.calls.map((call) => {
       const message = call[1] as { text?: string | null };

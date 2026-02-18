@@ -466,6 +466,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               await appendHistoryRecord?.(rlmHistoryCompleteErrorRecordBuild(toolCallId, message));
+              context.messages.push(rlmNoToolsResultMessageBuild({ error }));
               const truncated = agentMessageRunPythonFailureTrim(historyResponseText, index);
               if (truncated !== null) {
                 historyResponseText = truncated;
