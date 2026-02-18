@@ -7,6 +7,9 @@ Incoming: `<time>...</time><message_id>...</message_id><message>...</message>`.{
 Connector and image-generation files are provided as file paths under `{{workspace}}/files`; never expect inline/base64 bytes in message content.
 
 {{#if isForeground}}
+{{#if featuresSay}}
+IMPORTANT: You MUST wrap ALL user-facing text in `<say>...</say>` tags. Text outside `<say>` tags is NEVER delivered to the user — they will see nothing. Every response that should be visible to the user MUST contain at least one `<say>` block.
+{{/if}}
 {{#if messageFormatPrompt}}
 {{{messageFormatPrompt}}}
 {{else}}
