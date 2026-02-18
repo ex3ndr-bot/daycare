@@ -420,10 +420,8 @@ describe("agentLoopRun", () => {
           part.type === "text" && typeof part.text === "string" && part.text.includes("<python_result>")
       )
       .map((part) => part.text);
-    expect(pythonResultTexts).toHaveLength(2);
+    expect(pythonResultTexts).toHaveLength(1);
     expect(pythonResultTexts[0]).toContain("Python execution completed.");
-    expect(pythonResultTexts[1]).toContain("Python runtime error.");
-    expect(pythonResultTexts[1]).toContain("ToolError: boom");
   });
 
   it("suppresses raw run_python text delivery in noTools mode", async () => {
@@ -843,7 +841,7 @@ describe("agentLoopRun say tag", () => {
     expect(beforeOrder).toBeLessThan(executeOrder);
   });
 
-  it("rewrites context history by removing post-run_python <say> and prepends ignored notice", async () => {
+  it("rewrites context history by removing post-run_python <say> without adding ignored notice", async () => {
     const connectorSend = vi.fn(async (_targetId: string, _message: unknown) => undefined);
     const connector = connectorBuild(connectorSend);
     const entry = entryBuild();
@@ -900,7 +898,7 @@ describe("agentLoopRun say tag", () => {
     expect(assistantText).toContain("</run_python>");
     expect(assistantText).not.toContain("<say>after</say>");
 
-    const pythonResultMessage = contexts[1]?.messages.find((message) => {
+    const hasPythonResultMessage = (contexts[1]?.messages ?? []).some((message) => {
       if (message.role !== "user" || !Array.isArray(message.content)) {
         return false;
       }
@@ -911,17 +909,7 @@ describe("agentLoopRun say tag", () => {
           part.text.includes("<python_result>")
       );
     });
-    const pythonResultText =
-      pythonResultMessage && Array.isArray(pythonResultMessage.content)
-        ? (
-            pythonResultMessage.content.find(
-              (part) => part.type === "text" && typeof part.text === "string"
-            ) as { type: "text"; text: string } | undefined
-          )?.text ?? ""
-        : "";
-    expect(pythonResultText).toContain(
-      "<say> after <run_python> was ignored"
-    );
+    expect(hasPythonResultMessage).toBe(false);
 
     const sentTexts = connectorSend.mock.calls.map((call) => {
       const message = call[1] as { text?: string | null };

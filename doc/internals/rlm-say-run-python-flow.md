@@ -2,10 +2,10 @@
 
 ## Summary
 
-In no-tools RLM mode, `<say>` blocks are now split around the last `</run_python>` tag:
-- `<say>` before `</run_python>` is sent immediately.
-- `<say>` after `</run_python>` is buffered and sent only when Python execution succeeds.
-- On execution failure, buffered post-`run_python` `<say>` blocks are not sent and a notice is prepended at the beginning of the `<python_result>` body (with singular/plural count).
+In no-tools RLM mode, `<say>` blocks are split at the first `<run_python>` tag:
+- `<say>` before the first `<run_python>` is sent immediately.
+- `<say>` after the first `<run_python>` is trimmed and not delivered.
+- On execution failure, the failed block is rewrite-trimmed from context history tail and no failure notice message is injected.
 
 This keeps user-visible messages aligned with actual execution state while preserving full assistant text in context/history.
 
@@ -24,10 +24,10 @@ sequenceDiagram
   L->>P: execute extracted run_python code
   alt execution success
     P-->>L: result
-    L->>U: send buffered post-run <say> blocks
     L->>M: add <python_result> success message
   else execution failure
     P-->>L: error
-    L->>M: add <python_result> error message with undelivered-<say> notice
+    L->>L: rewrite-trim history after failed run_python block
+    L->>M: no synthetic failure notice message
   end
 ```

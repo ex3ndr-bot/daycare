@@ -271,12 +271,6 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
       const runPythonSplit = hasRunPythonTag && effectiveResponseText
         ? runPythonResponseSplit(effectiveResponseText)
         : null;
-      const ignoredPostRunPythonSayCount = runPythonSplit
-        ? tagExtractAll(runPythonSplit.afterRunPython, "say").length
-        : 0;
-      const ignoredPostRunPythonSayLine = sayAfterRunPythonIgnoredNoticeBuild(
-        ignoredPostRunPythonSayCount
-      );
       if (noToolsModeEnabled && hasRunPythonTag && responseText) {
         const stripped = agentMessageRunPythonSayAfterTrim(responseText);
         if (stripped !== null) {
@@ -295,9 +289,6 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
         let immediateSayText = effectiveResponseText;
         if (noToolsModeEnabled && hasRunPythonTag && runPythonSplit) {
           immediateSayText = runPythonSplit.beforeRunPython;
-          if (ignoredPostRunPythonSayCount > 0) {
-            logger.debug("event: Ignoring <say> tags after <run_python> in noTools mode");
-          }
         }
 
         const sayBlocks = tagExtractAll(immediateSayText, "say");
@@ -461,9 +452,6 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
           for (let index = 0; index < runPythonCodes.length; index += 1) {
             const runPythonCode = runPythonCodes[index]!;
             const toolCallId = createId();
-            const prefixLines = index === 0 && ignoredPostRunPythonSayLine
-              ? [ignoredPostRunPythonSayLine]
-              : undefined;
 
             try {
               const result = await rlmExecute(
@@ -474,7 +462,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
                 toolCallId,
                 appendHistoryRecord
               );
-              context.messages.push(rlmNoToolsResultMessageBuild({ result, prefixLines }));
+              context.messages.push(rlmNoToolsResultMessageBuild({ result }));
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error);
               await appendHistoryRecord?.(rlmHistoryCompleteErrorRecordBuild(toolCallId, message));
@@ -493,12 +481,6 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
                   "event: Rewrote assistant message in context history after failed <run_python> block"
                 );
               }
-              context.messages.push(
-                rlmNoToolsResultMessageBuild({
-                  error,
-                  prefixLines
-                })
-              );
               break;
             }
           }
@@ -832,13 +814,6 @@ function runPythonResponseSplit(text: string): RunPythonResponseSplit | null {
     beforeRunPython: text.slice(0, match.index),
     afterRunPython: text.slice(match.index)
   };
-}
-
-function sayAfterRunPythonIgnoredNoticeBuild(count: number): string | null {
-  if (count <= 0) {
-    return null;
-  }
-  return "<say> after <run_python> was ignored";
 }
 
 function messageAssistantTextRewrite(

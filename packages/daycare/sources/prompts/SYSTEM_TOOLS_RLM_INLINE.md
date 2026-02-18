@@ -8,8 +8,7 @@ Blocks are executed sequentially from top to bottom.
 If one block fails, all remaining `<run_python>` blocks in that response are skipped.
 Prefer one multi-line script when possible.
 If you include `<say>` in the same response, put all `<say>` blocks before the first `<run_python>`.
-Any `<say>` block after the first `<run_python>` is ignored.
-When ignored, the system adds this line in `<python_result>`: `<say> after <run_python> was ignored`.
+Any `<say>` block after the first `<run_python>` is trimmed and not delivered.
 No escaping is needed.
 Call functions directly (no `await`).
 Use `try/except ToolError` for tool failures.
