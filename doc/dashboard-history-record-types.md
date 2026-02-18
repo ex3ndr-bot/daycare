@@ -17,6 +17,11 @@ The agent detail page now renders all persisted history record variants returned
 - `assistant_rewrite`
 - `note`
 
+## Privacy and signal-to-noise
+
+- The `rlm_tool_call.snapshot` field is intentionally not rendered in dashboard history cards.
+- `rlm_tool_call` cards still show tool metadata, arguments, and print output.
+
 ## Rendering flow
 
 ```mermaid

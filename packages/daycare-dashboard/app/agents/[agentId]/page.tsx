@@ -548,9 +548,6 @@ function renderRecordDetails(record: AgentHistoryRecord) {
           <RecordSection title="Arguments">
             <JsonBlock value={record.toolArgs} />
           </RecordSection>
-          <RecordSection title="Snapshot">
-            <p className="break-all font-mono text-xs text-muted-foreground">{record.snapshot}</p>
-          </RecordSection>
           {renderPrintOutputSection(record.printOutput)}
         </>
       );
