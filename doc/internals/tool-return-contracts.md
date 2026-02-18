@@ -18,6 +18,8 @@ Tool execution now supports a typed return contract that keeps outputs both:
 - Fallback `{ text }` contracts were replaced across production tools with
   per-tool structured schemas (for example `read`, `write`, `exec`, process tools,
   app tools, expose tools, signal tools, and search/fetch plugins).
+- `toolReturnOutcome` remains as a compatibility helper for tests/legacy fixtures;
+  production tool registrations now use per-tool contracts.
 
 ## Per-tool return mapping
 
