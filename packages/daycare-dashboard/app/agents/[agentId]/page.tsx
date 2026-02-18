@@ -115,6 +115,9 @@ export default function AgentDetailPage({ params }: AgentDetailPageProps) {
     let userMessages = 0;
     let assistantMessages = 0;
     let toolResults = 0;
+    let rlmEvents = 0;
+    let rewriteEvents = 0;
+    let notes = 0;
     let files = 0;
     records.forEach((record) => {
       if (record.type === "user_message") {
@@ -129,8 +132,22 @@ export default function AgentDetailPage({ params }: AgentDetailPageProps) {
         toolResults += 1;
         files += record.output.files.length;
       }
+      if (
+        record.type === "rlm_start" ||
+        record.type === "rlm_tool_call" ||
+        record.type === "rlm_tool_result" ||
+        record.type === "rlm_complete"
+      ) {
+        rlmEvents += 1;
+      }
+      if (record.type === "assistant_rewrite") {
+        rewriteEvents += 1;
+      }
+      if (record.type === "note") {
+        notes += 1;
+      }
     });
-    return { userMessages, assistantMessages, toolResults, files };
+    return { userMessages, assistantMessages, toolResults, rlmEvents, rewriteEvents, notes, files };
   }, [records]);
 
   const lastActivity = useMemo(() => {
@@ -310,6 +327,15 @@ export default function AgentDetailPage({ params }: AgentDetailPageProps) {
                   {recordStats.toolResults} tools
                 </Badge>
                 <Badge variant="outline" className="text-xs">
+                  {recordStats.rlmEvents} rlm
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {recordStats.rewriteEvents} rewrites
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {recordStats.notes} notes
+                </Badge>
+                <Badge variant="outline" className="text-xs">
                   {recordStats.files} files
                 </Badge>
               </div>
@@ -369,6 +395,16 @@ function formatRecordType(record: AgentHistoryRecord) {
       return "Assistant";
     case "tool_result":
       return "Tool";
+    case "rlm_start":
+      return "RLM start";
+    case "rlm_tool_call":
+      return "RLM call";
+    case "rlm_tool_result":
+      return "RLM result";
+    case "rlm_complete":
+      return "RLM done";
+    case "assistant_rewrite":
+      return "Rewrite";
     case "note":
       return "Note";
     default:
@@ -398,6 +434,25 @@ function formatRecordSummary(record: AgentHistoryRecord) {
       return "Assistant message";
     case "tool_result":
       return `Tool result ${record.toolCallId}`;
+    case "rlm_start":
+      return `RLM started (${record.toolCallId})`;
+    case "rlm_tool_call":
+      return `${record.toolName} call #${record.toolCallCount + 1}`;
+    case "rlm_tool_result":
+      return record.toolIsError
+        ? `${record.toolName} failed`
+        : `${record.toolName} completed`;
+    case "rlm_complete":
+      if (record.isError) {
+        return record.error
+          ? truncateText(record.error, 140)
+          : "RLM execution failed";
+      }
+      return record.output
+        ? truncateText(record.output, 140)
+        : "RLM execution completed";
+    case "assistant_rewrite":
+      return `${formatRewriteReason(record.reason)} (${formatDateTime(record.assistantAt)})`;
     case "note":
       return truncateText(record.text, 140);
     default:
@@ -458,6 +513,110 @@ function renderRecordDetails(record: AgentHistoryRecord) {
           {renderFilesSection(record.output.files)}
         </>
       );
+    case "rlm_start":
+      return (
+        <>
+          <RecordSection title="Execution">
+            <KeyValueList
+              items={[
+                { label: "Tool call id", value: record.toolCallId }
+              ]}
+              emptyLabel="No execution metadata captured."
+            />
+          </RecordSection>
+          <RecordSection title="Code">
+            <p className="whitespace-pre-wrap break-words font-mono text-xs text-foreground">{record.code}</p>
+          </RecordSection>
+          <RecordSection title="Preamble">
+            <p className="whitespace-pre-wrap break-words font-mono text-xs text-foreground">{record.preamble}</p>
+          </RecordSection>
+        </>
+      );
+    case "rlm_tool_call":
+      return (
+        <>
+          <RecordSection title="Tool call">
+            <KeyValueList
+              items={[
+                { label: "Tool call id", value: record.toolCallId },
+                { label: "Tool name", value: record.toolName },
+                { label: "Call index", value: record.toolCallCount + 1 }
+              ]}
+              emptyLabel="No tool call metadata captured."
+            />
+          </RecordSection>
+          <RecordSection title="Arguments">
+            <JsonBlock value={record.toolArgs} />
+          </RecordSection>
+          <RecordSection title="Snapshot">
+            <p className="break-all font-mono text-xs text-muted-foreground">{record.snapshot}</p>
+          </RecordSection>
+          {renderPrintOutputSection(record.printOutput)}
+        </>
+      );
+    case "rlm_tool_result":
+      return (
+        <>
+          <RecordSection title="Tool result">
+            <KeyValueList
+              items={[
+                { label: "Tool call id", value: record.toolCallId },
+                { label: "Tool name", value: record.toolName },
+                { label: "Is error", value: record.toolIsError ? "yes" : "no" }
+              ]}
+              emptyLabel="No tool result metadata captured."
+            />
+          </RecordSection>
+          <RecordSection title="Result">
+            <p className="whitespace-pre-wrap break-words text-sm text-foreground">{record.toolResult}</p>
+          </RecordSection>
+        </>
+      );
+    case "rlm_complete":
+      return (
+        <>
+          <RecordSection title="Completion">
+            <KeyValueList
+              items={[
+                { label: "Tool call id", value: record.toolCallId },
+                { label: "Tool calls made", value: record.toolCallCount },
+                { label: "Is error", value: record.isError ? "yes" : "no" }
+              ]}
+              emptyLabel="No completion metadata captured."
+            />
+          </RecordSection>
+          {record.error ? (
+            <RecordSection title="Error">
+              <p className="whitespace-pre-wrap break-words text-sm text-foreground">{record.error}</p>
+            </RecordSection>
+          ) : null}
+          <RecordSection title="Output">
+            {record.output ? (
+              <p className="whitespace-pre-wrap break-words text-sm text-foreground">{record.output}</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">No output captured.</p>
+            )}
+          </RecordSection>
+          {renderPrintOutputSection(record.printOutput)}
+        </>
+      );
+    case "assistant_rewrite":
+      return (
+        <>
+          <RecordSection title="Rewrite">
+            <KeyValueList
+              items={[
+                { label: "Assistant timestamp", value: formatDateTime(record.assistantAt) },
+                { label: "Reason", value: formatRewriteReason(record.reason) }
+              ]}
+              emptyLabel="No rewrite metadata captured."
+            />
+          </RecordSection>
+          <RecordSection title="Rewritten text">
+            <p className="whitespace-pre-wrap break-words text-sm text-foreground">{record.text}</p>
+          </RecordSection>
+        </>
+      );
     case "note":
       return <RecordSection title="Note">{record.text}</RecordSection>;
     default:
@@ -514,6 +673,19 @@ function renderToolCallsSection(toolCalls: Record<string, unknown>[]) {
           );
         })}
       </div>
+    </RecordSection>
+  );
+}
+
+function renderPrintOutputSection(printOutput: string[]) {
+  if (!printOutput.length) {
+    return null;
+  }
+  return (
+    <RecordSection title={`Print output (${printOutput.length})`}>
+      <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-md bg-muted px-3 py-2 text-xs leading-relaxed text-foreground">
+        {printOutput.join("\n")}
+      </pre>
     </RecordSection>
   );
 }
@@ -602,6 +774,17 @@ function formatFileSize(size: number) {
   return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatRewriteReason(reason: "run_python_say_after_trim" | "run_python_failure_trim") {
+  switch (reason) {
+    case "run_python_say_after_trim":
+      return "Trimmed <say> after <run_python>";
+    case "run_python_failure_trim":
+      return "Trimmed content after failed <run_python>";
+    default:
+      return reason;
+  }
+}
+
 function recordBadge(record: AgentHistoryRecord) {
   switch (record.type) {
     case "start":
@@ -614,6 +797,16 @@ function recordBadge(record: AgentHistoryRecord) {
       return "border-indigo-200 text-indigo-700";
     case "tool_result":
       return "border-amber-200 text-amber-700";
+    case "rlm_start":
+      return "border-cyan-200 text-cyan-700";
+    case "rlm_tool_call":
+      return "border-violet-200 text-violet-700";
+    case "rlm_tool_result":
+      return "border-fuchsia-200 text-fuchsia-700";
+    case "rlm_complete":
+      return "border-lime-200 text-lime-700";
+    case "assistant_rewrite":
+      return "border-orange-200 text-orange-700";
     case "note":
       return "border-slate-200 text-slate-700";
     default:
@@ -633,6 +826,16 @@ function recordAccent(record: AgentHistoryRecord) {
       return "border-l-4 border-l-indigo-400";
     case "tool_result":
       return "border-l-4 border-l-amber-400";
+    case "rlm_start":
+      return "border-l-4 border-l-cyan-400";
+    case "rlm_tool_call":
+      return "border-l-4 border-l-violet-400";
+    case "rlm_tool_result":
+      return "border-l-4 border-l-fuchsia-400";
+    case "rlm_complete":
+      return "border-l-4 border-l-lime-400";
+    case "assistant_rewrite":
+      return "border-l-4 border-l-orange-400";
     case "note":
       return "border-l-4 border-l-slate-400";
     default:

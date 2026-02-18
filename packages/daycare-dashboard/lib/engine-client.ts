@@ -135,6 +135,48 @@ export type AgentHistoryRecord =
       toolCallId: string;
       output: { toolMessage: Record<string, unknown>; files: FileReference[] };
     }
+  | {
+      type: "rlm_start";
+      at: number;
+      toolCallId: string;
+      code: string;
+      preamble: string;
+    }
+  | {
+      type: "rlm_tool_call";
+      at: number;
+      toolCallId: string;
+      snapshot: string;
+      printOutput: string[];
+      toolCallCount: number;
+      toolName: string;
+      toolArgs: unknown;
+    }
+  | {
+      type: "rlm_tool_result";
+      at: number;
+      toolCallId: string;
+      toolName: string;
+      toolResult: string;
+      toolIsError: boolean;
+    }
+  | {
+      type: "rlm_complete";
+      at: number;
+      toolCallId: string;
+      output: string;
+      printOutput: string[];
+      toolCallCount: number;
+      isError: boolean;
+      error?: string;
+    }
+  | {
+      type: "assistant_rewrite";
+      at: number;
+      assistantAt: number;
+      text: string;
+      reason: "run_python_say_after_trim" | "run_python_failure_trim";
+    }
   | { type: "note"; at: number; text: string };
 
 export type EngineEvent = {
