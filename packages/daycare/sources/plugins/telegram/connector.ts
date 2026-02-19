@@ -59,7 +59,8 @@ export class TelegramConnector implements Connector {
     },
     messageFormatPrompt: TELEGRAM_MESSAGE_FORMAT_PROMPT,
     reactions: true,
-    typing: true
+    typing: true,
+    deleteMessage: true
   };
   private bot: TelegramBot;
   private handlers: MessageHandler[] = [];
@@ -362,6 +363,19 @@ export class TelegramConnector implements Connector {
     await this.bot.setMessageReaction(targetId, Number(messageId), {
       reaction: [{ type: "emoji", emoji }]
     });
+  }
+
+  async deleteMessage(targetId: string, messageId: string): Promise<boolean> {
+    if (!this.isAllowedTarget(targetId, "deleteMessage")) {
+      return false;
+    }
+    try {
+      await this.bot.deleteMessage(targetId, Number(messageId));
+      return true;
+    } catch (error) {
+      logger.warn({ error, targetId, messageId }, "error: Telegram deleteMessage failed");
+      return false;
+    }
   }
 
   private async sendFile(

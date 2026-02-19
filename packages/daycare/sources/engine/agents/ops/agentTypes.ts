@@ -104,6 +104,7 @@ export type AgentHistoryRecord =
       at: number;
       text: string;
       files: FileReference[];
+      messageId?: string;
     }
   | {
       type: "assistant_message";

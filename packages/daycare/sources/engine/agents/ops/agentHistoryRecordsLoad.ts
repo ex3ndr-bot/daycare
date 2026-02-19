@@ -65,7 +65,8 @@ const historyRecordSchema = z.discriminatedUnion("type", [
       type: z.literal("user_message"),
       at: z.number().int(),
       text: z.string(),
-      files: z.array(fileReferenceSchema)
+      files: z.array(fileReferenceSchema),
+      messageId: z.string().optional()
     })
     .strict(),
   z

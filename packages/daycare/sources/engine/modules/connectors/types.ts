@@ -16,6 +16,7 @@ export type ConnectorCapabilities = {
   messageFormatPrompt?: string;
   reactions?: boolean;
   typing?: boolean;
+  deleteMessage?: boolean;
 };
 
 export type ConnectorMessage = {
@@ -117,5 +118,9 @@ export interface Connector {
     messageId: string,
     reaction: string
   ) => Promise<void>;
+  deleteMessage?: (
+    targetId: string,
+    messageId: string
+  ) => Promise<boolean>;
   shutdown?: (reason?: string) => void | Promise<void>;
 }

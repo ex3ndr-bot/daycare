@@ -46,6 +46,7 @@ import type {
 import { agentLoopRun } from "./ops/agentLoopRun.js";
 import { AgentInbox } from "./ops/agentInbox.js";
 import { agentHistoryAppend } from "./ops/agentHistoryAppend.js";
+import { agentHistoryDeleteMessage } from "./ops/agentHistoryDeleteMessage.js";
 import { agentHistoryLoad } from "./ops/agentHistoryLoad.js";
 import { agentHistoryLoadAll } from "./ops/agentHistoryLoadAll.js";
 import { agentStateWrite } from "./ops/agentStateWrite.js";
@@ -330,7 +331,8 @@ export class Agent {
       type: "user_message",
       at: receivedAt,
       text: rawText,
-      files
+      files,
+      ...(entry.context.messageId ? { messageId: entry.context.messageId } : {})
     };
 
     await this.completePendingToolCalls("session_crashed");
@@ -759,6 +761,36 @@ export class Agent {
     this.state.updatedAt = Date.now();
     await agentStateWrite(this.agentSystem.config.current, this.id, this.state);
     this.agentSystem.eventBus.emit("agent.restored", { agentId: this.id });
+    return true;
+  }
+
+  /**
+   * Deletes a user message from history by messageId and rebuilds context.
+   * Expects: messageId is a non-empty string from the original connector message.
+   * Returns: true if the message was found and deleted, false otherwise.
+   */
+  async deleteMessage(messageId: string): Promise<boolean> {
+    const deleted = await agentHistoryDeleteMessage(
+      this.agentSystem.config.current,
+      this.id,
+      messageId
+    );
+    if (!deleted) {
+      return false;
+    }
+
+    const history = await agentHistoryLoad(this.agentSystem.config.current, this.id);
+    const historyMessages = await this.buildHistoryContext(history);
+    this.state.context = {
+      messages: agentRestoreContextResolve(
+        this.state.context.messages ?? [],
+        historyMessages
+      )
+    };
+    this.state.updatedAt = Date.now();
+    await agentStateWrite(this.agentSystem.config.current, this.id, this.state);
+
+    logger.info({ agentId: this.id, messageId }, "event: Deleted message from history");
     return true;
   }
 
