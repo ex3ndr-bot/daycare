@@ -5,6 +5,8 @@ import type { ToolDefinition, ToolResultContract } from "@/types";
 import { agentDescriptorTargetResolve } from "../../agents/ops/agentDescriptorTargetResolve.js";
 import { agentHistoryTruncateAfter } from "../../agents/ops/agentHistoryTruncateAfter.js";
 
+const MAX_DELETE_COUNT = 3;
+
 const deleteAfterSchema = Type.Object(
   {
     messageId: Type.String({ minLength: 1 }),
@@ -36,6 +38,8 @@ const deleteAfterReturns: ToolResultContract<DeleteAfterResult> = {
  * Tool for deleting all messages after a specific point in the conversation.
  * Use for rolling back the conversation when sensitive information was shared.
  * 
+ * Limit: Can only delete up to 3 messages back (safety rail).
+ * 
  * Channel: Attempts to delete messages from the external platform (best effort)
  * Context/History: Truncates everything after the specified messageId and inserts
  *                  a <messages_deleted> marker with the provided reason.
@@ -45,7 +49,7 @@ export function buildDeleteAfterTool(): ToolDefinition {
     tool: {
       name: "delete_after",
       description:
-        "Delete all messages after a specific message ID. Use for rolling back the conversation when sensitive information was shared. Truncates context/history and optionally deletes from channel.",
+        `Delete all messages after a specific message ID (max ${MAX_DELETE_COUNT} messages). Use for rolling back the conversation when sensitive information was shared. Truncates context/history and optionally deletes from channel.`,
       parameters: deleteAfterSchema
     },
     returns: deleteAfterReturns,
@@ -53,15 +57,38 @@ export function buildDeleteAfterTool(): ToolDefinition {
       const payload = args as DeleteAfterArgs;
       const { messageId, reason } = payload;
 
-      let deletedFromChannel = false;
-      let deletedCount = 0;
-
       // Get the connector from current context
       const target = agentDescriptorTargetResolve(toolContext.agent.descriptor);
       const connectorSource = target?.connector;
 
-      // Get messages to delete from channel (those after messageId)
+      // Count messages to delete and check limit
       const messagesToDelete = getMessagesAfter(toolContext.agent, messageId);
+      const potentialDeleteCount = countMessagesAfter(toolContext.agent, messageId);
+
+      if (potentialDeleteCount > MAX_DELETE_COUNT) {
+        const errorMessage = `Cannot delete more than ${MAX_DELETE_COUNT} messages. Target message is ${potentialDeleteCount} messages back.`;
+        const toolMessage: ToolResultMessage = {
+          role: "toolResult",
+          toolCallId: toolCall.id,
+          toolName: toolCall.name,
+          content: [{ type: "text", text: errorMessage }],
+          isError: true,
+          timestamp: Date.now()
+        };
+
+        return {
+          toolMessage,
+          typedResult: {
+            success: false,
+            message: errorMessage,
+            deletedCount: 0,
+            deletedFromChannel: false
+          }
+        };
+      }
+
+      let deletedFromChannel = false;
+      let deletedCount = 0;
 
       // Try to delete from channel if connector supports it
       if (connectorSource && toolContext.connectorRegistry && messagesToDelete.length > 0) {
@@ -145,6 +172,7 @@ export function buildDeleteAfterTool(): ToolDefinition {
 
 /**
  * Get all message IDs that appear after the specified messageId in context.
+ * These are used for channel deletion.
  */
 function getMessagesAfter(
   agent: import("../../agents/agent.js").Agent,
@@ -174,6 +202,40 @@ function getMessagesAfter(
   }
 
   return ids;
+}
+
+/**
+ * Count the number of context messages that would be deleted.
+ * This counts all messages after the target messageId.
+ */
+function countMessagesAfter(
+  agent: import("../../agents/agent.js").Agent,
+  messageId: string
+): number {
+  const messages = agent.state.context.messages ?? [];
+  let cutIndex = -1;
+
+  // Find the message with the target messageId
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if ("content" in msg && Array.isArray(msg.content)) {
+      for (const block of msg.content) {
+        if (block.type === "text" && typeof block.text === "string") {
+          if (block.text.includes(`<message_id>${messageId}</message_id>`)) {
+            cutIndex = i;
+            break;
+          }
+        }
+      }
+    }
+    if (cutIndex !== -1) break;
+  }
+
+  if (cutIndex === -1) {
+    return 0;
+  }
+
+  return messages.length - cutIndex - 1;
 }
 
 /**

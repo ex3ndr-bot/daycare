@@ -30,6 +30,7 @@ delete_after({ messageId: "1234", reason: "Sensitive credentials were shared" })
 The model will see messages up to 1234, then `<messages_deleted count="3" reason="..."/>`.
 
 Limitations:
+- **Max 3 messages**: Can only delete up to 3 messages back (safety rail)
 - Telegram: messages can only be deleted within 48 hours
 - Some connectors may not support channel deletion
 - Only use for legitimate cleanup
