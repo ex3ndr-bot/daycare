@@ -82,6 +82,10 @@ string equality assertions:
 - `montyResponseTypedDictLinesBuild` builds strict response `TypedDict` declarations
 - `montyPreambleBuild` renders exact full preamble text (not partial `contains`)
 
+Monty runtime tests additionally validate that schema-derived Python return
+annotations are accepted/rejected by Monty type-checking for major schema kinds
+(`string`, `integer`, `number`, `boolean`, `null`, arrays, and objects).
+
 ```mermaid
 flowchart LR
   A[JSON schema fragment] --> B[montyPythonTypeFromSchema]
@@ -92,4 +96,14 @@ flowchart LR
   F --> G[montyResponseTypedDictLinesBuild]
   G --> H[montyPreambleBuild]
   H --> I[Exact full preamble string]
+```
+
+```mermaid
+flowchart LR
+  A[Schema] --> B[montyPythonTypeFromSchema]
+  B --> C[Return annotation]
+  C --> D[Monty tool execute typeCheck=true]
+  D --> E{Return value matches?}
+  E -->|yes| F[Execution succeeds]
+  E -->|no| G[Python type check failed]
 ```
