@@ -1,22 +1,22 @@
 import type { Tool } from "@mariozechner/pi-ai";
 
-type RlmParameterEntry = {
+type MontyParameterEntry = {
   name: string;
   schema: unknown;
   required: boolean;
 };
 
 /**
- * Builds ordered tool parameter entries for RLM Python binding.
+ * Builds ordered tool parameter entries for Monty Python binding.
  * Expects: tool.parameters follows JSON schema object shape when present.
  */
-export function rlmParameterEntriesBuild(tool: Tool): RlmParameterEntry[] {
+export function montyParameterEntriesBuild(tool: Tool): MontyParameterEntry[] {
   const parameters = parametersSchemaResolve(tool);
   const properties = propertiesSchemaResolve(parameters.properties);
   const required = new Set(requiredListResolve(parameters.required));
 
-  const requiredEntries: RlmParameterEntry[] = [];
-  const optionalEntries: RlmParameterEntry[] = [];
+  const requiredEntries: MontyParameterEntry[] = [];
+  const optionalEntries: MontyParameterEntry[] = [];
 
   for (const [name, schema] of Object.entries(properties)) {
     if (!pythonIdentifierIs(name)) {

@@ -32,7 +32,7 @@ flowchart TD
 ```mermaid
 flowchart TD
   A[LLM emits run_python(code)] --> B[rlmTool.execute]
-  B --> C[rlmPreambleBuild from ToolResolver.listTools]
+  B --> C[montyPreambleBuild from ToolResolver.listTools]
   C --> D[rlmExecute Monty start/resume loop]
   D -->|snapshot:functionName| E[rlmArgsConvert]
   E --> F[ToolResolver.execute]
@@ -57,7 +57,7 @@ flowchart TD
   C --> D{context.toolResolver provided?}
   D -->|yes| E[use override resolver]
   D -->|no| F[use engine resolver]
-  E --> G[rlmPreambleBuild + rlmExecute]
+  E --> G[montyPreambleBuild + rlmExecute]
   F --> G
   G --> H[Python calls dispatch through selected resolver]
 ```

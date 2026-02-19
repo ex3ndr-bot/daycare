@@ -12,7 +12,7 @@ the generated function list in `SYSTEM_TOOLS_RLM_INLINE.md`.
 
 ```mermaid
 flowchart TD
-  A[ToolResolver.listTools] --> B[rlmPreambleBuild]
+  A[ToolResolver.listTools] --> B[montyPreambleBuild]
   B --> C[SYSTEM_TOOLS_RLM.md]
   B --> D[SYSTEM_TOOLS_RLM_INLINE.md]
   D --> D1[Single execution guidance block<br/>before functions list]

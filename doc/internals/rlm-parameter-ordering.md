@@ -1,16 +1,16 @@
 # RLM Parameter Ordering
 
 RLM positional tool arguments now follow the same required-first ordering in both:
-- Python stub signatures (`rlmPreambleBuild`)
+- Python stub signatures (`montyPreambleBuild`)
 - Runtime argument conversion (`rlmArgsConvert`)
 
-This is centralized in `rlmParameterEntriesBuild`.
+This is centralized in `montyParameterEntriesBuild`.
 
 ```mermaid
 flowchart LR
   Schema[Tool JSON Schema]
-  Order[rlmParameterEntriesBuild\nrequired first, then optional]
-  Stub[rlmPreambleBuild\nPython def signature]
+  Order[montyParameterEntriesBuild\nrequired first, then optional]
+  Stub[montyPreambleBuild\nPython def signature]
   Convert[rlmArgsConvert\npositional arg binding]
 
   Schema --> Order

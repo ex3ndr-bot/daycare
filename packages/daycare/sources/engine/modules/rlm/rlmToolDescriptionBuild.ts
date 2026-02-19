@@ -2,7 +2,7 @@ import type { Tool } from "@mariozechner/pi-ai";
 import Handlebars from "handlebars";
 
 import { agentPromptBundledRead } from "../../agents/ops/agentPromptBundledRead.js";
-import { rlmPreambleBuild } from "./rlmPreambleBuild.js";
+import { montyPreambleBuild } from "../monty/montyPreambleBuild.js";
 
 type RlmToolDescriptionTemplateContext = {
   preamble: string;
@@ -16,7 +16,7 @@ let rlmToolDescriptionTemplatePromise:
  * Expects: tools contains the full current tool list from ToolResolver.
  */
 export async function rlmToolDescriptionBuild(tools: Tool[]): Promise<string> {
-  const preamble = rlmPreambleBuild(tools);
+  const preamble = montyPreambleBuild(tools);
   const template = await rlmToolDescriptionTemplateCompile();
   return template({ preamble }).trim();
 }

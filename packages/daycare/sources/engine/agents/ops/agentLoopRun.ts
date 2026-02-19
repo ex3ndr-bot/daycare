@@ -21,7 +21,7 @@ import { rlmHistoryCompleteErrorRecordBuild } from "../../modules/rlm/rlmHistory
 import { rlmNoToolsExtract } from "../../modules/rlm/rlmNoToolsExtract.js";
 import { rlmNoToolsModeIs } from "../../modules/rlm/rlmNoToolsModeIs.js";
 import { rlmNoToolsResultMessageBuild } from "../../modules/rlm/rlmNoToolsResultMessageBuild.js";
-import { rlmPreambleBuild } from "../../modules/rlm/rlmPreambleBuild.js";
+import { montyPreambleBuild } from "../../modules/monty/montyPreambleBuild.js";
 import { rlmToolDescriptionBuild } from "../../modules/rlm/rlmToolDescriptionBuild.js";
 import type { EngineEventBus } from "../../ipc/events.js";
 import type { Agent } from "../agent.js";
@@ -441,7 +441,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
 
       if (noToolsModeEnabled) {
         if (hasRunPythonTag) {
-          const preamble = rlmPreambleBuild(toolResolver.listTools());
+          const preamble = montyPreambleBuild(toolResolver.listTools());
           const executionContext = {
             connectorRegistry,
             fileStore,

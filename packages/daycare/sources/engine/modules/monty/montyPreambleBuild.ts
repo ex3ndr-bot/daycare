@@ -1,13 +1,13 @@
 import type { Tool } from "@mariozechner/pi-ai";
 
-import { RLM_PRINT_FUNCTION_NAME, RLM_TOOL_NAME } from "./rlmConstants.js";
-import { rlmParameterEntriesBuild } from "./rlmParameterEntriesBuild.js";
+import { RLM_PRINT_FUNCTION_NAME, RLM_TOOL_NAME } from "../rlm/rlmConstants.js";
+import { montyParameterEntriesBuild } from "./montyParameterEntriesBuild.js";
 
 /**
  * Builds a Python preamble containing synchronous tool stubs for the current tool surface.
  * Expects: tool names are unique and come from ToolResolver.listTools().
  */
-export function rlmPreambleBuild(tools: Tool[]): string {
+export function montyPreambleBuild(tools: Tool[]): string {
   const lines: string[] = [
     "# You have the following tools available as Python functions.",
     "# Call tool functions directly (no await).",
@@ -52,7 +52,7 @@ export function rlmPreambleBuild(tools: Tool[]): string {
 }
 
 function pythonSignatureBuild(tool: Tool): string {
-  const parameterEntries = rlmParameterEntriesBuild(tool);
+  const parameterEntries = montyParameterEntriesBuild(tool);
   const signatureEntries: string[] = [];
 
   for (const { name, schema, required } of parameterEntries) {

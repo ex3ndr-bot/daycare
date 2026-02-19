@@ -8,8 +8,8 @@ import type {
   ToolExecutionResult
 } from "@/types";
 import type { ToolResolverApi } from "../toolResolver.js";
+import { montyPreambleBuild } from "../monty/montyPreambleBuild.js";
 import { rlmExecute } from "./rlmExecute.js";
-import { rlmPreambleBuild } from "./rlmPreambleBuild.js";
 import { rlmRestore } from "./rlmRestore.js";
 
 const baseTools = [
@@ -101,7 +101,7 @@ async function interruptedSnapshotBuild(
   await expect(
     rlmExecute(
       code,
-      rlmPreambleBuild(resolver.listTools()),
+      montyPreambleBuild(resolver.listTools()),
       createContext(),
       resolver,
       "run-python-call-1",

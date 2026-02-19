@@ -8,10 +8,10 @@ import { Type } from "@sinclair/typebox";
 import { configResolve } from "../../../config/configResolve.js";
 import { Engine } from "../../engine.js";
 import { EngineEventBus } from "../../ipc/events.js";
-import { rlmParameterEntriesBuild } from "./rlmParameterEntriesBuild.js";
-import { rlmPreambleBuild } from "./rlmPreambleBuild.js";
+import { montyParameterEntriesBuild } from "./montyParameterEntriesBuild.js";
+import { montyPreambleBuild } from "./montyPreambleBuild.js";
 
-describe("rlmPreambleBuild", () => {
+describe("montyPreambleBuild", () => {
   it("generates sync stubs with python hints", () => {
     const tools = [
       {
@@ -28,7 +28,7 @@ describe("rlmPreambleBuild", () => {
       }
     ] as unknown as Tool[];
 
-    const preamble = rlmPreambleBuild(tools);
+    const preamble = montyPreambleBuild(tools);
 
     expect(preamble).toContain("def read_file(path: str, retries: int | None = None, verbose: bool | None = None) -> str:");
     expect(preamble).toContain('"""Read a file from disk."""');
@@ -55,7 +55,7 @@ describe("rlmPreambleBuild", () => {
       }
     ] as unknown as Tool[];
 
-    const preamble = rlmPreambleBuild(tools);
+    const preamble = montyPreambleBuild(tools);
 
     expect(preamble).not.toContain("def run_python");
     expect(preamble).not.toContain("def search-v2");
@@ -78,7 +78,7 @@ describe("rlmPreambleBuild", () => {
       }
     ] as unknown as Tool[];
 
-    const preamble = rlmPreambleBuild(tools);
+    const preamble = montyPreambleBuild(tools);
 
     expect(preamble).toContain(
       "def create_task(taskId: str, note: str | None = None, priority: int | None = None) -> str:"
@@ -86,7 +86,7 @@ describe("rlmPreambleBuild", () => {
   });
 
   it("generates per-tool python stubs one by one for runtime tools", async () => {
-    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-rlm-preamble-"));
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-monty-preamble-"));
     let engine: Engine | null = null;
     try {
       const config = configResolve(
@@ -100,7 +100,7 @@ describe("rlmPreambleBuild", () => {
       expect(tools.length).toBeGreaterThan(0);
 
       for (const tool of tools) {
-        const preamble = rlmPreambleBuild([tool]);
+        const preamble = montyPreambleBuild([tool]);
         const signature = pythonSignatureResolve(preamble, tool.name);
 
         if (tool.name === "run_python" || !pythonIdentifierIs(tool.name)) {
@@ -113,7 +113,7 @@ describe("rlmPreambleBuild", () => {
         expect(preamble).toContain(") -> str:");
 
         const signatureParts = signaturePartsResolve(signature!);
-        const parameterEntries = rlmParameterEntriesBuild(tool);
+        const parameterEntries = montyParameterEntriesBuild(tool);
         expect(signatureParts).toHaveLength(parameterEntries.length);
 
         for (const [index, entry] of parameterEntries.entries()) {

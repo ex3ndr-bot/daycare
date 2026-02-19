@@ -2,7 +2,7 @@ import type { Tool } from "@mariozechner/pi-ai";
 import Handlebars from "handlebars";
 
 import { agentPromptBundledRead } from "../../agents/ops/agentPromptBundledRead.js";
-import { rlmPreambleBuild } from "./rlmPreambleBuild.js";
+import { montyPreambleBuild } from "../monty/montyPreambleBuild.js";
 
 type RlmNoToolsPromptTemplateContext = {
   preamble: string;
@@ -20,7 +20,7 @@ export async function rlmNoToolsPromptBuild(
   tools: Tool[],
   options: { isForeground: boolean } = { isForeground: true }
 ): Promise<string> {
-  const preamble = rlmPreambleBuild(tools);
+  const preamble = montyPreambleBuild(tools);
   const template = await rlmNoToolsPromptTemplateCompile();
   return template({ preamble, isForeground: options.isForeground }).trim();
 }

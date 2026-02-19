@@ -50,7 +50,8 @@ In both modes, regular tools stay registered internally and are callable by Pyth
 
 ## Tool Stub Generation
 
-`rlmPreambleBuild()` generates Python stubs from the current `ToolResolver.listTools()` output.
+`montyPreambleBuild()` (in `engine/modules/monty`) generates Python stubs from the current
+`ToolResolver.listTools()` output.
 Each stub is rendered as:
 
 ```python

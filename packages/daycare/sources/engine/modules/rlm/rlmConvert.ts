@@ -7,7 +7,7 @@ import type {
   ToolResultRow,
   ToolResultShallowObject
 } from "@/types";
-import { rlmParameterEntriesBuild } from "./rlmParameterEntriesBuild.js";
+import { montyParameterEntriesBuild } from "../monty/montyParameterEntriesBuild.js";
 
 /**
  * Converts Monty positional/keyword arguments into the JSON object expected by tool execution.
@@ -18,7 +18,7 @@ export function rlmArgsConvert(
   kwargs: Record<string, JsMontyObject>,
   toolSchema: Tool
 ): unknown {
-  const propertyNames = rlmParameterEntriesBuild(toolSchema).map((entry) => entry.name);
+  const propertyNames = montyParameterEntriesBuild(toolSchema).map((entry) => entry.name);
   const output: Record<string, unknown> = {};
 
   for (let index = 0; index < args.length; index += 1) {
