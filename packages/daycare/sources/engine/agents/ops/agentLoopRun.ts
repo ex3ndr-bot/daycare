@@ -441,7 +441,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
 
       if (noToolsModeEnabled) {
         if (hasRunPythonTag) {
-          const preamble = montyRuntimePreambleBuild();
+          const preamble = montyRuntimePreambleBuild(toolResolver.listTools());
           const executionContext = {
             connectorRegistry,
             fileStore,

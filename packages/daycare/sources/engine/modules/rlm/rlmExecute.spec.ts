@@ -32,7 +32,7 @@ describe("rlmExecute", () => {
 
     const result = await rlmExecute(
       "value = echo('hello')\nvalue",
-      montyRuntimePreambleBuild(),
+      montyRuntimePreambleBuild(baseTools),
       createContext(),
       resolver,
       "tool-call-1"
@@ -67,7 +67,7 @@ describe("rlmExecute", () => {
 
     const result = await rlmExecute(
       code,
-      montyRuntimePreambleBuild(),
+      montyRuntimePreambleBuild(baseTools),
       createContext(),
       resolver,
       "tool-call-1"
@@ -84,7 +84,7 @@ describe("rlmExecute", () => {
 
     const result = await rlmExecute(
       "print('hello', 'world')\n'done'",
-      montyRuntimePreambleBuild(),
+      montyRuntimePreambleBuild(baseTools),
       createContext(),
       resolver,
       "tool-call-1"
@@ -107,7 +107,7 @@ describe("rlmExecute", () => {
 
     await rlmExecute(
       "value = echo('hello')\nvalue",
-      montyRuntimePreambleBuild(),
+      montyRuntimePreambleBuild(baseTools),
       createContext(),
       resolver,
       "tool-call-1"
@@ -129,7 +129,7 @@ describe("rlmExecute", () => {
 
     await rlmExecute(
       "value = echo('hello')\nvalue",
-      montyRuntimePreambleBuild(),
+      montyRuntimePreambleBuild(baseTools),
       createContext(),
       resolver,
       "outer-run-python",

@@ -101,7 +101,7 @@ async function interruptedSnapshotBuild(
   await expect(
     rlmExecute(
       code,
-      montyRuntimePreambleBuild(),
+      montyRuntimePreambleBuild(baseTools),
       createContext(),
       resolver,
       "run-python-call-1",

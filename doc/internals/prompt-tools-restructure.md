@@ -11,7 +11,7 @@ For no-tools tag mode, Python execution guidance is merged into one block before
 the generated function list in `SYSTEM_TOOLS_RLM_INLINE.md`.
 
 Runtime execution now uses a separate minimal Monty preamble (`montyRuntimePreambleBuild`)
-without prompt comments/stubs.
+without prompt comments and with compact `TYPE_CHECKING`-guarded runtime stubs.
 
 ```mermaid
 flowchart TD

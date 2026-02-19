@@ -65,8 +65,9 @@ The preamble is regenerated from the current tool set when context tools are bui
 - tool-call mode: rendered through `sources/prompts/SYSTEM_TOOLS_RLM.md` into the `run_python` description
 - tag mode: rendered through `sources/prompts/SYSTEM_TOOLS_RLM_INLINE.md` into the no-tools system section
 
-Execution uses a separate runtime preamble from `montyRuntimePreambleBuild()` that only defines
-runtime essentials (for example `ToolError`) and intentionally excludes prompt comments/stubs.
+Execution uses a separate runtime preamble from `montyRuntimePreambleBuild()` that excludes
+prompt comments and includes compact `TYPE_CHECKING`-guarded function stubs so runtime preamble
+still carries callable tool names/signatures.
 
 RLM prompt builders no longer embed skill lists. Skills are injected once via
 `skillPromptFormat()` into the dedicated skills section during system-prompt section rendering.

@@ -35,7 +35,7 @@ export function rlmToolBuild(toolResolver: ToolResolverApi): ToolDefinition {
     execute: async (args, context, toolCall) => {
       const payload = args as RlmArgs;
       const runtimeResolver = context.toolResolver ?? toolResolver;
-      const preamble = montyRuntimePreambleBuild();
+      const preamble = montyRuntimePreambleBuild(runtimeResolver.listTools());
       const appendHistoryRecord = context.appendHistoryRecord;
 
       try {
