@@ -70,3 +70,23 @@ flowchart TD
   D -->|yes| E[Return details to Python]
   D -->|no| F[Return joined text content]
 ```
+
+## RLM preamble test coverage
+
+RLM preamble tests now validate each runtime tool one by one by building a
+single-tool preamble and asserting:
+
+- Python function name generation (`def <tool>(...)`)
+- Input mapping from schema parameters (required before optional)
+- Output marker in stubs (`-> str`)
+
+```mermaid
+flowchart LR
+  A[List runtime tools] --> B[Pick one tool]
+  B --> C[Build single-tool preamble]
+  C --> D{Valid Python identifier and not run_python?}
+  D -->|yes| E[Assert def signature and parameter ordering]
+  D -->|no| F[Assert no generated stub]
+  E --> G[Next tool]
+  F --> G
+```

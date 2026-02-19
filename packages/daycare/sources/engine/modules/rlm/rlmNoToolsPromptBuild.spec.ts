@@ -1,6 +1,12 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { Tool } from "@mariozechner/pi-ai";
+import { configResolve } from "../../../config/configResolve.js";
+import { Engine } from "../../engine.js";
+import { EngineEventBus } from "../../ipc/events.js";
 import { rlmNoToolsPromptBuild } from "./rlmNoToolsPromptBuild.js";
 
 describe("rlmNoToolsPromptBuild", () => {
@@ -46,4 +52,39 @@ describe("rlmNoToolsPromptBuild", () => {
     expect(prompt).not.toContain("<say>Starting checks</say>");
     expect(prompt).toContain("<run_python>...</run_python>");
   });
+
+  it("generates python stubs for all registered runtime tools", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-rlm-no-tools-prompt-"));
+    let engine: Engine | null = null;
+    try {
+      const config = configResolve(
+        { features: { rlm: true, noTools: true }, engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
+        path.join(dir, "settings.json")
+      );
+      engine = new Engine({ config, eventBus: new EngineEventBus() });
+      await engine.start();
+
+      const tools = engine.modules.tools.listTools();
+      const prompt = await rlmNoToolsPromptBuild(tools);
+
+      for (const tool of tools) {
+        const signaturePrefix = `def ${tool.name}(`;
+        if (tool.name === "run_python" || !pythonIdentifierIs(tool.name)) {
+          expect(prompt).not.toContain(signaturePrefix);
+          continue;
+        }
+        expect(prompt).toContain(signaturePrefix);
+      }
+
+    } finally {
+      if (engine) {
+        await engine.shutdown();
+      }
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });
+
+function pythonIdentifierIs(value: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
+}

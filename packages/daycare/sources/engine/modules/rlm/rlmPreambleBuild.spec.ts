@@ -1,7 +1,14 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Tool } from "@mariozechner/pi-ai";
 import { Type } from "@sinclair/typebox";
 
+import { configResolve } from "../../../config/configResolve.js";
+import { Engine } from "../../engine.js";
+import { EngineEventBus } from "../../ipc/events.js";
+import { rlmParameterEntriesBuild } from "./rlmParameterEntriesBuild.js";
 import { rlmPreambleBuild } from "./rlmPreambleBuild.js";
 
 describe("rlmPreambleBuild", () => {
@@ -77,4 +84,113 @@ describe("rlmPreambleBuild", () => {
       "def create_task(taskId: str, note: str | None = None, priority: int | None = None) -> str:"
     );
   });
+
+  it("generates per-tool python stubs one by one for runtime tools", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-rlm-preamble-"));
+    let engine: Engine | null = null;
+    try {
+      const config = configResolve(
+        { features: { rlm: true }, engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
+        path.join(dir, "settings.json")
+      );
+      engine = new Engine({ config, eventBus: new EngineEventBus() });
+      await engine.start();
+
+      const tools = engine.modules.tools.listTools();
+      expect(tools.length).toBeGreaterThan(0);
+
+      for (const tool of tools) {
+        const preamble = rlmPreambleBuild([tool]);
+        const signature = pythonSignatureResolve(preamble, tool.name);
+
+        if (tool.name === "run_python" || !pythonIdentifierIs(tool.name)) {
+          expect(signature).toBeNull();
+          continue;
+        }
+
+        expect(signature).not.toBeNull();
+        expect(preamble).toContain(`def ${tool.name}(`);
+        expect(preamble).toContain(") -> str:");
+
+        const signatureParts = signaturePartsResolve(signature!);
+        const parameterEntries = rlmParameterEntriesBuild(tool);
+        expect(signatureParts).toHaveLength(parameterEntries.length);
+
+        for (const [index, entry] of parameterEntries.entries()) {
+          const part = signatureParts[index] ?? "";
+          expect(part.startsWith(`${entry.name}: `)).toBe(true);
+          if (entry.required) {
+            expect(part).not.toContain("= None");
+            continue;
+          }
+          expect(part).toContain("= None");
+        }
+      }
+    } finally {
+      if (engine) {
+        await engine.shutdown();
+      }
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
 });
+
+function pythonSignatureResolve(preamble: string, toolName: string): string | null {
+  const line = preamble.split("\n").find((entry) => entry.includes(`def ${toolName}(`));
+  if (!line) {
+    return null;
+  }
+  const marker = `def ${toolName}(`;
+  const markerIndex = line.indexOf(marker);
+  if (markerIndex < 0) {
+    return null;
+  }
+  const afterMarker = line.slice(markerIndex + marker.length);
+  const endIndex = afterMarker.indexOf(") -> str:");
+  if (endIndex < 0) {
+    return null;
+  }
+  return afterMarker.slice(0, endIndex);
+}
+
+function pythonIdentifierIs(value: string): boolean {
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
+}
+
+function signaturePartsResolve(signature: string): string[] {
+  if (signature.length === 0) {
+    return [];
+  }
+
+  const parts: string[] = [];
+  let current = "";
+  let depth = 0;
+
+  for (const char of signature) {
+    if (char === "[" || char === "(" || char === "{") {
+      depth += 1;
+      current += char;
+      continue;
+    }
+    if (char === "]" || char === ")" || char === "}") {
+      depth = Math.max(0, depth - 1);
+      current += char;
+      continue;
+    }
+    if (char === "," && depth === 0) {
+      const trimmed = current.trim();
+      if (trimmed.length > 0) {
+        parts.push(trimmed);
+      }
+      current = "";
+      continue;
+    }
+    current += char;
+  }
+
+  const tail = current.trim();
+  if (tail.length > 0) {
+    parts.push(tail);
+  }
+  return parts;
+}
