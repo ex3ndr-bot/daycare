@@ -78,6 +78,8 @@ string equality assertions:
 
 - `montyPythonTypeFromSchema` converts schema fragments to exact Python hints
 - `montyPythonSignatureBuild` emits exact required/optional signatures
+- `montyResponseTypeNameFromFunction` case-changes function names into response type names
+- `montyResponseTypedDictLinesBuild` builds strict response `TypedDict` declarations
 - `montyPreambleBuild` renders exact full preamble text (not partial `contains`)
 
 ```mermaid
@@ -86,6 +88,8 @@ flowchart LR
   B --> C[Exact type hint string]
   C --> D[montyPythonSignatureBuild]
   D --> E[Exact signature string]
-  E --> F[montyPreambleBuild]
-  F --> G[Exact full preamble string]
+  E --> F[montyResponseTypeNameFromFunction]
+  F --> G[montyResponseTypedDictLinesBuild]
+  G --> H[montyPreambleBuild]
+  H --> I[Exact full preamble string]
 ```

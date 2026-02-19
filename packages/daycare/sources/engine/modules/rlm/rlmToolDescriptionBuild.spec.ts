@@ -23,7 +23,8 @@ describe("rlmToolDescriptionBuild", () => {
     expect(description).toContain("Tools return plain LLM strings");
     expect(description).toContain("The following functions are available:");
     expect(description).toContain("```python");
-    expect(description).toContain("def skill() -> str:");
+    expect(description).toContain("SkillResponse = TypedDict(\"SkillResponse\", {})");
+    expect(description).toContain("def skill() -> SkillResponse:");
     expect(description).not.toContain("Available skills");
   });
 

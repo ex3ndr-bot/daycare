@@ -28,7 +28,8 @@ describe("rlmNoToolsPromptBuild", () => {
     expect(prompt).toContain("Any `<say>` block after the first `<run_python>` is trimmed and not delivered");
     expect(prompt).not.toContain("<say> after <run_python> was ignored");
     expect(prompt).toContain("```python");
-    expect(prompt).toContain("def echo() -> str:");
+    expect(prompt).toContain("EchoResponse = TypedDict(\"EchoResponse\", {})");
+    expect(prompt).toContain("def echo() -> EchoResponse:");
     expect(prompt).not.toContain("Available skills");
     expect(prompt).toContain("<python_result>...</python_result>");
     expect(prompt).toContain("do not use `print()` for the final return value");

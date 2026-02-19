@@ -12,6 +12,7 @@ import type {
 import { toolResultTruncate } from "./tools/toolResultTruncate.js";
 import { toolExecutionResultOutcome } from "./tools/toolReturnOutcome.js";
 import { RLM_TOOL_NAME } from "./rlm/rlmConstants.js";
+import { MONTY_RESPONSE_SCHEMA_KEY } from "./monty/montyResponseSchemaKey.js";
 
 type RegisteredTool = ToolDefinition & { pluginId: string };
 
@@ -45,7 +46,15 @@ export class ToolResolver {
   }
 
   listTools(): Tool[] {
-    return Array.from(this.tools.values()).map((entry) => entry.tool);
+    return Array.from(this.tools.values()).map((entry) => {
+      const tool = { ...entry.tool } as Tool;
+      Object.defineProperty(tool, MONTY_RESPONSE_SCHEMA_KEY, {
+        value: entry.returns.schema,
+        enumerable: false,
+        configurable: false
+      });
+      return tool;
+    });
   }
 
   async execute(

@@ -39,7 +39,8 @@ export async function rlmExecute(
   const toolByName = new Map(availableTools.map((tool) => [tool.name, tool]));
   const externalFunctions = [...toolByName.keys(), RLM_PRINT_FUNCTION_NAME];
   const rewrittenCode = printCallsRewrite(code);
-  const script = [preamble.trim(), rewrittenCode].filter((chunk) => chunk.length > 0).join("\n\n");
+  const runtimePreamble = preambleRuntimeNormalize(preamble);
+  const script = [runtimePreamble, rewrittenCode].filter((chunk) => chunk.length > 0).join("\n\n");
   await historyCallback?.({
     type: "rlm_start",
     at: Date.now(),
@@ -171,6 +172,15 @@ export async function rlmExecute(
     isError: false
   });
   return result;
+}
+
+function preambleRuntimeNormalize(preamble: string): string {
+  return preamble
+    .split("\n")
+    // Monty runtime exposes a reduced typing module and cannot import TypedDict.
+    .filter((line) => !/^from typing import .*TypedDict.*$/.test(line.trim()))
+    .join("\n")
+    .trim();
 }
 
 function snapshotResumeWithDurationReset(
