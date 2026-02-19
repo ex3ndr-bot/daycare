@@ -19,13 +19,22 @@ const RESTART_CONFIRM_MAX_AGE_MS = 5 * 60 * 1000;
 const settingsSchema = z
   .object({
     strategy: z.literal("pm2"),
-    processName: z.string().trim().min(1)
+    processName: z.string().trim().min(1),
+    selfUpgrade: z
+      .object({
+        enabled: z.boolean().optional().default(false)
+      })
+      .optional()
+      .default({ enabled: false })
   })
   .passthrough();
 
 type UpgradePluginSettings = {
   strategy: "pm2";
   processName: string;
+  selfUpgrade?: {
+    enabled?: boolean;
+  };
 };
 
 // Tool schema for self_upgrade
@@ -74,15 +83,26 @@ export const plugin = definePlugin({
       `Detected online PM2 process "${detection.processName}". Upgrade plugin configured.`,
       "Upgrade"
     );
+
+    // Ask if self-upgrade tool should be enabled
+    const enableSelfUpgrade = await api.prompt.confirm({
+      message: "Enable self_upgrade tool? (allows agent to upgrade Daycare programmatically)",
+      default: false
+    });
+
     return {
       settings: {
         strategy: "pm2",
-        processName: detection.processName
+        processName: detection.processName,
+        selfUpgrade: {
+          enabled: enableSelfUpgrade ?? false
+        }
       }
     };
   },
   create: (api) => {
     const settings = api.settings as UpgradePluginSettings;
+    const selfUpgradeEnabled = settings.selfUpgrade?.enabled ?? false;
 
     const upgradeHandler = async (
       _command: string,
@@ -181,7 +201,7 @@ export const plugin = definePlugin({
         name: "self_upgrade",
         description:
           "Upgrade the Daycare CLI to a newer version and restart. " +
-          "Only available in foreground sessions (direct user chat). " +
+          "Only available in foreground sessions (direct user chat) and when enabled in configuration. " +
           "After upgrade, the process restarts and agent context is reset.",
         parameters: selfUpgradeToolSchema
       },
@@ -189,6 +209,27 @@ export const plugin = definePlugin({
       execute: async (args, toolContext, toolCall) => {
         const payload = args as SelfUpgradeArgs;
         const descriptor = toolContext.agent.descriptor;
+
+        // Check if self-upgrade is enabled in configuration
+        if (!selfUpgradeEnabled) {
+          return {
+            toolMessage: {
+              id: toolCall.id,
+              content: [
+                {
+                  type: "text",
+                  text: "Self-upgrade is disabled in configuration. Enable it in the upgrade plugin settings."
+                }
+              ],
+              isError: true
+            },
+            typedResult: {
+              success: false,
+              message:
+                "Self-upgrade is disabled in configuration. Enable it in the upgrade plugin settings (selfUpgrade.enabled: true)."
+            }
+          };
+        }
 
         // Only allow in foreground (user) sessions
         if (descriptor.type !== "user") {
@@ -303,7 +344,7 @@ export const plugin = definePlugin({
           description: "Restart the daycare server process",
           handler: restartHandler
         });
-        // Register the self_upgrade tool
+        // Register the self_upgrade tool (always registered, but checks config at runtime)
         api.registrar.registerTool(buildSelfUpgradeTool());
       },
       unload: async () => {

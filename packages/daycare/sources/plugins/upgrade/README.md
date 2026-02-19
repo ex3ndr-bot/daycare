@@ -20,6 +20,7 @@ Allows the agent to upgrade Daycare to a newer version.
 | `version` | string | No | Specific version to install (e.g. '2026.2.1'). If omitted, installs latest. |
 
 **Constraints:**
+- Must be enabled in configuration (`selfUpgrade.enabled: true`)
 - Only available in foreground sessions (direct user chat)
 - Not available in background agents, subagents, or group chats
 - After upgrade, the process restarts and agent context is reset
@@ -40,16 +41,42 @@ self_upgrade(version="2026.2.1")  # Upgrade to specific version
 }
 ```
 
+**Error (disabled):**
+```json
+{
+  "success": false,
+  "message": "Self-upgrade is disabled in configuration. Enable it in the upgrade plugin settings (selfUpgrade.enabled: true)."
+}
+```
+
 ## Settings
-- `strategy` (required): currently only `"pm2"`.
-- `processName` (required): PM2 process name to restart after install.
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `strategy` | string | required | Runtime strategy, currently only `"pm2"` |
+| `processName` | string | required | PM2 process name to restart |
+| `selfUpgrade.enabled` | boolean | `false` | Enable the self_upgrade tool |
+
+### Example configuration
+
+```json
+{
+  "strategy": "pm2",
+  "processName": "daycare",
+  "selfUpgrade": {
+    "enabled": true
+  }
+}
+```
 
 ## Onboarding
 - On add, the plugin runs `pm2 jlist` and looks for an **online** PM2 process named `daycare`.
 - If `daycare` is not online (or PM2 is unavailable), onboarding aborts and the plugin is not added.
+- Prompts whether to enable the `self_upgrade` tool (default: no).
 - If detected, onboarding stores:
   - `strategy: "pm2"`
   - `processName: "daycare"`
+  - `selfUpgrade.enabled: <user choice>`
 
 ## How it works
 
@@ -65,6 +92,6 @@ self_upgrade(version="2026.2.1")  # Upgrade to specific version
 3. On next boot, sends restart completion status
 
 ## Notes
-- Commands (`/upgrade`, `/restart`) are user-facing slash commands
-- The `self_upgrade` tool is available to the model in foreground sessions
+- Commands (`/upgrade`, `/restart`) are user-facing slash commands that always work
+- The `self_upgrade` tool requires explicit opt-in via configuration
 - Progress/failure status messages are sent back to the invoking channel
