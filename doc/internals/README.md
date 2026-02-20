@@ -13,6 +13,7 @@ This folder documents the current Daycare CLI, plugins, agents, and runtime.
 - `dashboard-history.md` - dashboard conversation history view
 - `daycare-factory.md` - docker-based factory build flow for TASK.md + out mounts
 - `agent-list-tools.md` - tools for listing agent/session ids and metadata
+- `agent-session-control-tools.md` - `agent_reset` and `agent_compact` cross-agent session control tools
 - `session-history-tool.md` - cross-session history tool behavior and summary mode
 - `memory.md` - memory plugin and entities
 - `cron.md` - cron scheduler tasks and actions

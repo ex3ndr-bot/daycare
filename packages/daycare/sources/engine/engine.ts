@@ -42,6 +42,8 @@ import {
 } from "./modules/tools/heartbeat.js";
 import { buildSendAgentMessageTool, buildStartBackgroundAgentTool } from "./modules/tools/background.js";
 import { sendUserMessageToolBuild } from "./modules/tools/sendUserMessageTool.js";
+import { agentResetToolBuild } from "./modules/tools/agentResetTool.js";
+import { agentCompactToolBuild } from "./modules/tools/agentCompactTool.js";
 import { topologyToolBuild } from "./modules/tools/topologyToolBuild.js";
 import { skillToolBuild } from "./modules/tools/skillToolBuild.js";
 import { Crons } from "./cron/crons.js";
@@ -378,6 +380,8 @@ export class Engine {
     this.modules.tools.register("core", buildHeartbeatRemoveTool());
     this.modules.tools.register("core", buildStartBackgroundAgentTool());
     this.modules.tools.register("core", buildSendAgentMessageTool());
+    this.modules.tools.register("core", agentResetToolBuild());
+    this.modules.tools.register("core", agentCompactToolBuild());
     this.modules.tools.register("core", sendUserMessageToolBuild());
     this.modules.tools.register("core", skillToolBuild());
     this.modules.tools.register(
@@ -413,7 +417,7 @@ export class Engine {
     await this.apps.discover();
     this.apps.registerTools(this.modules.tools);
     logger.debug(
-      "register: Core tools registered: cron, cron_memory, heartbeat, topology, background, send_user_message, skill, session_history, permanent_agents, channels, image_generation, mermaid_png, reaction, send_file, generate_signal, signal_events_csv, signal_subscribe, signal_unsubscribe, request_permission, grant_permission, install_app, app_rules"
+      "register: Core tools registered: cron, cron_memory, heartbeat, topology, background, agent_reset, agent_compact, send_user_message, skill, session_history, permanent_agents, channels, image_generation, mermaid_png, reaction, send_file, generate_signal, signal_events_csv, signal_subscribe, signal_unsubscribe, request_permission, grant_permission, install_app, app_rules"
     );
 
     await this.pluginManager.preStartAll();

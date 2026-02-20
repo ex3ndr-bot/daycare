@@ -13,6 +13,8 @@ const baseTools = [
   { name: "set_reaction", description: "", parameters: {} },
   { name: "generate_image", description: "", parameters: {} },
   { name: "send_user_message", description: "", parameters: {} },
+  { name: "agent_reset", description: "", parameters: {} },
+  { name: "agent_compact", description: "", parameters: {} },
   { name: "other", description: "", parameters: {} }
 ] as unknown as Tool[];
 
@@ -53,6 +55,25 @@ describe("toolListContextBuild", () => {
     const names = result.map((tool) => tool.name);
     expect(names).not.toContain("send_file");
     expect(names).not.toContain("set_reaction");
+    expect(names).not.toContain("agent_reset");
+    expect(names).not.toContain("agent_compact");
+  });
+
+  it("keeps agent session control tools for foreground agents", () => {
+    const result = toolListContextBuild({
+      tools: baseTools,
+      source: "slack",
+      agentKind: "foreground",
+      connectorRegistry: {
+        get: () => null,
+        list: () => []
+      },
+      imageRegistry: { list: () => [] }
+    });
+
+    const names = result.map((tool) => tool.name);
+    expect(names).toContain("agent_reset");
+    expect(names).toContain("agent_compact");
   });
 
   it("hides file and reaction tools when unsupported", () => {

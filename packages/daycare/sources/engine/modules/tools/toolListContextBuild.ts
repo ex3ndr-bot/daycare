@@ -18,7 +18,9 @@ type ToolListOptions = {
 
 const BACKGROUND_TOOL_DENYLIST = new Set([
   "set_reaction",
-  "send_file"
+  "send_file",
+  "agent_reset",
+  "agent_compact"
 ]);
 
 const FOREGROUND_TOOL_DENYLIST = new Set([

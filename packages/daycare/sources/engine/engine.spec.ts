@@ -242,6 +242,8 @@ describe("Engine tool registration", () => {
 
       const status = engine.getStatus();
       expect(status.tools).toContain("skill");
+      expect(status.tools).toContain("agent_reset");
+      expect(status.tools).toContain("agent_compact");
 
       await engine.shutdown();
     } finally {
