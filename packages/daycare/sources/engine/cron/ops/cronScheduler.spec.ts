@@ -171,7 +171,8 @@ describe("CronScheduler", () => {
     const created = await store.createTask("context-test", {
       name: "Context Test",
       schedule: "0 9 * * *",
-      prompt: "Test prompt"
+      prompt: "Test prompt",
+      userId: "user-1"
     });
 
     const onTask = vi.fn();
@@ -192,6 +193,7 @@ describe("CronScheduler", () => {
     expect(context!.prompt).toBe("Test prompt");
     expect(context!.memoryPath).toContain("MEMORY.md");
     expect(context!.filesPath).toContain("files");
+    expect(context!.userId).toBe("user-1");
 
     scheduler.stop();
   });

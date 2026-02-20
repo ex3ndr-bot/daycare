@@ -3,6 +3,7 @@ import { Type } from "@sinclair/typebox";
 
 import type { ToolExecutionContext, ToolExecutionResult } from "@/types";
 import type { ToolResolverApi } from "../toolResolver.js";
+import { AgentContext } from "../../agents/agentContext.js";
 import { rlmToolBuild } from "./rlmTool.js";
 
 describe("rlmToolBuild", () => {
@@ -180,6 +181,14 @@ function createResolver(
 function createContext(
   overrides: Partial<ToolExecutionContext> = {}
 ): ToolExecutionContext {
+  const agent = {
+    id: "agent-1",
+    userId: "user-1",
+    inbox: {
+      consumeSteering: () => null
+    }
+  } as unknown as ToolExecutionContext["agent"];
+
   return {
     connectorRegistry: null as unknown as ToolExecutionContext["connectorRegistry"],
     fileStore: null as unknown as ToolExecutionContext["fileStore"],
@@ -193,7 +202,8 @@ function createContext(
       network: false,
       events: false
     },
-    agent: null as unknown as ToolExecutionContext["agent"],
+    agent,
+    agentContext: new AgentContext("agent-1", "user-1"),
     source: "test",
     messageContext: {},
     agentSystem: null as unknown as ToolExecutionContext["agentSystem"],

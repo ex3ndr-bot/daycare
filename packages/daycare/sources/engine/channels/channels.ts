@@ -21,13 +21,13 @@ const HISTORY_CONTEXT_LIMIT = 12;
 export type ChannelsOptions = {
   configDir: string;
   signals: Pick<Signals, "subscribe" | "unsubscribe">;
-  agentSystem: Pick<AgentSystem, "agentExists" | "post">;
+  agentSystem: Pick<AgentSystem, "agentExists" | "post" | "agentContextForAgentId">;
 };
 
 export class Channels {
   private readonly baseDir: string;
   private readonly signals: Pick<Signals, "subscribe" | "unsubscribe">;
-  private readonly agentSystem: Pick<AgentSystem, "agentExists" | "post">;
+  private readonly agentSystem: Pick<AgentSystem, "agentExists" | "post" | "agentContextForAgentId">;
   private readonly items = new Map<string, Channel>();
 
   constructor(options: ChannelsOptions) {
@@ -64,7 +64,12 @@ export class Channels {
       }
       this.items.set(channel.name, cloneChannel(channel));
       for (const member of channel.members) {
+        const memberContext = await this.agentSystem.agentContextForAgentId(member.agentId);
+        if (!memberContext) {
+          continue;
+        }
         this.signals.subscribe({
+          userId: memberContext.userId,
           agentId: member.agentId,
           pattern: channelPatternBuild(channel.name),
           silent: false
@@ -121,7 +126,12 @@ export class Channels {
       return false;
     }
     for (const member of channel.members) {
+      const memberContext = await this.agentSystem.agentContextForAgentId(member.agentId);
+      if (!memberContext) {
+        continue;
+      }
       this.signals.unsubscribe({
+        userId: memberContext.userId,
         agentId: member.agentId,
         pattern: channelPatternBuild(channelName)
       });
@@ -172,7 +182,12 @@ export class Channels {
     channel.updatedAt = now;
     await channelSave(this.baseDir, channel);
     this.items.set(channel.name, cloneChannel(channel));
+    const memberContext = await this.agentSystem.agentContextForAgentId(normalizedAgentId);
+    if (!memberContext) {
+      throw new Error(`Agent not found: ${normalizedAgentId}`);
+    }
     this.signals.subscribe({
+      userId: memberContext.userId,
       agentId: normalizedAgentId,
       pattern: channelPatternBuild(channel.name),
       silent: false
@@ -191,7 +206,12 @@ export class Channels {
     channel.updatedAt = Date.now();
     await channelSave(this.baseDir, channel);
     this.items.set(channel.name, cloneChannel(channel));
+    const memberContext = await this.agentSystem.agentContextForAgentId(normalizedAgentId);
+    if (!memberContext) {
+      return true;
+    }
     this.signals.unsubscribe({
+      userId: memberContext.userId,
       agentId: normalizedAgentId,
       pattern: channelPatternBuild(channel.name)
     });

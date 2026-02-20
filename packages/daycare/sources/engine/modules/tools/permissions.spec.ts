@@ -554,6 +554,7 @@ function contextBuild(options: {
         permissions
       }
     } as unknown as ToolExecutionContext["agent"],
+    agentContext: null as unknown as ToolExecutionContext["agentContext"],
     source: "telegram",
     messageContext: { messageId: "m1" },
     agentSystem: {

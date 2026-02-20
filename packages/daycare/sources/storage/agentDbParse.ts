@@ -14,6 +14,7 @@ import type { AgentDbRecord, DatabaseAgentRow } from "./databaseTypes.js";
 export function agentDbParse(row: DatabaseAgentRow): AgentDbRecord {
   return {
     id: row.id,
+    userId: row.user_id,
     type: row.type,
     descriptor: JSON.parse(row.descriptor) as AgentDescriptor,
     activeSessionId: row.active_session_id,

@@ -32,6 +32,7 @@ describe("sessionHistoryDb", () => {
       };
       await agentDbWrite(config, {
         id: agentId,
+        userId: createId(),
         type: descriptor.type,
         descriptor,
         activeSessionId: null,
@@ -80,6 +81,7 @@ describe("sessionHistoryDb", () => {
       };
       await agentDbWrite(config, {
         id: agentId,
+        userId: createId(),
         type: descriptor.type,
         descriptor,
         activeSessionId: null,

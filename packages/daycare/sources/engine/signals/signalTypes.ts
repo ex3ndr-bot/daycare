@@ -1,8 +1,8 @@
 export type SignalSource =
-  | { type: "system" }
-  | { type: "agent"; id: string }
-  | { type: "webhook"; id?: string }
-  | { type: "process"; id?: string };
+  | { type: "system"; userId?: string }
+  | { type: "agent"; id: string; userId?: string }
+  | { type: "webhook"; id?: string; userId?: string }
+  | { type: "process"; id?: string; userId?: string };
 
 export type SignalGenerateInput = {
   type: string;
@@ -19,6 +19,7 @@ export type Signal = {
 };
 
 export type SignalSubscription = {
+  userId: string;
   agentId: string;
   pattern: string;
   silent: boolean;
@@ -27,12 +28,14 @@ export type SignalSubscription = {
 };
 
 export type SignalSubscribeInput = {
+  userId: string;
   agentId: string;
   pattern: string;
   silent?: boolean;
 };
 
 export type SignalUnsubscribeInput = {
+  userId: string;
   agentId: string;
   pattern: string;
 };

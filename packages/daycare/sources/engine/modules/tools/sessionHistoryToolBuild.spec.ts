@@ -196,6 +196,7 @@ function buildContext(
     assistant: null,
     permissions: config.defaultPermissions,
     agent: { id: agentId } as unknown as ToolExecutionContext["agent"],
+    agentContext: null as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext: {},
     agentSystem: {

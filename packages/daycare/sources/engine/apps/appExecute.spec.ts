@@ -31,6 +31,7 @@ describe("appExecute", () => {
     const now = Date.now();
     await agentDbWrite(config, {
       id: agentId,
+      userId: "user-1",
       type: "app",
       descriptor: {
         type: "app",
@@ -96,6 +97,7 @@ describe("appExecute", () => {
         events: false
       },
       agent: { id: "parent-agent" } as ToolExecutionContext["agent"],
+      agentContext: null as unknown as ToolExecutionContext["agentContext"],
       source: "test",
       messageContext: {},
       agentSystem: {
@@ -187,6 +189,7 @@ describe("appExecute", () => {
     const now = Date.now();
     await agentDbWrite(config, {
       id: agentId,
+      userId: "user-1",
       type: "app",
       descriptor: {
         type: "app",
@@ -251,6 +254,7 @@ describe("appExecute", () => {
         events: false
       },
       agent: { id: "parent-agent" } as ToolExecutionContext["agent"],
+      agentContext: null as unknown as ToolExecutionContext["agentContext"],
       source: "test",
       messageContext: {},
       agentSystem: {

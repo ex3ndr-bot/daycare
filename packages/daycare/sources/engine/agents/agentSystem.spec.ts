@@ -23,6 +23,7 @@ import { Signals } from "../signals/signals.js";
 import { AgentSystem } from "./agentSystem.js";
 import { agentStateRead } from "./ops/agentStateRead.js";
 import { agentStateWrite } from "./ops/agentStateWrite.js";
+import { userDbReadByConnectorKey } from "../../storage/userDbReadByConnectorKey.js";
 
 const POISON_PILL_DELAY_MS = 3_600_000;
 const POISON_PILL_REPEAT_KEY = "lifecycle-poison-pill";
@@ -341,6 +342,113 @@ describe("AgentSystem", () => {
       delayedSignalsA?.stop();
       delayedSignalsB?.stop();
       vi.useRealTimers();
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("auto-creates a user for a new connector identity", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-system-"));
+    try {
+      const harness = await harnessCreate(dir);
+      await harness.agentSystem.load();
+      await harness.agentSystem.start();
+
+      const descriptor: AgentDescriptor = {
+        type: "user",
+        connector: "telegram",
+        userId: "connector-user-1",
+        channelId: "channel-a"
+      };
+      await harness.agentSystem.postAndAwait(
+        { descriptor },
+        { type: "reset", message: "init user" }
+      );
+      const agentId = await harness.agentSystem.agentIdForTarget({ descriptor });
+      const agentContext = await harness.agentSystem.agentContextForAgentId(agentId);
+      const linked = await userDbReadByConnectorKey(
+        harness.config,
+        "telegram:connector-user-1"
+      );
+
+      expect(agentContext?.userId).toBeTruthy();
+      expect(linked?.id).toBe(agentContext?.userId);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("reuses existing user for known connector identity across channels", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-system-"));
+    try {
+      const harness = await harnessCreate(dir);
+      await harness.agentSystem.load();
+      await harness.agentSystem.start();
+
+      const first: AgentDescriptor = {
+        type: "user",
+        connector: "telegram",
+        userId: "connector-user-2",
+        channelId: "channel-a"
+      };
+      const second: AgentDescriptor = {
+        type: "user",
+        connector: "telegram",
+        userId: "connector-user-2",
+        channelId: "channel-b"
+      };
+      await harness.agentSystem.postAndAwait({ descriptor: first }, { type: "reset", message: "first" });
+      await harness.agentSystem.postAndAwait({ descriptor: second }, { type: "reset", message: "second" });
+
+      const firstAgentId = await harness.agentSystem.agentIdForTarget({ descriptor: first });
+      const secondAgentId = await harness.agentSystem.agentIdForTarget({ descriptor: second });
+      const firstContext = await harness.agentSystem.agentContextForAgentId(firstAgentId);
+      const secondContext = await harness.agentSystem.agentContextForAgentId(secondAgentId);
+
+      expect(firstContext?.userId).toBeTruthy();
+      expect(secondContext?.userId).toBe(firstContext?.userId);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("inherits parent userId for subagents", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-system-"));
+    try {
+      const harness = await harnessCreate(dir);
+      await harness.agentSystem.load();
+      await harness.agentSystem.start();
+
+      const parentDescriptor: AgentDescriptor = {
+        type: "user",
+        connector: "telegram",
+        userId: "connector-user-3",
+        channelId: "channel-a"
+      };
+      await harness.agentSystem.postAndAwait(
+        { descriptor: parentDescriptor },
+        { type: "reset", message: "parent" }
+      );
+      const parentAgentId = await harness.agentSystem.agentIdForTarget({ descriptor: parentDescriptor });
+      const parentContext = await harness.agentSystem.agentContextForAgentId(parentAgentId);
+      if (!parentContext) {
+        throw new Error("Parent agent context missing");
+      }
+
+      const subagentDescriptor: AgentDescriptor = {
+        type: "subagent",
+        id: createId(),
+        parentAgentId,
+        name: "worker"
+      };
+      await harness.agentSystem.postAndAwait(
+        { descriptor: subagentDescriptor },
+        { type: "reset", message: "subagent" }
+      );
+      const subagentId = await harness.agentSystem.agentIdForTarget({ descriptor: subagentDescriptor });
+      const subagentContext = await harness.agentSystem.agentContextForAgentId(subagentId);
+
+      expect(subagentContext?.userId).toBe(parentContext.userId);
+    } finally {
       await rm(dir, { recursive: true, force: true });
     }
   });

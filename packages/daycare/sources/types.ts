@@ -65,6 +65,7 @@ export type {
   BackgroundAgentState
 } from "./engine/agents/ops/agentTypes.js";
 export type { AgentDescriptor, AgentFetchStrategy } from "./engine/agents/ops/agentDescriptorTypes.js";
+export { AgentContext } from "./engine/agents/agentContext.js";
 
 // Inference
 export type {
@@ -93,6 +94,12 @@ export type { AgentSkill } from "./engine/skills/skillTypes.js";
 
 // Config
 export type { Config } from "./config/configTypes.js";
+
+// Storage
+export type {
+  UserDbRecord,
+  UserConnectorKeyDbRecord
+} from "./storage/databaseTypes.js";
 
 // Signals
 export type {

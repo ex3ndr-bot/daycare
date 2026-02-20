@@ -84,6 +84,7 @@ function contextBuild(opts: {
       id: opts.agentId,
       descriptor: opts.descriptor
     } as unknown as ToolExecutionContext["agent"],
+    agentContext: null as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext: {},
     agentSystem: {

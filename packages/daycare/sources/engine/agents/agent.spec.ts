@@ -57,7 +57,7 @@ describe("Agent", () => {
         channelId: "channel-1",
         userId: "user-1"
       };
-      await Agent.create(agentId, descriptor, new AgentInbox(agentId), agentSystem);
+      await Agent.create(agentId, descriptor, createId(), new AgentInbox(agentId), agentSystem);
 
       const restoredDescriptor = await agentDescriptorRead(config, agentId);
       expect(restoredDescriptor).toEqual(descriptor);
@@ -433,9 +433,18 @@ describe("Agent", () => {
       const agentId = createId();
       const descriptor: AgentDescriptor = { type: "cron", id: agentId, name: "Signal agent" };
       await agentSystem.post({ descriptor }, { type: "reset", message: "init" });
-      signals.subscribe({ agentId, pattern: "build:*:done", silent: true });
+      const agentContext = await agentSystem.agentContextForAgentId(agentId);
+      if (!agentContext) {
+        throw new Error("Missing agent context");
+      }
+      signals.subscribe({
+        userId: agentContext.userId,
+        agentId,
+        pattern: "build:*:done",
+        silent: true
+      });
       await signals.generate({ type: "build:alpha:done", source: { type: "system" } });
-      signals.unsubscribe({ agentId, pattern: "build:*:done" });
+      signals.unsubscribe({ userId: agentContext.userId, agentId, pattern: "build:*:done" });
 
       await agentSystem.start();
       await agentSystem.postAndAwait(
@@ -485,10 +494,24 @@ describe("Agent", () => {
       const agentId = createId();
       const descriptor: AgentDescriptor = { type: "cron", id: agentId, name: "Signal agent" };
       await agentSystem.post({ descriptor }, { type: "reset", message: "init" });
-      signals.subscribe({ agentId, pattern: "build:*:done", silent: true });
+      const agentContext = await agentSystem.agentContextForAgentId(agentId);
+      if (!agentContext) {
+        throw new Error("Missing agent context");
+      }
+      signals.subscribe({
+        userId: agentContext.userId,
+        agentId,
+        pattern: "build:*:done",
+        silent: true
+      });
       await signals.generate({ type: "build:alpha:done", source: { type: "system" } });
-      signals.unsubscribe({ agentId, pattern: "build:*:done" });
-      signals.subscribe({ agentId, pattern: "build:*:done", silent: true });
+      signals.unsubscribe({ userId: agentContext.userId, agentId, pattern: "build:*:done" });
+      signals.subscribe({
+        userId: agentContext.userId,
+        agentId,
+        pattern: "build:*:done",
+        silent: true
+      });
 
       await agentSystem.start();
       await agentSystem.postAndAwait(
@@ -546,11 +569,30 @@ describe("Agent", () => {
         { type: "reset", message: "init peer" }
       );
 
-      signals.subscribe({ agentId: sourceAgentId, pattern: "build:*:done", silent: true });
-      signals.subscribe({ agentId: peerAgentId, pattern: "build:*:done", silent: true });
+      const sourceAgentContext = await agentSystem.agentContextForAgentId(sourceAgentId);
+      const peerAgentContext = await agentSystem.agentContextForAgentId(peerAgentId);
+      if (!sourceAgentContext || !peerAgentContext) {
+        throw new Error("Missing signal test agent contexts");
+      }
+      signals.subscribe({
+        userId: sourceAgentContext.userId,
+        agentId: sourceAgentId,
+        pattern: "build:*:done",
+        silent: true
+      });
+      signals.subscribe({
+        userId: peerAgentContext.userId,
+        agentId: peerAgentId,
+        pattern: "build:*:done",
+        silent: true
+      });
       await signals.generate({
         type: "build:alpha:done",
-        source: { type: "agent", id: sourceAgentId }
+        source: {
+          type: "agent",
+          id: sourceAgentId,
+          userId: sourceAgentContext.userId
+        }
       });
 
       await agentSystem.start();

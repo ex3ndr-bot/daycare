@@ -69,7 +69,16 @@ export class Crons {
               await this.agentSystem.permissionsForTarget({ descriptor: { type: "system", tag: "cron" } })
             );
         const targetAgentId = await this.agentSystem.agentIdForTarget(target);
+        const targetAgentContext = await this.agentSystem.agentContextForAgentId(targetAgentId);
         this.agentSystem.updateAgentPermissions(targetAgentId, permissions, Date.now());
+        const resolvedUserId = task.userId ?? targetAgentContext?.userId;
+        if (!resolvedUserId) {
+          logger.warn(
+            { taskId: task.taskId, taskUid: task.taskUid, targetAgentId },
+            "skip: Cron task skipped because target user context is unavailable"
+          );
+          return;
+        }
 
         await this.agentSystem.postAndAwait(target, {
           type: "signal",
@@ -77,7 +86,10 @@ export class Crons {
           signal: {
             id: createId(),
             type: "internal.cron.task",
-            source: { type: "system" },
+            source: {
+              type: "system",
+              userId: resolvedUserId
+            },
             createdAt: Date.now(),
             data: {
               prompt: task.prompt,
@@ -86,6 +98,7 @@ export class Crons {
               taskName: task.taskName,
               filesPath: task.filesPath,
               memoryPath: task.memoryPath,
+              userId: resolvedUserId,
               messageContext
             }
           }

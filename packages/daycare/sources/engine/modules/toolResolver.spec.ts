@@ -30,7 +30,7 @@ describe("ToolResolver", () => {
         name: "read_file",
         arguments: { path: "/tmp/a.txt" }
       },
-      contextBuild({ rlmToolOnly: true })
+      toolExecutionContextCreate({ rlmToolOnly: true })
     );
 
     expect(result.toolMessage.isError).toBe(true);
@@ -56,7 +56,7 @@ describe("ToolResolver", () => {
         name: "run_python",
         arguments: { code: "print(1)" }
       },
-      contextBuild({ rlmToolOnly: true })
+      toolExecutionContextCreate({ rlmToolOnly: true })
     );
 
     expect(result.toolMessage.isError).toBe(false);
@@ -82,7 +82,7 @@ describe("ToolResolver", () => {
         name: "read_file",
         arguments: { path: "/tmp/a.txt" }
       },
-      contextBuild({ rlmToolOnly: false })
+      toolExecutionContextCreate({ rlmToolOnly: false })
     );
 
     expect(result.toolMessage.isError).toBe(false);
@@ -119,7 +119,7 @@ describe("ToolResolver", () => {
         name: "read_file",
         arguments: { path: "/tmp/a.txt" }
       },
-      contextBuild({ rlmToolOnly: false })
+      toolExecutionContextCreate({ rlmToolOnly: false })
     );
 
     expect(result.typedResult).toEqual({ text: "ok" });
@@ -157,7 +157,7 @@ describe("ToolResolver", () => {
         name: "count_rows",
         arguments: {}
       },
-      contextBuild()
+      toolExecutionContextCreate()
     );
 
     expect(messageText(result)).toContain("Rows: 3");
@@ -196,7 +196,7 @@ describe("ToolResolver", () => {
         name: "count_rows",
         arguments: {}
       },
-      contextBuild()
+      toolExecutionContextCreate()
     );
 
     expect(result.toolMessage.isError).toBe(true);
@@ -204,7 +204,7 @@ describe("ToolResolver", () => {
   });
 });
 
-function contextBuild(
+function toolExecutionContextCreate(
   overrides: Partial<ToolExecutionContext> = {}
 ): ToolExecutionContext {
   return {
@@ -221,6 +221,7 @@ function contextBuild(
       events: false
     },
     agent: null as unknown as ToolExecutionContext["agent"],
+    agentContext: null as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext: {},
     agentSystem: null as unknown as ToolExecutionContext["agentSystem"],

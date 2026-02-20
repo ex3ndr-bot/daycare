@@ -25,6 +25,7 @@ describe("CronStore", () => {
       description: "Send the daily status report.",
       schedule: "0 9 * * *",
       prompt: "Generate a daily status report.",
+      userId: "user-1",
       deleteAfterRun: true
     });
 
@@ -34,6 +35,7 @@ describe("CronStore", () => {
     expect(created.description).toBe("Send the daily status report.");
     expect(created.schedule).toBe("0 9 * * *");
     expect(created.enabled).toBe(true);
+    expect(created.userId).toBe("user-1");
     expect(created.deleteAfterRun).toBe(true);
 
     const loaded = await store.loadTask("daily-report");
@@ -42,6 +44,7 @@ describe("CronStore", () => {
     expect(loaded!.name).toBe("Daily Report");
     expect(loaded!.description).toBe("Send the daily status report.");
     expect(loaded!.prompt).toBe("Generate a daily status report.");
+    expect(loaded!.userId).toBe("user-1");
     expect(loaded!.deleteAfterRun).toBe(true);
   });
 

@@ -44,7 +44,7 @@ import { buildSendAgentMessageTool, buildStartBackgroundAgentTool } from "./modu
 import { sendUserMessageToolBuild } from "./modules/tools/sendUserMessageTool.js";
 import { agentResetToolBuild } from "./modules/tools/agentResetTool.js";
 import { agentCompactToolBuild } from "./modules/tools/agentCompactTool.js";
-import { topologyToolBuild } from "./modules/tools/topologyToolBuild.js";
+import { topologyTool } from "./modules/tools/topologyToolBuild.js";
 import { skillToolBuild } from "./modules/tools/skillToolBuild.js";
 import { Crons } from "./cron/crons.js";
 import { Heartbeats } from "./heartbeat/heartbeats.js";
@@ -388,7 +388,7 @@ export class Engine {
     this.modules.tools.register("core", skillToolBuild());
     this.modules.tools.register(
       "core",
-      topologyToolBuild(this.crons, this.signals, this.channels, this.exposes)
+      topologyTool(this.crons, this.signals, this.channels, this.exposes)
     );
     this.modules.tools.register("core", sessionHistoryToolBuild());
     this.modules.tools.register("core", permanentAgentToolBuild());

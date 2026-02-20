@@ -11,6 +11,7 @@ export type CronTaskDefinition = {
   schedule: string;
   prompt: string;
   agentId?: string;
+  userId?: string;
   gate?: ExecGateDefinition;
   enabled?: boolean;
   deleteAfterRun?: boolean;
@@ -45,6 +46,7 @@ export type CronTaskContext = {
   memoryPath: string;
   filesPath: string;
   agentId?: string;
+  userId?: string;
 };
 
 /**

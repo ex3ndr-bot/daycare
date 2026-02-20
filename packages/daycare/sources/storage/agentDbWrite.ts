@@ -13,6 +13,7 @@ export async function agentDbWrite(config: Config, record: AgentDbRecord): Promi
       `
         INSERT INTO agents (
           id,
+          user_id,
           type,
           descriptor,
           active_session_id,
@@ -22,8 +23,9 @@ export async function agentDbWrite(config: Config, record: AgentDbRecord): Promi
           lifecycle,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
+          user_id = excluded.user_id,
           type = excluded.type,
           descriptor = excluded.descriptor,
           active_session_id = excluded.active_session_id,
@@ -36,6 +38,7 @@ export async function agentDbWrite(config: Config, record: AgentDbRecord): Promi
       `
     ).run(
       record.id,
+      record.userId,
       record.type,
       JSON.stringify(record.descriptor),
       record.activeSessionId,

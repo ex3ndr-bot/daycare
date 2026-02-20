@@ -19,7 +19,7 @@ describe("buildSignalSubscribeTool", () => {
       const tool = buildSignalSubscribeTool(signals);
       const result = await tool.execute(
         { pattern: "build:*:done", silent: false, agentId: "agent-target" },
-        contextBuild("agent-source", true),
+        contextForAgent("agent-source", true),
         toolCall
       );
 
@@ -27,6 +27,7 @@ describe("buildSignalSubscribeTool", () => {
       const details = result.toolMessage.details as
         | {
             subscription?: {
+              userId: string;
               agentId: string;
               pattern: string;
               silent: boolean;
@@ -36,6 +37,7 @@ describe("buildSignalSubscribeTool", () => {
           }
         | undefined;
       expect(details?.subscription?.agentId).toBe("agent-target");
+      expect(details?.subscription?.userId).toBe("user-target");
       expect(details?.subscription?.pattern).toBe("build:*:done");
       expect(details?.subscription?.silent).toBe(false);
       expect(details?.subscription?.createdAt).toBeTypeOf("number");
@@ -54,7 +56,7 @@ describe("buildSignalSubscribeTool", () => {
       await expect(
         tool.execute(
           { pattern: "build:*:done", agentId: "missing-agent" },
-          contextBuild("agent-source", false),
+          contextForAgent("agent-source", false),
           toolCall
         )
       ).rejects.toThrow("Agent not found: missing-agent");
@@ -64,7 +66,7 @@ describe("buildSignalSubscribeTool", () => {
   });
 });
 
-function contextBuild(agentId: string, exists: boolean): ToolExecutionContext {
+function contextForAgent(agentId: string, exists: boolean): ToolExecutionContext {
   return {
     connectorRegistry: null as unknown as ToolExecutionContext["connectorRegistry"],
     fileStore: null as unknown as ToolExecutionContext["fileStore"],
@@ -79,10 +81,20 @@ function contextBuild(agentId: string, exists: boolean): ToolExecutionContext {
       events: false
     },
     agent: { id: agentId } as unknown as ToolExecutionContext["agent"],
+    agentContext: {
+      agentId,
+      userId: "user-source"
+    } as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext: {},
     agentSystem: {
-      agentExists: async () => exists
+      agentContextForAgentId: async (targetAgentId: string) =>
+        exists
+          ? ({
+              agentId: targetAgentId,
+              userId: "user-target"
+            } as unknown as ToolExecutionContext["agentContext"])
+          : null
     } as unknown as ToolExecutionContext["agentSystem"],
     heartbeats: null as unknown as ToolExecutionContext["heartbeats"]
   };

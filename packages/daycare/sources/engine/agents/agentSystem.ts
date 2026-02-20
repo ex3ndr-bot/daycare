@@ -49,6 +49,14 @@ import type { ConfigModule } from "../config/configModule.js";
 import type { Signals } from "../signals/signals.js";
 import { PermissionRequestRegistry } from "../modules/tools/permissionRequestRegistry.js";
 import { agentDbList } from "../../storage/agentDbList.js";
+import { agentDbRead } from "../../storage/agentDbRead.js";
+import { userDbConnectorKeyAdd } from "../../storage/userDbConnectorKeyAdd.js";
+import { userDbDelete } from "../../storage/userDbDelete.js";
+import { userDbList } from "../../storage/userDbList.js";
+import { userDbReadByConnectorKey } from "../../storage/userDbReadByConnectorKey.js";
+import { userDbWrite } from "../../storage/userDbWrite.js";
+import { userConnectorKeyCreate } from "../../storage/userConnectorKeyCreate.js";
+import { AgentContext } from "./agentContext.js";
 
 const logger = getLogger("engine.agent-system");
 const AGENT_IDLE_DELAY_MS = 60_000;
@@ -63,6 +71,7 @@ type DelayedSignalsFacade = {
 
 type AgentEntry = {
   agentId: string;
+  userId: string;
   descriptor: AgentDescriptor;
   agent: Agent;
   inbox: AgentInbox;
@@ -203,8 +212,14 @@ export class AgentSystem {
         continue;
       }
       const inbox = new AgentInbox(agentId);
-      const agent = Agent.restore(agentId, descriptor, state, inbox, this);
-      const registered = this.registerEntry({ agentId, descriptor, agent, inbox });
+      const agent = Agent.restore(agentId, record.userId, descriptor, state, inbox, this);
+      const registered = this.registerEntry({
+        agentId,
+        userId: record.userId,
+        descriptor,
+        agent,
+        inbox
+      });
       registered.inbox.post({ type: "restore" });
       logger.info({ agentId }, "restore: Agent restored");
       this.startEntryIfRunning(registered);
@@ -308,10 +323,30 @@ export class AgentSystem {
     }
   }
 
+  /**
+   * Reads agent + user identity by agent id.
+   * Returns: null when the agent does not exist in memory or storage.
+   */
+  async agentContextForAgentId(agentId: string): Promise<AgentContext | null> {
+    const loaded = this.entries.get(agentId);
+    if (loaded) {
+      return new AgentContext(loaded.agentId, loaded.userId);
+    }
+    const record = await agentDbRead(this.config.current, agentId);
+    if (!record) {
+      return null;
+    }
+    return new AgentContext(record.id, record.userId);
+  }
+
   async signalDeliver(signal: Signal, subscriptions: SignalSubscription[]): Promise<void> {
     await Promise.all(
       subscriptions.map(async (subscription) => {
         if (signal.source.type === "agent" && signal.source.id === subscription.agentId) {
+          return;
+        }
+        const context = await this.agentContextForAgentId(subscription.agentId);
+        if (!context || context.userId !== subscription.userId) {
           return;
         }
         try {
@@ -610,9 +645,11 @@ export class AgentSystem {
       `event: Creating agent entry agentId=${agentId} type=${resolvedDescriptor.type}`
     );
     const inbox = new AgentInbox(agentId);
-    const agent = await Agent.create(agentId, resolvedDescriptor, inbox, this);
+    const userId = await this.resolveUserIdForDescriptor(resolvedDescriptor);
+    const agent = await Agent.create(agentId, resolvedDescriptor, userId, inbox, this);
     const entry = this.registerEntry({
       agentId,
+      userId,
       descriptor: resolvedDescriptor,
       agent,
       inbox
@@ -623,12 +660,14 @@ export class AgentSystem {
 
   private registerEntry(input: {
     agentId: string;
+    userId: string;
     descriptor: AgentDescriptor;
     agent: Agent;
     inbox: AgentInbox;
   }): AgentEntry {
     const entry: AgentEntry = {
       agentId: input.agentId,
+      userId: input.userId,
       descriptor: input.descriptor,
       agent: input.agent,
       inbox: input.inbox,
@@ -688,13 +727,14 @@ export class AgentSystem {
     if (!this.delayedSignals) {
       return;
     }
+    const context = await this.agentContextForAgentId(agentId);
     const deliverAt = Date.now() + AGENT_IDLE_DELAY_MS;
     const type = lifecycleSignalTypeBuild(agentId, "idle");
     try {
       await this.delayedSignals.schedule({
         type,
         deliverAt,
-        source: { type: "agent", id: agentId },
+        source: { type: "agent", id: agentId, userId: context?.userId },
         data: { agentId, state: "idle" },
         repeatKey: AGENT_IDLE_REPEAT_KEY
       });
@@ -728,13 +768,14 @@ export class AgentSystem {
     if (descriptor?.type !== "subagent") {
       return;
     }
+    const context = await this.agentContextForAgentId(agentId);
     try {
       // load() runs before DelayedSignals.start(); ensure persistence directory exists.
       await fs.mkdir(`${this.config.current.configDir}/signals`, { recursive: true });
       await this.delayedSignals.schedule({
         type: lifecycleSignalTypeBuild(agentId, "poison-pill"),
         deliverAt: options?.deliverAt ?? Date.now() + AGENT_POISON_PILL_DELAY_MS,
-        source: { type: "agent", id: agentId },
+        source: { type: "agent", id: agentId, userId: context?.userId },
         data: { agentId, state: "poison-pill" },
         repeatKey: AGENT_POISON_PILL_REPEAT_KEY
       });
@@ -768,10 +809,11 @@ export class AgentSystem {
     if (!this._signals) {
       return;
     }
+    const context = await this.agentContextForAgentId(agentId);
     try {
       await this._signals.generate({
         type: lifecycleSignalTypeBuild(agentId, state),
-        source: { type: "agent", id: agentId },
+        source: { type: "agent", id: agentId, userId: context?.userId },
         data: { agentId, state }
       });
     } catch (error) {
@@ -873,14 +915,17 @@ export class AgentSystem {
   ): Promise<AgentEntry | null> {
     let descriptor: AgentDescriptor | null = null;
     let state: Awaited<ReturnType<typeof agentStateRead>> = null;
+    let recordUserId = "";
     try {
       descriptor = await agentDescriptorRead(this.config.current, agentId);
       state = await agentStateRead(this.config.current, agentId);
+      const record = await agentDbRead(this.config.current, agentId);
+      recordUserId = record?.userId ?? "";
     } catch (error) {
       logger.warn({ agentId, error }, "error: Agent restore failed due to invalid persisted data");
       return null;
     }
-    if (!descriptor || !state) {
+    if (!descriptor || !state || !recordUserId) {
       return null;
     }
     if (state.state === "dead") {
@@ -890,11 +935,89 @@ export class AgentSystem {
       return null;
     }
     const inbox = new AgentInbox(agentId);
-    const agent = Agent.restore(agentId, descriptor, state, inbox, this);
-    const entry = this.registerEntry({ agentId, descriptor, agent, inbox });
+    const agent = Agent.restore(agentId, recordUserId, descriptor, state, inbox, this);
+    const entry = this.registerEntry({
+      agentId,
+      userId: recordUserId,
+      descriptor,
+      agent,
+      inbox
+    });
     entry.inbox.post({ type: "restore" });
     this.startEntryIfRunning(entry);
     return entry;
+  }
+
+  private async resolveUserIdForDescriptor(descriptor: AgentDescriptor): Promise<string> {
+    if (descriptor.type === "user") {
+      const connectorKey = userConnectorKeyCreate(descriptor.connector, descriptor.userId);
+      return this.resolveUserIdForConnectorKey(connectorKey);
+    }
+    if (descriptor.type === "subagent" || descriptor.type === "app") {
+      const parent = await this.agentContextForAgentId(descriptor.parentAgentId);
+      if (parent) {
+        return parent.userId;
+      }
+      return this.ownerUserIdEnsure();
+    }
+    return this.ownerUserIdEnsure();
+  }
+
+  private async resolveUserIdForConnectorKey(connectorKey: string): Promise<string> {
+    const existing = await userDbReadByConnectorKey(this.config.current, connectorKey);
+    if (existing) {
+      return existing.id;
+    }
+    const users = await userDbList(this.config.current);
+    const now = Date.now();
+    const userId = createId();
+    await userDbWrite(this.config.current, {
+      id: userId,
+      isOwner: users.length === 0,
+      createdAt: now,
+      updatedAt: now
+    });
+    try {
+      await userDbConnectorKeyAdd(this.config.current, userId, connectorKey);
+      return userId;
+    } catch (error) {
+      const raced = await userDbReadByConnectorKey(this.config.current, connectorKey);
+      if (raced) {
+        return raced.id;
+      }
+      try {
+        await userDbDelete(this.config.current, userId);
+      } catch (deleteError) {
+        logger.warn({ userId, connectorKey, error: deleteError }, "warn: Failed to clean orphaned user row");
+      }
+      throw error;
+    }
+  }
+
+  private async ownerUserIdEnsure(): Promise<string> {
+    const users = await userDbList(this.config.current);
+    const owner = users.find((entry) => entry.isOwner);
+    if (owner) {
+      return owner.id;
+    }
+    const now = Date.now();
+    const ownerId = createId();
+    try {
+      await userDbWrite(this.config.current, {
+        id: ownerId,
+        isOwner: true,
+        createdAt: now,
+        updatedAt: now
+      });
+      return ownerId;
+    } catch {
+      const reread = await userDbList(this.config.current);
+      const recovered = reread.find((entry) => entry.isOwner);
+      if (recovered) {
+        return recovered.id;
+      }
+      throw new Error("Failed to resolve owner user");
+    }
   }
 
   private createCompletion(): {

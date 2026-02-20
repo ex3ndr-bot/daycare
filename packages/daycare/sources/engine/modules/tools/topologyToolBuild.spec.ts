@@ -13,11 +13,11 @@ import type { Crons } from "../../cron/crons.js";
 import type { HeartbeatDefinition } from "../../heartbeat/heartbeatTypes.js";
 import type { Signals } from "../../signals/signals.js";
 import type { SignalSubscription } from "../../signals/signalTypes.js";
-import { topologyToolBuild } from "./topologyToolBuild.js";
+import { topologyTool } from "./topologyToolBuild.js";
 
 const toolCall = { id: "tool-1", name: "topology" };
 
-describe("topologyToolBuild", () => {
+describe("topologyTool", () => {
   it("returns empty sections when no topology entries exist", async () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-topology-tool-"));
     try {
@@ -29,7 +29,7 @@ describe("topologyToolBuild", () => {
         path.join(dir, "settings.json")
       );
 
-      const tool = topologyToolBuild(
+      const tool = topologyTool(
         { listTasks: async () => [] } as unknown as Crons,
         { listSubscriptions: () => [] } as unknown as Signals,
         { list: () => [] } as never,
@@ -39,6 +39,7 @@ describe("topologyToolBuild", () => {
         {},
         contextBuild(config, {
           callerAgentId: "agent-caller",
+          callerUserId: "user-1",
           heartbeatTasks: []
         }),
         toolCall
@@ -103,7 +104,7 @@ describe("topologyToolBuild", () => {
       });
       await agentStateWrite(config, "agent-other", stateBuild(config.defaultPermissions, 10));
 
-      const tool = topologyToolBuild(
+      const tool = topologyTool(
         {
           listTasks: async () => [
             cronTaskBuild({ id: "cleanup", name: "Cleanup", schedule: "0 0 * * 0", enabled: false }),
@@ -119,14 +120,22 @@ describe("topologyToolBuild", () => {
         {
           listSubscriptions: () => [
             signalSubscriptionBuild({
+              userId: "user-1",
               agentId: "agent-other",
               pattern: "deploy:done",
               silent: false
             }),
             signalSubscriptionBuild({
+              userId: "user-1",
               agentId: "agent-caller",
               pattern: "build:*",
               silent: true
+            }),
+            signalSubscriptionBuild({
+              userId: "user-2",
+              agentId: "agent-secret",
+              pattern: "secret:*",
+              silent: false
             })
           ]
         } as unknown as Signals,
@@ -164,6 +173,7 @@ describe("topologyToolBuild", () => {
         {},
         contextBuild(config, {
           callerAgentId: "agent-third",
+          callerUserId: "user-1",
           heartbeatTasks: [
             {
               id: "check-health",
@@ -187,7 +197,10 @@ describe("topologyToolBuild", () => {
       expect(text).toContain("## Heartbeat Tasks (1)");
       expect(text).toContain("check-health: Health Check lastRun=2025-01-15T10:00:00Z");
       expect(text).toContain("## Signal Subscriptions (2)");
-      expect(text).toContain("agent=agent-other pattern=deploy:done silent=false");
+      expect(text).toContain(
+        "user=user-1 agent=agent-other pattern=deploy:done silent=false"
+      );
+      expect(text).not.toContain("user=user-2 agent=agent-secret pattern=secret:* silent=false");
       expect(text).toContain("## Channels (1)");
       expect(text).toContain("#dev leader=agent-other members=@monitor(agent-caller)");
       expect(text).toContain("## Expose Endpoints (1)");
@@ -235,7 +248,7 @@ describe("topologyToolBuild", () => {
       });
       await agentStateWrite(config, "agent-caller", stateBuild(config.defaultPermissions, 100));
 
-      const tool = topologyToolBuild(
+      const tool = topologyTool(
         {
           listTasks: async () => [
             cronTaskBuild({
@@ -250,6 +263,7 @@ describe("topologyToolBuild", () => {
         {
           listSubscriptions: () => [
             signalSubscriptionBuild({
+              userId: "user-1",
               agentId: "agent-caller",
               pattern: "build:*",
               silent: true
@@ -266,6 +280,7 @@ describe("topologyToolBuild", () => {
         {},
         contextBuild(config, {
           callerAgentId: "agent-caller",
+          callerUserId: "user-1",
           heartbeatTasks: [
             {
               id: "check-health",
@@ -304,6 +319,7 @@ function contextBuild(
   config: ReturnType<typeof configResolve>,
   options: {
     callerAgentId: string;
+    callerUserId: string;
     heartbeatTasks: HeartbeatDefinition[];
   }
 ): ToolExecutionContext {
@@ -315,6 +331,10 @@ function contextBuild(
     assistant: null,
     permissions: config.defaultPermissions,
     agent: { id: options.callerAgentId } as unknown as ToolExecutionContext["agent"],
+    agentContext: {
+      agentId: options.callerAgentId,
+      userId: options.callerUserId
+    } as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext: {},
     agentSystem: {
@@ -363,11 +383,13 @@ function cronTaskBuild(input: {
 }
 
 function signalSubscriptionBuild(input: {
+  userId: string;
   agentId: string;
   pattern: string;
   silent: boolean;
 }): SignalSubscription {
   return {
+    userId: input.userId,
     agentId: input.agentId,
     pattern: input.pattern,
     silent: input.silent,

@@ -16,7 +16,12 @@ describe("buildSignalUnsubscribeTool", () => {
     const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-signal-unsubscribe-tool-"));
     try {
       const signals = new Signals({ eventBus: new EngineEventBus(), configDir: dir });
-      signals.subscribe({ agentId: "agent-target", pattern: "build:*:done", silent: true });
+      signals.subscribe({
+        userId: "user-target",
+        agentId: "agent-target",
+        pattern: "build:*:done",
+        silent: true
+      });
       const tool = buildSignalUnsubscribeTool(signals);
       const result = await tool.execute(
         { pattern: "build:*:done", agentId: "agent-target" },
@@ -91,10 +96,20 @@ function contextBuild(agentId: string, exists: boolean): ToolExecutionContext {
       events: false
     },
     agent: { id: agentId } as unknown as ToolExecutionContext["agent"],
+    agentContext: {
+      agentId,
+      userId: "user-source"
+    } as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext: {},
     agentSystem: {
-      agentExists: async () => exists
+      agentContextForAgentId: async (targetAgentId: string) =>
+        exists
+          ? ({
+              agentId: targetAgentId,
+              userId: "user-target"
+            } as unknown as ToolExecutionContext["agentContext"])
+          : null
     } as unknown as ToolExecutionContext["agentSystem"],
     heartbeats: null as unknown as ToolExecutionContext["heartbeats"]
   };

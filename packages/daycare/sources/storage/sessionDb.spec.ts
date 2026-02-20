@@ -31,6 +31,7 @@ describe("sessionDb", () => {
       };
       await agentDbWrite(config, {
         id: agentId,
+        userId: createId(),
         type: descriptor.type,
         descriptor,
         activeSessionId: null,
@@ -81,6 +82,7 @@ describe("sessionDb", () => {
         };
         await agentDbWrite(config, {
           id: agentId,
+          userId: createId(),
           type: descriptor.type,
           descriptor,
           activeSessionId: null,

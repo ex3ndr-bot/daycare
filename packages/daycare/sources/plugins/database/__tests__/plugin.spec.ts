@@ -10,6 +10,7 @@ import { FileStore } from "../../../files/store.js";
 import { ModuleRegistry } from "../../../engine/modules/moduleRegistry.js";
 import { PluginRegistry } from "../../../engine/plugins/registry.js";
 import { Agent } from "../../../engine/agents/agent.js";
+import { AgentContext } from "../../../engine/agents/agentContext.js";
 import { AgentInbox } from "../../../engine/agents/ops/agentInbox.js";
 import { Processes } from "../../../engine/processes/processes.js";
 import type { AgentState, SessionPermissions } from "@/types";
@@ -60,10 +61,11 @@ describe("database plugin", () => {
     };
     const agent = Agent.restore(
       agentId,
+      "user-1",
       descriptor,
       state,
       new AgentInbox(agentId),
-      {} as unknown as Parameters<typeof Agent.restore>[4]
+      {} as unknown as Parameters<typeof Agent.restore>[5]
     );
     const api = {
       instance: { instanceId, pluginId: "database" },
@@ -115,6 +117,7 @@ describe("database plugin", () => {
       assistant: null,
       permissions,
       agent,
+      agentContext: new AgentContext(agent.id, agent.userId),
       source: "test",
       messageContext,
       agentSystem: null as unknown as Parameters<typeof modules.tools.execute>[1]["agentSystem"],

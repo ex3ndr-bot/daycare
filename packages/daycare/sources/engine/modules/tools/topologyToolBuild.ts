@@ -43,7 +43,7 @@ const topologyReturns: ToolResultContract<TopologyResult> = {
  * Builds the topology tool that snapshots agents, cron tasks, heartbeat tasks,
  * and signal subscriptions in one response.
  */
-export function topologyToolBuild(
+export function topologyTool(
   crons: Crons,
   signals: Signals,
   channels: Pick<Channels, "list">,
@@ -59,6 +59,7 @@ export function topologyToolBuild(
     returns: topologyReturns,
     execute: async (_args, toolContext, toolCall) => {
       const callerAgentId = toolContext.agent.id;
+      const callerUserId = toolContext.agentContext?.userId ?? null;
 
       const [agentEntries, cronTasks, heartbeatTasks, exposeEndpoints] = await Promise.all([
         agentList(toolContext.agentSystem.config.current),
@@ -102,8 +103,13 @@ export function topologyToolBuild(
         }));
 
       const signalSubscriptionsSummary = signalSubscriptions
+        .filter((subscription) => !!callerUserId && subscription.userId === callerUserId)
         .slice()
         .sort((left, right) => {
+          const byUser = left.userId.localeCompare(right.userId);
+          if (byUser !== 0) {
+            return byUser;
+          }
           const byAgent = left.agentId.localeCompare(right.agentId);
           if (byAgent !== 0) {
             return byAgent;
@@ -111,6 +117,7 @@ export function topologyToolBuild(
           return left.pattern.localeCompare(right.pattern);
         })
         .map((subscription) => ({
+          userId: subscription.userId,
           agentId: subscription.agentId,
           pattern: subscription.pattern,
           silent: subscription.silent,
@@ -159,7 +166,7 @@ export function topologyToolBuild(
         ...listHeartbeatLinesBuild(heartbeats),
         "",
         `## Signal Subscriptions (${signalSubscriptionsSummary.length})`,
-        ...listSignalSubscriptionLinesBuild(signalSubscriptionsSummary),
+        ...listSignalSubscriptionLines(signalSubscriptionsSummary),
         "",
         `## Channels (${channelsSummary.length})`,
         ...listChannelLinesBuild(channelsSummary),
@@ -244,15 +251,21 @@ function listHeartbeatLinesBuild(
   );
 }
 
-function listSignalSubscriptionLinesBuild(
-  subscriptions: Array<{ agentId: string; pattern: string; silent: boolean; isYou: boolean }>
+function listSignalSubscriptionLines(
+  subscriptions: Array<{
+    userId: string;
+    agentId: string;
+    pattern: string;
+    silent: boolean;
+    isYou: boolean;
+  }>
 ): string[] {
   if (subscriptions.length === 0) {
     return ["None"];
   }
 
   return subscriptions.map((subscription) =>
-    `agent=${subscription.agentId} pattern=${subscription.pattern} silent=${subscription.silent}${subscription.isYou ? " (You)" : ""}`
+    `user=${subscription.userId} agent=${subscription.agentId} pattern=${subscription.pattern} silent=${subscription.silent}${subscription.isYou ? " (You)" : ""}`
   );
 }
 
