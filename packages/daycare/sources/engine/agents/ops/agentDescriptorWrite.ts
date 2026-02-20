@@ -9,6 +9,7 @@ import { userDbWrite } from "../../../storage/userDbWrite.js";
 /**
  * Writes an agent descriptor into SQLite storage.
  * Expects: descriptor has been validated.
+ * Resolves user ownership as existing agent userId -> provided userId -> owner -> new owner.
  */
 export async function agentDescriptorWrite(
   config: Config,
@@ -17,6 +18,7 @@ export async function agentDescriptorWrite(
   userId?: string
 ): Promise<void> {
   const existing = await agentDbRead(config, agentId);
+  // Preserve existing ownership when present, otherwise resolve from caller/owner fallback chain.
   let resolvedUserId = existing?.userId ?? userId;
   if (!resolvedUserId) {
     const users = await userDbList(config);

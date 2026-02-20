@@ -14,7 +14,8 @@ const sourceSchema = Type.Union([
   Type.Object(
     {
       type: Type.Literal("agent"),
-      id: Type.String({ minLength: 1 })
+      id: Type.String({ minLength: 1 }),
+      userId: Type.Optional(Type.String({ minLength: 1 }))
     },
     { additionalProperties: false }
   ),

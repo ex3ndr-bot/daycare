@@ -8,6 +8,7 @@ import { createId } from "@paralleldrive/cuid2";
 import { configResolve } from "../config/configResolve.js";
 import { storageUpgrade } from "./storageUpgrade.js";
 import { userDbConnectorKeyAdd } from "./userDbConnectorKeyAdd.js";
+import { userDbDelete } from "./userDbDelete.js";
 import { userDbList } from "./userDbList.js";
 import { userDbRead } from "./userDbRead.js";
 import { userDbReadByConnectorKey } from "./userDbReadByConnectorKey.js";
@@ -138,6 +139,34 @@ describe("userDb", () => {
       await userDbConnectorKeyAdd(config, first, "telegram:1");
 
       await expect(userDbConnectorKeyAdd(config, second, "telegram:1")).rejects.toThrow();
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("deletes user and cascades connector keys", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-user-db-"));
+    try {
+      const config = configResolve(
+        { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
+        path.join(dir, "settings.json")
+      );
+      await storageUpgrade(config);
+
+      const userId = createId();
+      await userDbWrite(config, {
+        id: userId,
+        isOwner: false,
+        createdAt: 1,
+        updatedAt: 1
+      });
+      await userDbConnectorKeyAdd(config, userId, "telegram:700");
+      await userDbDelete(config, userId);
+
+      const byId = await userDbRead(config, userId);
+      const byKey = await userDbReadByConnectorKey(config, "telegram:700");
+      expect(byId).toBeNull();
+      expect(byKey).toBeNull();
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

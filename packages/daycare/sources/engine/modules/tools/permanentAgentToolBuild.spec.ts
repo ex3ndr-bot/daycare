@@ -169,7 +169,10 @@ function contextBuild(
     assistant: null,
     permissions,
     agent: { id: "creator-agent" } as unknown as ToolExecutionContext["agent"],
-    agentContext: null as unknown as ToolExecutionContext["agentContext"],
+    agentContext: {
+      agentId: "creator-agent",
+      userId: "creator-user"
+    } as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext: {},
     agentSystem: agentSystem as unknown as ToolExecutionContext["agentSystem"],

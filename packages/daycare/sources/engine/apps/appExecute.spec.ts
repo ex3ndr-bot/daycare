@@ -97,7 +97,7 @@ describe("appExecute", () => {
         events: false
       },
       agent: { id: "parent-agent" } as ToolExecutionContext["agent"],
-    agentContext: null as unknown as ToolExecutionContext["agentContext"],
+      agentContext: null as unknown as ToolExecutionContext["agentContext"],
       source: "test",
       messageContext: {},
       agentSystem: {
@@ -254,7 +254,7 @@ describe("appExecute", () => {
         events: false
       },
       agent: { id: "parent-agent" } as ToolExecutionContext["agent"],
-    agentContext: null as unknown as ToolExecutionContext["agentContext"],
+      agentContext: null as unknown as ToolExecutionContext["agentContext"],
       source: "test",
       messageContext: {},
       agentSystem: {

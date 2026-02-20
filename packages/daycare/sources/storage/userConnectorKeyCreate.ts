@@ -1,8 +1,8 @@
 /**
- * Builds a stable connector identity key from connector + connector user id.
+ * Creates a stable connector identity key from connector + connector user id.
  * Expects: connector and userId are non-empty strings after trim.
  */
-export function userConnectorKeyBuild(connector: string, userId: string): string {
+export function userConnectorKeyCreate(connector: string, userId: string): string {
   const normalizedConnector = connector.trim();
   const normalizedUserId = userId.trim();
   if (!normalizedConnector) {

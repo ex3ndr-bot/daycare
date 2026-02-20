@@ -30,7 +30,7 @@ describe("buildSignalGenerateTool", () => {
           type: "automation.requested",
           data: { target: "deploy" }
         },
-        contextBuild("agent-123"),
+        contextForAgent("agent-123"),
         toolCall
       );
 
@@ -60,7 +60,7 @@ describe("buildSignalGenerateTool", () => {
   });
 });
 
-function contextBuild(agentId: string): ToolExecutionContext {
+function contextForAgent(agentId: string): ToolExecutionContext {
   return {
     connectorRegistry: null as unknown as ToolExecutionContext["connectorRegistry"],
     fileStore: null as unknown as ToolExecutionContext["fileStore"],

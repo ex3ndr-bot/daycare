@@ -51,10 +51,11 @@ import { PermissionRequestRegistry } from "../modules/tools/permissionRequestReg
 import { agentDbList } from "../../storage/agentDbList.js";
 import { agentDbRead } from "../../storage/agentDbRead.js";
 import { userDbConnectorKeyAdd } from "../../storage/userDbConnectorKeyAdd.js";
+import { userDbDelete } from "../../storage/userDbDelete.js";
 import { userDbList } from "../../storage/userDbList.js";
 import { userDbReadByConnectorKey } from "../../storage/userDbReadByConnectorKey.js";
 import { userDbWrite } from "../../storage/userDbWrite.js";
-import { userConnectorKeyBuild } from "../../storage/userConnectorKeyBuild.js";
+import { userConnectorKeyCreate } from "../../storage/userConnectorKeyCreate.js";
 import { AgentContext } from "./agentContext.js";
 
 const logger = getLogger("engine.agent-system");
@@ -949,7 +950,7 @@ export class AgentSystem {
 
   private async resolveUserIdForDescriptor(descriptor: AgentDescriptor): Promise<string> {
     if (descriptor.type === "user") {
-      const connectorKey = userConnectorKeyBuild(descriptor.connector, descriptor.userId);
+      const connectorKey = userConnectorKeyCreate(descriptor.connector, descriptor.userId);
       return this.resolveUserIdForConnectorKey(connectorKey);
     }
     if (descriptor.type === "subagent" || descriptor.type === "app") {
@@ -983,6 +984,11 @@ export class AgentSystem {
       const raced = await userDbReadByConnectorKey(this.config.current, connectorKey);
       if (raced) {
         return raced.id;
+      }
+      try {
+        await userDbDelete(this.config.current, userId);
+      } catch (deleteError) {
+        logger.warn({ userId, connectorKey, error: deleteError }, "warn: Failed to clean orphaned user row");
       }
       throw error;
     }

@@ -1,7 +1,7 @@
 import { createId } from "@paralleldrive/cuid2";
 
 import type { Migration } from "./migrationTypes.js";
-import { userConnectorKeyBuild } from "../userConnectorKeyBuild.js";
+import { userConnectorKeyCreate } from "../userConnectorKeyCreate.js";
 
 type UserAgentRow = {
   id: string;
@@ -17,6 +17,7 @@ type ParsedUserDescriptor = {
 export const migration20260220UsersBootstrap: Migration = {
   name: "20260220_users_bootstrap",
   up(db): void {
+    // 1) Collect existing user agents in creation order.
     const userAgents = db
       .prepare(
         `
@@ -28,6 +29,7 @@ export const migration20260220UsersBootstrap: Migration = {
       )
       .all() as UserAgentRow[];
 
+    // 2) Build connector key map and unique ordered connector keys.
     const connectorKeyByAgentId = new Map<string, string>();
     const connectorKeysInOrder: string[] = [];
     for (const row of userAgents) {
@@ -35,13 +37,14 @@ export const migration20260220UsersBootstrap: Migration = {
       if (!parsed) {
         continue;
       }
-      const connectorKey = userConnectorKeyBuild(parsed.connector, parsed.userId);
+      const connectorKey = userConnectorKeyCreate(parsed.connector, parsed.userId);
       connectorKeyByAgentId.set(row.id, connectorKey);
       if (!connectorKeysInOrder.includes(connectorKey)) {
         connectorKeysInOrder.push(connectorKey);
       }
     }
 
+    // 3) Create users and connector keys; first connector identity becomes owner.
     let ownerUserId = "";
     const userIdByConnectorKey = new Map<string, string>();
     const now = Date.now();
@@ -80,6 +83,7 @@ export const migration20260220UsersBootstrap: Migration = {
       }
     }
 
+    // 4) Ensure an owner user always exists.
     const owner = db
       .prepare("SELECT id FROM users WHERE is_owner = 1 LIMIT 1")
       .get() as { id?: string } | undefined;
@@ -94,6 +98,7 @@ export const migration20260220UsersBootstrap: Migration = {
       ).run(ownerUserId, now, now);
     }
 
+    // 5) Add agents.user_id when missing, defaulting to owner.
     const columns = db
       .prepare("PRAGMA table_info(agents)")
       .all() as Array<{ name?: string }>;
@@ -104,6 +109,7 @@ export const migration20260220UsersBootstrap: Migration = {
       );
     }
 
+    // 6) Backfill user_id by connector mapping and index for lookups.
     for (const [agentId, connectorKey] of connectorKeyByAgentId.entries()) {
       const userId = userIdByConnectorKey.get(connectorKey);
       if (!userId) {

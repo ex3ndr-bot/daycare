@@ -43,7 +43,7 @@ const topologyReturns: ToolResultContract<TopologyResult> = {
  * Builds the topology tool that snapshots agents, cron tasks, heartbeat tasks,
  * and signal subscriptions in one response.
  */
-export function topologyToolBuild(
+export function topologyTool(
   crons: Crons,
   signals: Signals,
   channels: Pick<Channels, "list">,
@@ -59,6 +59,7 @@ export function topologyToolBuild(
     returns: topologyReturns,
     execute: async (_args, toolContext, toolCall) => {
       const callerAgentId = toolContext.agent.id;
+      const callerUserId = toolContext.agentContext?.userId ?? null;
 
       const [agentEntries, cronTasks, heartbeatTasks, exposeEndpoints] = await Promise.all([
         agentList(toolContext.agentSystem.config.current),
@@ -102,6 +103,7 @@ export function topologyToolBuild(
         }));
 
       const signalSubscriptionsSummary = signalSubscriptions
+        .filter((subscription) => !!callerUserId && subscription.userId === callerUserId)
         .slice()
         .sort((left, right) => {
           const byUser = left.userId.localeCompare(right.userId);
@@ -164,7 +166,7 @@ export function topologyToolBuild(
         ...listHeartbeatLinesBuild(heartbeats),
         "",
         `## Signal Subscriptions (${signalSubscriptionsSummary.length})`,
-        ...listSignalSubscriptionLinesBuild(signalSubscriptionsSummary),
+        ...listSignalSubscriptionLines(signalSubscriptionsSummary),
         "",
         `## Channels (${channelsSummary.length})`,
         ...listChannelLinesBuild(channelsSummary),
@@ -249,7 +251,7 @@ function listHeartbeatLinesBuild(
   );
 }
 
-function listSignalSubscriptionLinesBuild(
+function listSignalSubscriptionLines(
   subscriptions: Array<{
     userId: string;
     agentId: string;

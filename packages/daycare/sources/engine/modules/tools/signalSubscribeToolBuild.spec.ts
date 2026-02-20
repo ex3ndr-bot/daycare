@@ -19,7 +19,7 @@ describe("buildSignalSubscribeTool", () => {
       const tool = buildSignalSubscribeTool(signals);
       const result = await tool.execute(
         { pattern: "build:*:done", silent: false, agentId: "agent-target" },
-        contextBuild("agent-source", true),
+        contextForAgent("agent-source", true),
         toolCall
       );
 
@@ -56,7 +56,7 @@ describe("buildSignalSubscribeTool", () => {
       await expect(
         tool.execute(
           { pattern: "build:*:done", agentId: "missing-agent" },
-          contextBuild("agent-source", false),
+          contextForAgent("agent-source", false),
           toolCall
         )
       ).rejects.toThrow("Agent not found: missing-agent");
@@ -66,7 +66,7 @@ describe("buildSignalSubscribeTool", () => {
   });
 });
 
-function contextBuild(agentId: string, exists: boolean): ToolExecutionContext {
+function contextForAgent(agentId: string, exists: boolean): ToolExecutionContext {
   return {
     connectorRegistry: null as unknown as ToolExecutionContext["connectorRegistry"],
     fileStore: null as unknown as ToolExecutionContext["fileStore"],

@@ -266,7 +266,7 @@ CREATE INDEX idx_agents_user_id ON agents(user_id);
 ```
 
 ### Connector Key Format
-```
+```text
 ${connector}:${userId}
 ```
 Examples: `telegram:12345`, `whatsapp:15551234567`
@@ -328,6 +328,7 @@ erDiagram
 ```
 
 ### Agent-to-User Assignment
+
 | Agent type | Migration assignment | Runtime assignment |
 |------------|---------------------|--------------------|
 | user | Matched by connector key | Matched by connector key (create on demand) |

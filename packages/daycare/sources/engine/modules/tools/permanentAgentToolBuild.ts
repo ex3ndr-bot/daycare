@@ -106,7 +106,10 @@ export function permanentAgentToolBuild(): ToolDefinition {
         systemPrompt,
         ...(resolvedWorkspaceDir ? { workspaceDir: resolvedWorkspaceDir } : {})
       };
-      const ownerUserId = toolContext.agentContext?.userId ?? toolContext.agent.id;
+      const ownerUserId = toolContext.agentContext?.userId;
+      if (!ownerUserId) {
+        throw new Error("Permanent agent operations require a valid caller userId.");
+      }
 
       if (resolvedAgent) {
         await agentDescriptorWrite(config, agentId, descriptor, ownerUserId);

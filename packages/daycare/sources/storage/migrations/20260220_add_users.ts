@@ -1,5 +1,9 @@
 import type { Migration } from "./migrationTypes.js";
 
+/**
+ * Creates users and user_connector_keys tables plus owner uniqueness constraints.
+ * Expects: db is a valid SQLite handle with exec(); repeated runs are safe via IF NOT EXISTS.
+ */
 export const migration20260220AddUsers: Migration = {
   name: "20260220_add_users",
   up(db): void {
