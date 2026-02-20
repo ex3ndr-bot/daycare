@@ -15,6 +15,7 @@ import type { Heartbeats } from "../../heartbeat/heartbeats.js";
 import type { PermissionRequestRegistry } from "./permissionRequestRegistry.js";
 import type { AgentSkill } from "../../skills/skillTypes.js";
 import type { ToolResolverApi } from "../toolResolver.js";
+import type { AgentContext } from "../../agents/agentContext.js";
 
 export type ToolExecutionContext<State = Record<string, unknown>> = {
   connectorRegistry: ConnectorRegistry;
@@ -24,6 +25,7 @@ export type ToolExecutionContext<State = Record<string, unknown>> = {
   assistant: AssistantSettings | null;
   permissions: SessionPermissions;
   agent: Agent;
+  agentContext: AgentContext;
   source: string;
   messageContext: MessageContext;
   agentSystem: AgentSystem;

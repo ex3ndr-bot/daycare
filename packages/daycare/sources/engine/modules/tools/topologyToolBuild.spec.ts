@@ -119,11 +119,13 @@ describe("topologyToolBuild", () => {
         {
           listSubscriptions: () => [
             signalSubscriptionBuild({
+              userId: "user-1",
               agentId: "agent-other",
               pattern: "deploy:done",
               silent: false
             }),
             signalSubscriptionBuild({
+              userId: "user-1",
               agentId: "agent-caller",
               pattern: "build:*",
               silent: true
@@ -187,7 +189,9 @@ describe("topologyToolBuild", () => {
       expect(text).toContain("## Heartbeat Tasks (1)");
       expect(text).toContain("check-health: Health Check lastRun=2025-01-15T10:00:00Z");
       expect(text).toContain("## Signal Subscriptions (2)");
-      expect(text).toContain("agent=agent-other pattern=deploy:done silent=false");
+      expect(text).toContain(
+        "user=user-1 agent=agent-other pattern=deploy:done silent=false"
+      );
       expect(text).toContain("## Channels (1)");
       expect(text).toContain("#dev leader=agent-other members=@monitor(agent-caller)");
       expect(text).toContain("## Expose Endpoints (1)");
@@ -250,6 +254,7 @@ describe("topologyToolBuild", () => {
         {
           listSubscriptions: () => [
             signalSubscriptionBuild({
+              userId: "user-1",
               agentId: "agent-caller",
               pattern: "build:*",
               silent: true
@@ -315,6 +320,7 @@ function contextBuild(
     assistant: null,
     permissions: config.defaultPermissions,
     agent: { id: options.callerAgentId } as unknown as ToolExecutionContext["agent"],
+    agentContext: null as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext: {},
     agentSystem: {
@@ -363,11 +369,13 @@ function cronTaskBuild(input: {
 }
 
 function signalSubscriptionBuild(input: {
+  userId: string;
   agentId: string;
   pattern: string;
   silent: boolean;
 }): SignalSubscription {
   return {
+    userId: input.userId,
     agentId: input.agentId,
     pattern: input.pattern,
     silent: input.silent,

@@ -118,6 +118,7 @@ function contextBuild(saveBuffer: (options: {
       events: false
     },
     agent: { id: "agent-test" } as unknown as ToolExecutionContext["agent"],
+    agentContext: null as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext: {} as unknown as ToolExecutionContext["messageContext"],
     agentSystem: null as unknown as ToolExecutionContext["agentSystem"],

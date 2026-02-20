@@ -106,9 +106,10 @@ export function permanentAgentToolBuild(): ToolDefinition {
         systemPrompt,
         ...(resolvedWorkspaceDir ? { workspaceDir: resolvedWorkspaceDir } : {})
       };
+      const ownerUserId = toolContext.agentContext?.userId ?? toolContext.agent.id;
 
       if (resolvedAgent) {
-        await agentDescriptorWrite(config, agentId, descriptor);
+        await agentDescriptorWrite(config, agentId, descriptor, ownerUserId);
         toolContext.agentSystem.updateAgentDescriptor(agentId, descriptor);
 
         const state = await agentStateRead(config, agentId);
@@ -142,7 +143,7 @@ export function permanentAgentToolBuild(): ToolDefinition {
           updatedAt: now,
           state: "active"
         };
-        await agentDescriptorWrite(config, agentId, descriptor);
+        await agentDescriptorWrite(config, agentId, descriptor, ownerUserId);
         await agentStateWrite(config, agentId, state);
         state.activeSessionId = await sessionDbCreate(config, {
           agentId,

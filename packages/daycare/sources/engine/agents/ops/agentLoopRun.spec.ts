@@ -1117,11 +1117,16 @@ function optionsBuild(params: {
     entry: params.entry,
     agent: {
       id: "agent-1",
+      userId: "user-1",
       descriptor: {
         type: params.agentType ?? "user",
         connector: "telegram",
         channelId: "channel-1",
         userId: "user-1"
+      },
+      inbox: {
+        hasSteering: () => false,
+        consumeSteering: () => null
       },
       state: {
         inferenceSessionId: params.inferenceSessionId ?? "session-agent-1",

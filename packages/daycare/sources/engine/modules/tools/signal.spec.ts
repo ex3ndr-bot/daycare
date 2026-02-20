@@ -38,10 +38,20 @@ describe("buildSignalGenerateTool", () => {
 
       expect(result.toolMessage.isError).toBe(false);
       const details = result.toolMessage.details as
-        | { signal?: { type: string; source: { type: string; id?: string }; data?: unknown } }
+        | {
+            signal?: {
+              type: string;
+              source: { type: string; id?: string; userId?: string };
+              data?: unknown;
+            };
+          }
         | undefined;
       expect(details?.signal?.type).toBe("automation.requested");
-      expect(details?.signal?.source).toEqual({ type: "agent", id: "agent-123" });
+      expect(details?.signal?.source).toEqual({
+        type: "agent",
+        id: "agent-123",
+        userId: "user-123"
+      });
       expect(details?.signal?.data).toEqual({ target: "deploy" });
       expect(events.some((event) => event.type === "signal.generated")).toBe(true);
     } finally {
@@ -65,6 +75,10 @@ function contextBuild(agentId: string): ToolExecutionContext {
       events: false
     },
     agent: { id: agentId } as unknown as ToolExecutionContext["agent"],
+    agentContext: {
+      agentId,
+      userId: "user-123"
+    } as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext: {},
     agentSystem: null as unknown as ToolExecutionContext["agentSystem"],

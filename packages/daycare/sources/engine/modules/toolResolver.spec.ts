@@ -221,6 +221,7 @@ function contextBuild(
       events: false
     },
     agent: null as unknown as ToolExecutionContext["agent"],
+    agentContext: null as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext: {},
     agentSystem: null as unknown as ToolExecutionContext["agentSystem"],

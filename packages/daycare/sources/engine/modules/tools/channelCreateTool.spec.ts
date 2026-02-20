@@ -42,6 +42,7 @@ function contextBuild(): ToolExecutionContext {
       events: false
     },
     agent: { id: "agent-caller" } as unknown as ToolExecutionContext["agent"],
+    agentContext: null as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext: {},
     agentSystem: null as unknown as ToolExecutionContext["agentSystem"],

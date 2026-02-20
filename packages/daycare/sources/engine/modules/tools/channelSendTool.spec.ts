@@ -59,10 +59,10 @@ function contextBuild(): ToolExecutionContext {
         systemPrompt: "prompt"
       }
     } as unknown as ToolExecutionContext["agent"],
+    agentContext: null as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext: {},
     agentSystem: null as unknown as ToolExecutionContext["agentSystem"],
     heartbeats: null as unknown as ToolExecutionContext["heartbeats"]
   };
 }
-

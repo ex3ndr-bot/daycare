@@ -27,6 +27,7 @@ describe("buildSignalSubscribeTool", () => {
       const details = result.toolMessage.details as
         | {
             subscription?: {
+              userId: string;
               agentId: string;
               pattern: string;
               silent: boolean;
@@ -36,6 +37,7 @@ describe("buildSignalSubscribeTool", () => {
           }
         | undefined;
       expect(details?.subscription?.agentId).toBe("agent-target");
+      expect(details?.subscription?.userId).toBe("user-target");
       expect(details?.subscription?.pattern).toBe("build:*:done");
       expect(details?.subscription?.silent).toBe(false);
       expect(details?.subscription?.createdAt).toBeTypeOf("number");
@@ -79,10 +81,20 @@ function contextBuild(agentId: string, exists: boolean): ToolExecutionContext {
       events: false
     },
     agent: { id: agentId } as unknown as ToolExecutionContext["agent"],
+    agentContext: {
+      agentId,
+      userId: "user-source"
+    } as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext: {},
     agentSystem: {
-      agentExists: async () => exists
+      agentContextForAgentId: async (targetAgentId: string) =>
+        exists
+          ? ({
+              agentId: targetAgentId,
+              userId: "user-target"
+            } as unknown as ToolExecutionContext["agentContext"])
+          : null
     } as unknown as ToolExecutionContext["agentSystem"],
     heartbeats: null as unknown as ToolExecutionContext["heartbeats"]
   };

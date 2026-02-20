@@ -418,10 +418,11 @@ function createContext(
   };
   const agent = Agent.restore(
     agentId,
+    "user-1",
     descriptor,
     state,
     new AgentInbox(agentId),
-    {} as unknown as Parameters<typeof Agent.restore>[4]
+    {} as unknown as Parameters<typeof Agent.restore>[5]
   );
   return {
     connectorRegistry: null as unknown as ToolExecutionContext["connectorRegistry"],
@@ -431,6 +432,7 @@ function createContext(
     assistant: null,
     permissions: state.permissions,
     agent,
+    agentContext: null as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext,
     agentSystem: {

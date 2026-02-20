@@ -40,6 +40,7 @@ import { agentMessageRunPythonSayAfterTrim } from "./agentMessageRunPythonSayAft
 import { tagExtract, tagExtractAll } from "../../../util/tagExtract.js";
 import { sayFileExtract } from "../../modules/say/sayFileExtract.js";
 import { sayFileResolve } from "../../modules/say/sayFileResolve.js";
+import { AgentContext } from "../agentContext.js";
 
 const MAX_TOOL_ITERATIONS = 500; // Make this big enough to handle complex tasks
 
@@ -451,6 +452,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
             assistant,
             permissions: agent.state.permissions,
             agent,
+            agentContext: new AgentContext(agent.id, agent.userId),
             source,
             messageContext: entry.context,
             agentSystem,
@@ -573,6 +575,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
           assistant,
           permissions: agent.state.permissions,
           agent,
+          agentContext: new AgentContext(agent.id, agent.userId),
           source,
           messageContext: entry.context,
           agentSystem,

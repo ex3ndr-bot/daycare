@@ -106,6 +106,7 @@ export class CronStore {
         schedule: String(schedule),
         prompt: parsed.body.trim(),
         agentId: resolveAgentId(parsed.frontmatter),
+        userId: resolveUserId(parsed.frontmatter),
         gate,
         enabled: parsed.frontmatter.enabled !== false,
         deleteAfterRun: deleteAfterRun === true,
@@ -147,6 +148,9 @@ export class CronStore {
     if (definition.agentId) {
       frontmatter.agentId = definition.agentId;
     }
+    if (definition.userId) {
+      frontmatter.userId = definition.userId;
+    }
     if (gate) {
       frontmatter.gate = gate;
     }
@@ -172,6 +176,7 @@ export class CronStore {
       schedule: definition.schedule,
       prompt: definition.prompt,
       agentId: definition.agentId,
+      userId: definition.userId,
       gate,
       enabled: definition.enabled ?? true,
       deleteAfterRun: definition.deleteAfterRun ?? false,
@@ -202,6 +207,7 @@ export class CronStore {
       schedule: updates.schedule ?? existing.schedule,
       prompt: updates.prompt ?? existing.prompt,
       agentId: updates.agentId ?? existing.agentId,
+      userId: updates.userId ?? existing.userId,
       gate,
       enabled: updates.enabled ?? existing.enabled,
       deleteAfterRun: updates.deleteAfterRun ?? existing.deleteAfterRun
@@ -215,6 +221,9 @@ export class CronStore {
     };
     if (updated.agentId) {
       frontmatter.agentId = updated.agentId;
+    }
+    if (updated.userId) {
+      frontmatter.userId = updated.userId;
     }
     if (updated.gate) {
       frontmatter.gate = updated.gate;
@@ -353,6 +362,15 @@ export class CronStore {
 
 function resolveAgentId(frontmatter: Frontmatter): string | undefined {
   const raw = frontmatter.agentId ?? frontmatter.agent_id;
+  if (typeof raw !== "string") {
+    return undefined;
+  }
+  const trimmed = raw.trim();
+  return trimmed ? trimmed : undefined;
+}
+
+function resolveUserId(frontmatter: Frontmatter): string | undefined {
+  const raw = frontmatter.userId ?? frontmatter.user_id;
   if (typeof raw !== "string") {
     return undefined;
   }

@@ -8,6 +8,7 @@ import type {
 
 export type DatabaseAgentRow = {
   id: string;
+  user_id: string;
   type: AgentDescriptor["type"];
   descriptor: string;
   active_session_id: string | null;
@@ -37,6 +38,7 @@ export type DatabaseSessionHistoryRow = {
 
 export type AgentDbRecord = {
   id: string;
+  userId: string;
   type: AgentDescriptor["type"];
   descriptor: AgentDescriptor;
   activeSessionId: string | null;
@@ -46,6 +48,36 @@ export type AgentDbRecord = {
   lifecycle: AgentLifecycleState;
   createdAt: number;
   updatedAt: number;
+};
+
+export type DatabaseUserRow = {
+  id: string;
+  is_owner: number;
+  created_at: number;
+  updated_at: number;
+};
+
+export type DatabaseUserConnectorKeyRow = {
+  id: number;
+  user_id: string;
+  connector_key: string;
+};
+
+export type UserDbRecord = {
+  id: string;
+  isOwner: boolean;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type UserConnectorKeyDbRecord = {
+  id: number;
+  userId: string;
+  connectorKey: string;
+};
+
+export type UserWithConnectorKeysDbRecord = UserDbRecord & {
+  connectorKeys: UserConnectorKeyDbRecord[];
 };
 
 export type SessionDbRecord = {

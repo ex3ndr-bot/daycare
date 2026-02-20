@@ -68,7 +68,7 @@ export class Signals {
 
     await this.signalAppend(signal);
     this.eventBus.emit("signal.generated", signal);
-    const subscriptions = this.signalSubscriptionsMatch(signal.type);
+    const subscriptions = this.signalSubscriptionsMatch(signal);
     if (subscriptions.length > 0) {
       await this.signalDeliver(signal, subscriptions);
     }
@@ -86,8 +86,8 @@ export class Signals {
   }
 
   subscribe(input: SignalSubscribeInput): SignalSubscription {
-    const { pattern, agentId } = signalSubscriptionInputNormalize(input);
-    const key = signalSubscriptionKeyBuild(agentId, pattern);
+    const { userId, pattern, agentId } = signalSubscriptionInputNormalize(input);
+    const key = signalSubscriptionKeyBuild(userId, agentId, pattern);
     const now = Date.now();
     const existing = this.subscriptions.get(key);
     const subscription: SignalSubscription = existing
@@ -97,6 +97,7 @@ export class Signals {
           updatedAt: now
         }
       : {
+          userId,
           agentId,
           pattern,
           silent: input.silent ?? true,
@@ -112,8 +113,8 @@ export class Signals {
    * Returns: null when no subscription exists.
    */
   subscriptionGet(input: SignalUnsubscribeInput): SignalSubscription | null {
-    const { pattern, agentId } = signalSubscriptionInputNormalize(input);
-    const key = signalSubscriptionKeyBuild(agentId, pattern);
+    const { userId, pattern, agentId } = signalSubscriptionInputNormalize(input);
+    const key = signalSubscriptionKeyBuild(userId, agentId, pattern);
     const subscription = this.subscriptions.get(key);
     return subscription ? { ...subscription } : null;
   }
@@ -123,8 +124,8 @@ export class Signals {
    * Returns: true when a subscription existed and was removed.
    */
   unsubscribe(input: SignalUnsubscribeInput): boolean {
-    const { pattern, agentId } = signalSubscriptionInputNormalize(input);
-    const key = signalSubscriptionKeyBuild(agentId, pattern);
+    const { userId, pattern, agentId } = signalSubscriptionInputNormalize(input);
+    const key = signalSubscriptionKeyBuild(userId, agentId, pattern);
     return this.subscriptions.delete(key);
   }
 
@@ -179,10 +180,17 @@ export class Signals {
     });
   }
 
-  private signalSubscriptionsMatch(type: string): SignalSubscription[] {
+  private signalSubscriptionsMatch(signal: Signal): SignalSubscription[] {
     const matches: SignalSubscription[] = [];
+    const sourceUserId =
+      typeof signal.source.userId === "string" && signal.source.userId.trim().length > 0
+        ? signal.source.userId.trim()
+        : null;
     for (const subscription of this.subscriptions.values()) {
-      if (signalTypeMatchesPattern(type, subscription.pattern)) {
+      if (sourceUserId && subscription.userId !== sourceUserId) {
+        continue;
+      }
+      if (signalTypeMatchesPattern(signal.type, subscription.pattern)) {
         matches.push(subscription);
       }
     }
@@ -209,26 +217,32 @@ function signalSourceNormalize(source?: SignalSource): SignalSource {
     return { type: "system" };
   }
   if (source.type === "system") {
-    return { type: "system" };
+    const userId = signalSourceUserIdNormalize(source.userId);
+    return userId ? { type: "system", userId } : { type: "system" };
   }
   if (source.type === "agent") {
     const id = source.id.trim();
     if (!id) {
       throw new Error("Agent signal source id is required");
     }
-    return { type: "agent", id };
+    const userId = signalSourceUserIdNormalize(source.userId);
+    return userId ? { type: "agent", id, userId } : { type: "agent", id };
   }
   if (source.type === "webhook") {
+    const userId = signalSourceUserIdNormalize(source.userId);
     return {
       type: "webhook",
+      ...(userId ? { userId } : {}),
       id: typeof source.id === "string" && source.id.trim().length > 0
         ? source.id.trim()
         : undefined
     };
   }
   if (source.type === "process") {
+    const userId = signalSourceUserIdNormalize(source.userId);
     return {
       type: "process",
+      ...(userId ? { userId } : {}),
       id: typeof source.id === "string" && source.id.trim().length > 0
         ? source.id.trim()
         : undefined
@@ -258,13 +272,17 @@ function signalLinesParse(content: string): Signal[] {
   return events;
 }
 
-function signalSubscriptionKeyBuild(agentId: string, pattern: string): string {
-  return `${agentId}::${pattern}`;
+function signalSubscriptionKeyBuild(userId: string, agentId: string, pattern: string): string {
+  return `${userId}::${agentId}::${pattern}`;
 }
 
 function signalSubscriptionInputNormalize(
-  input: { agentId: string; pattern: string }
-): { agentId: string; pattern: string } {
+  input: { userId: string; agentId: string; pattern: string }
+): { userId: string; agentId: string; pattern: string } {
+  const userId = input.userId.trim();
+  if (!userId) {
+    throw new Error("Signal subscription userId is required");
+  }
   const pattern = input.pattern.trim();
   if (!pattern) {
     throw new Error("Signal subscription pattern is required");
@@ -273,5 +291,13 @@ function signalSubscriptionInputNormalize(
   if (!agentId) {
     throw new Error("Signal subscription agentId is required");
   }
-  return { pattern, agentId };
+  return { userId, pattern, agentId };
+}
+
+function signalSourceUserIdNormalize(userId?: string): string | undefined {
+  if (typeof userId !== "string") {
+    return undefined;
+  }
+  const normalized = userId.trim();
+  return normalized.length > 0 ? normalized : undefined;
 }

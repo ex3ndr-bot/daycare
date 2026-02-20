@@ -53,6 +53,7 @@ export class Heartbeats {
         const batch = heartbeatPromptBuildBatch(tasks);
         const target = { descriptor: { type: "system" as const, tag: "heartbeat" } };
         const targetAgentId = await this.agentSystem.agentIdForTarget(target);
+        const targetAgentContext = await this.agentSystem.agentContextForAgentId(targetAgentId);
         const permissions = await this.agentSystem.permissionsForTarget(target);
         this.agentSystem.updateAgentPermissions(targetAgentId, permissions, Date.now());
 
@@ -62,10 +63,11 @@ export class Heartbeats {
           signal: {
             id: createId(),
             type: "internal.heartbeat.tick",
-            source: { type: "system" },
+            source: { type: "system", userId: targetAgentContext?.userId },
             createdAt: Date.now(),
             data: {
               prompt: batch.prompt,
+              userId: targetAgentContext?.userId,
               tasks: tasks.map((task) => ({ id: task.id, title: task.title, prompt: task.prompt }))
             }
           }

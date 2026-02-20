@@ -69,6 +69,7 @@ export class Crons {
               await this.agentSystem.permissionsForTarget({ descriptor: { type: "system", tag: "cron" } })
             );
         const targetAgentId = await this.agentSystem.agentIdForTarget(target);
+        const targetAgentContext = await this.agentSystem.agentContextForAgentId(targetAgentId);
         this.agentSystem.updateAgentPermissions(targetAgentId, permissions, Date.now());
 
         await this.agentSystem.postAndAwait(target, {
@@ -77,7 +78,10 @@ export class Crons {
           signal: {
             id: createId(),
             type: "internal.cron.task",
-            source: { type: "system" },
+            source: {
+              type: "system",
+              userId: task.userId ?? targetAgentContext?.userId
+            },
             createdAt: Date.now(),
             data: {
               prompt: task.prompt,
@@ -86,6 +90,7 @@ export class Crons {
               taskName: task.taskName,
               filesPath: task.filesPath,
               memoryPath: task.memoryPath,
+              userId: task.userId ?? targetAgentContext?.userId,
               messageContext
             }
           }

@@ -40,8 +40,10 @@ describe("agentDb", () => {
         }
       };
       const agentId = createId();
+      const ownerUserId = createId();
       await agentDbWrite(config, {
         id: agentId,
+        userId: ownerUserId,
         type: descriptor.type,
         descriptor,
         activeSessionId: createId(),
@@ -60,6 +62,7 @@ describe("agentDb", () => {
       const restored = await agentDbRead(config, agentId);
       expect(restored).toEqual({
         id: agentId,
+        userId: ownerUserId,
         type: descriptor.type,
         descriptor,
         activeSessionId: expect.any(String),
@@ -104,6 +107,7 @@ describe("agentDb", () => {
         };
         await agentDbWrite(config, {
           id: agentId,
+          userId: createId(),
           type: descriptor.type,
           descriptor,
           activeSessionId: null,

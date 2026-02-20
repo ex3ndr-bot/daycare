@@ -140,6 +140,7 @@ export function buildCronTool(crons: Crons): ToolDefinition {
         schedule: payload.schedule,
         prompt: payload.prompt,
         agentId: payload.agentId,
+        userId: toolContext.agentContext?.userId ?? toolContext.agent.id,
         gate,
         enabled: payload.enabled,
         deleteAfterRun: payload.deleteAfterRun

@@ -91,6 +91,7 @@ function contextBuild(workspaceDir: string): ToolExecutionContext {
       events: false
     },
     agent: { id: "agent-1" } as unknown as ToolExecutionContext["agent"],
+    agentContext: null as unknown as ToolExecutionContext["agentContext"],
     source: "test",
     messageContext: {},
     agentSystem: {

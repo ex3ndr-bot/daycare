@@ -82,7 +82,7 @@ describe("Signals", () => {
     try {
       const delivered: Array<{
         signalType: string;
-        subscriptions: Array<{ agentId: string; pattern: string; silent: boolean }>;
+        subscriptions: Array<{ userId: string; agentId: string; pattern: string; silent: boolean }>;
       }> = [];
       const signals = new Signals({
         eventBus: new EngineEventBus(),
@@ -91,6 +91,7 @@ describe("Signals", () => {
           delivered.push({
             signalType: signal.type,
             subscriptions: subscriptions.map((subscription) => ({
+              userId: subscription.userId,
               agentId: subscription.agentId,
               pattern: subscription.pattern,
               silent: subscription.silent
@@ -100,9 +101,9 @@ describe("Signals", () => {
       });
       await signals.ensureDir();
 
-      signals.subscribe({ agentId: "agent-a", pattern: "build:*:done", silent: true });
-      signals.subscribe({ agentId: "agent-b", pattern: "build:*:done", silent: false });
-      signals.subscribe({ agentId: "agent-c", pattern: "other:*" });
+      signals.subscribe({ userId: "user-1", agentId: "agent-a", pattern: "build:*:done", silent: true });
+      signals.subscribe({ userId: "user-1", agentId: "agent-b", pattern: "build:*:done", silent: false });
+      signals.subscribe({ userId: "user-2", agentId: "agent-c", pattern: "other:*" });
 
       await signals.generate({
         type: "build:alpha:done",
@@ -112,8 +113,8 @@ describe("Signals", () => {
       expect(delivered).toHaveLength(1);
       expect(delivered[0]?.signalType).toBe("build:alpha:done");
       expect(delivered[0]?.subscriptions).toEqual([
-        { agentId: "agent-a", pattern: "build:*:done", silent: true },
-        { agentId: "agent-b", pattern: "build:*:done", silent: false }
+        { userId: "user-1", agentId: "agent-a", pattern: "build:*:done", silent: true },
+        { userId: "user-1", agentId: "agent-b", pattern: "build:*:done", silent: false }
       ]);
     } finally {
       await rm(dir, { recursive: true, force: true });
@@ -133,8 +134,17 @@ describe("Signals", () => {
       });
       await signals.ensureDir();
 
-      signals.subscribe({ agentId: "agent-a", pattern: "build:*:done", silent: true });
-      const removed = signals.unsubscribe({ agentId: "agent-a", pattern: "build:*:done" });
+      signals.subscribe({
+        userId: "user-1",
+        agentId: "agent-a",
+        pattern: "build:*:done",
+        silent: true
+      });
+      const removed = signals.unsubscribe({
+        userId: "user-1",
+        agentId: "agent-a",
+        pattern: "build:*:done"
+      });
       expect(removed).toBe(true);
 
       await signals.generate({
@@ -143,7 +153,40 @@ describe("Signals", () => {
       });
 
       expect(delivered).toEqual([]);
-      expect(signals.unsubscribe({ agentId: "agent-a", pattern: "build:*:done" })).toBe(false);
+      expect(
+        signals.unsubscribe({ userId: "user-1", agentId: "agent-a", pattern: "build:*:done" })
+      ).toBe(false);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("filters matched subscriptions by signal source userId when present", async () => {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-signals-"));
+    try {
+      const delivered: Array<{ userId: string; agentId: string }> = [];
+      const signals = new Signals({
+        eventBus: new EngineEventBus(),
+        configDir: dir,
+        onDeliver: (_signal, subscriptions) => {
+          delivered.push(
+            ...subscriptions.map((subscription) => ({
+              userId: subscription.userId,
+              agentId: subscription.agentId
+            }))
+          );
+        }
+      });
+      await signals.ensureDir();
+
+      signals.subscribe({ userId: "user-a", agentId: "agent-a", pattern: "build:*", silent: true });
+      signals.subscribe({ userId: "user-b", agentId: "agent-b", pattern: "build:*", silent: true });
+      await signals.generate({
+        type: "build:alpha",
+        source: { type: "agent", id: "agent-origin", userId: "user-a" }
+      });
+
+      expect(delivered).toEqual([{ userId: "user-a", agentId: "agent-a" }]);
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

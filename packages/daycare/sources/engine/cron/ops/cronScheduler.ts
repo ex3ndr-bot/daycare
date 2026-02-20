@@ -151,6 +151,7 @@ export class CronScheduler {
       schedule: definition.schedule,
       prompt: definition.prompt,
       agentId: definition.agentId,
+      userId: definition.userId,
       gate: definition.gate,
       enabled: definition.enabled,
       deleteAfterRun: definition.deleteAfterRun
@@ -187,7 +188,8 @@ export class CronScheduler {
       prompt: scheduled.task.prompt,
       memoryPath: scheduled.task.memoryPath,
       filesPath: scheduled.task.filesPath,
-      agentId: scheduled.task.agentId
+      agentId: scheduled.task.agentId,
+      userId: scheduled.task.userId
     };
   }
 
@@ -238,7 +240,8 @@ export class CronScheduler {
       prompt,
       memoryPath: task.memoryPath,
       filesPath: task.filesPath,
-      agentId: task.agentId
+      agentId: task.agentId,
+      userId: task.userId
     };
 
     const messageContext: MessageContext = {};

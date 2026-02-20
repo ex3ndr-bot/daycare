@@ -17,6 +17,10 @@ describe("Channels", () => {
         signals: { subscribe, unsubscribe },
         agentSystem: {
           agentExists: async (agentId: string) => agentId !== "missing",
+          agentContextForAgentId: async (agentId: string) => ({
+            agentId,
+            userId: "user-1"
+          }),
           post: vi.fn(async () => undefined)
         } as never
       });
@@ -30,6 +34,7 @@ describe("Channels", () => {
       await channels.addMember("dev", "agent-bob", "bob");
       expect(subscribe).toHaveBeenCalledTimes(2);
       expect(subscribe).toHaveBeenCalledWith({
+        userId: "user-1",
         agentId: "agent-alice",
         pattern: "channel.dev:*",
         silent: false
@@ -38,6 +43,7 @@ describe("Channels", () => {
       const removed = await channels.removeMember("dev", "agent-bob");
       expect(removed).toBe(true);
       expect(unsubscribe).toHaveBeenCalledWith({
+        userId: "user-1",
         agentId: "agent-bob",
         pattern: "channel.dev:*"
       });
@@ -58,6 +64,10 @@ describe("Channels", () => {
         } as never,
         agentSystem: {
           agentExists: async () => true,
+          agentContextForAgentId: async (agentId: string) => ({
+            agentId,
+            userId: "user-1"
+          }),
           post
         } as never
       });
@@ -111,6 +121,10 @@ describe("Channels", () => {
         } as never,
         agentSystem: {
           agentExists: async () => true,
+          agentContextForAgentId: async (agentId: string) => ({
+            agentId,
+            userId: "user-1"
+          }),
           post: vi.fn(async () => undefined)
         } as never
       });
@@ -127,6 +141,10 @@ describe("Channels", () => {
         } as never,
         agentSystem: {
           agentExists: async () => true,
+          agentContextForAgentId: async (agentId: string) => ({
+            agentId,
+            userId: "user-1"
+          }),
           post: vi.fn(async () => undefined)
         } as never
       });
@@ -134,6 +152,7 @@ describe("Channels", () => {
 
       expect(second.list()).toHaveLength(1);
       expect(subscribe).toHaveBeenCalledWith({
+        userId: "user-1",
         agentId: "agent-a",
         pattern: "channel.ops:*",
         silent: false
@@ -143,4 +162,3 @@ describe("Channels", () => {
     }
   });
 });
-

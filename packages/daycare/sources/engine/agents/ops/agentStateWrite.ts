@@ -19,6 +19,7 @@ export async function agentStateWrite(
 
   await agentDbWrite(config, {
     id: agentId,
+    userId: existing.userId,
     type: existing.type,
     descriptor: existing.descriptor,
     activeSessionId: state.activeSessionId ?? existing.activeSessionId ?? null,

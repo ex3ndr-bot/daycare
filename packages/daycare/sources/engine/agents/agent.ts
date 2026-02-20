@@ -66,11 +66,13 @@ import { channelMessageBuild, channelSignalDataParse } from "../channels/channel
 import type { AgentSystem } from "./agentSystem.js";
 import type { ToolResolverApi } from "../modules/toolResolver.js";
 import { sessionDbCreate } from "../../storage/sessionDbCreate.js";
+import { AgentContext } from "./agentContext.js";
 
 const logger = getLogger("engine.agent");
 
 export class Agent {
   readonly id: string;
+  readonly userId: string;
   readonly descriptor: AgentDescriptor;
   readonly inbox: AgentInbox;
   readonly state: AgentState;
@@ -82,12 +84,14 @@ export class Agent {
 
   private constructor(
     id: string,
+    userId: string,
     descriptor: AgentDescriptor,
     state: AgentState,
     inbox: AgentInbox,
     agentSystem: AgentSystem
   ) {
     this.id = id;
+    this.userId = userId;
     this.descriptor = descriptor;
     this.state = state;
     this.inbox = inbox;
@@ -101,6 +105,7 @@ export class Agent {
   static async create(
     agentId: string,
     descriptor: AgentDescriptor,
+    userId: string,
     inbox: AgentInbox,
     agentSystem: AgentSystem
   ): Promise<Agent> {
@@ -120,8 +125,8 @@ export class Agent {
       state: "active"
     };
 
-    const agent = new Agent(agentId, descriptor, state, inbox, agentSystem);
-    await agentDescriptorWrite(agentSystem.config.current, agentId, descriptor);
+    const agent = new Agent(agentId, userId, descriptor, state, inbox, agentSystem);
+    await agentDescriptorWrite(agentSystem.config.current, agentId, descriptor, userId);
     await agentStateWrite(agentSystem.config.current, agentId, state);
     state.activeSessionId = await sessionDbCreate(agentSystem.config.current, {
       agentId,
@@ -144,12 +149,13 @@ export class Agent {
    */
   static restore(
     agentId: string,
+    userId: string,
     descriptor: AgentDescriptor,
     state: AgentState,
     inbox: AgentInbox,
     agentSystem: AgentSystem
   ): Agent {
-    return new Agent(agentId, descriptor, state, inbox, agentSystem);
+    return new Agent(agentId, userId, descriptor, state, inbox, agentSystem);
   }
 
   start(): void {
@@ -616,6 +622,7 @@ export class Agent {
     const subscription = isInternalSignal
       ? null
       : this.agentSystem.signals.subscriptionGet({
+          userId: this.userId,
           agentId: this.id,
           pattern: item.subscriptionPattern
         });
@@ -965,6 +972,7 @@ export class Agent {
       assistant: this.agentSystem.config.current.settings.assistant ?? null,
       permissions: this.state.permissions,
       agent: this,
+      agentContext: new AgentContext(this.id, this.userId),
       source,
       messageContext: {},
       agentSystem: this.agentSystem,

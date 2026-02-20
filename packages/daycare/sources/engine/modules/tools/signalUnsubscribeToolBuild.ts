@@ -43,12 +43,13 @@ export function buildSignalUnsubscribeTool(signals: Signals): ToolDefinition {
     execute: async (args, toolContext, toolCall) => {
       const payload = args as UnsubscribeSignalArgs;
       const targetAgentId = payload.agentId?.trim() ?? toolContext.agent.id;
-      const exists = await toolContext.agentSystem.agentExists(targetAgentId);
-      if (!exists) {
+      const agentContext = await toolContext.agentSystem.agentContextForAgentId(targetAgentId);
+      if (!agentContext) {
         throw new Error(`Agent not found: ${targetAgentId}`);
       }
 
       const removed = signals.unsubscribe({
+        userId: agentContext.userId,
         agentId: targetAgentId,
         pattern: payload.pattern
       });
