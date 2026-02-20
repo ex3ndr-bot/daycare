@@ -45,6 +45,7 @@ This folder documents the current Daycare CLI, plugins, agents, and runtime.
 - `config.md` - config files and resolution order
 - `config-reload-locking.md` - online config reload lock model and plugin/provider apply flow
 - `context-compaction.md` - compaction thresholds and auto-compaction flow
+- `context-overflow-reset-removal.md` - removal of heuristic overflow-triggered emergency resets
 - `exec-env.md` - execution environment setup
 - `exec-allowed-domains.md` - allowed domain configuration
 - `exec-filesystem-denylist.md` - sandbox default deny read/write paths for sensitive files

@@ -18,6 +18,59 @@ import type { Skills } from "../../skills/skills.js";
 import { messageExtractText } from "../../messages/messageExtractText.js";
 
 describe("agentLoopRun", () => {
+  it("treats provider error responses with token wording as normal inference failures", async () => {
+    const connectorSend = vi.fn(async (_targetId: string, _message: unknown) => undefined);
+    const connector = connectorBuild(connectorSend);
+    const entry = entryBuild();
+    const context = contextBuild();
+    const inferenceRouter = inferenceRouterBuild([
+      assistantMessageBuild([], {
+        stopReason: "error",
+        errorMessage: "maximum number of tokens per minute reached"
+      })
+    ]);
+    const toolResolver = toolResolverBuild(async () => {
+      throw new Error("unexpected");
+    });
+
+    const result = await agentLoopRun(
+      optionsBuild({ entry, context, connector, inferenceRouter, toolResolver })
+    );
+
+    expect(result.contextOverflow).toBeUndefined();
+    expect(connectorSend).toHaveBeenCalledTimes(1);
+    expect(connectorSend).toHaveBeenCalledWith("channel-1", {
+      text: "Inference failed.",
+      replyToMessageId: undefined
+    });
+  });
+
+  it("treats thrown errors with context wording as normal inference failures", async () => {
+    const connectorSend = vi.fn(async (_targetId: string, _message: unknown) => undefined);
+    const connector = connectorBuild(connectorSend);
+    const entry = entryBuild();
+    const context = contextBuild();
+    const inferenceRouter = {
+      complete: vi.fn(async () => {
+        throw new Error("context length exceeded");
+      })
+    } as unknown as InferenceRouter;
+    const toolResolver = toolResolverBuild(async () => {
+      throw new Error("unexpected");
+    });
+
+    const result = await agentLoopRun(
+      optionsBuild({ entry, context, connector, inferenceRouter, toolResolver })
+    );
+
+    expect(result.contextOverflow).toBeUndefined();
+    expect(connectorSend).toHaveBeenCalledTimes(1);
+    expect(connectorSend).toHaveBeenCalledWith("channel-1", {
+      text: "Inference failed.",
+      replyToMessageId: undefined
+    });
+  });
+
   it("does not auto-send files from tool results when model has no final text", async () => {
     const connectorSend = vi.fn(
       async (_targetId: string, _message: unknown) => undefined
@@ -1174,7 +1227,13 @@ function connectorRegistryBuild(): ConnectorRegistry {
   } as unknown as ConnectorRegistry;
 }
 
-function assistantMessageBuild(content: AssistantMessage["content"]): AssistantMessage {
+function assistantMessageBuild(
+  content: AssistantMessage["content"],
+  options?: {
+    stopReason?: AssistantMessage["stopReason"];
+    errorMessage?: string;
+  }
+): AssistantMessage {
   return {
     role: "assistant",
     content,
@@ -1195,7 +1254,8 @@ function assistantMessageBuild(content: AssistantMessage["content"]): AssistantM
         total: 0
       }
     },
-    stopReason: "stop",
+    stopReason: options?.stopReason ?? "stop",
+    errorMessage: options?.errorMessage,
     timestamp: Date.now()
   };
 }

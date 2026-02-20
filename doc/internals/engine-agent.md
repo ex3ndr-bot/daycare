@@ -56,17 +56,16 @@ flowchart LR
   Model --> Summary[assistant summary message]
 ```
 
-## Emergency Context Reset
+## Inference Error Handling
 
-When inference returns a context overflow error, the session is hard reset and
-foreground users are notified.
+Inference error responses are treated as normal failures and do not trigger
+automatic emergency session reset.
 
 ```mermaid
 flowchart LR
-  Inference[inference/router.ts] --> Overflow[context overflow error]
-  Overflow --> Reset[Agent.handleEmergencyReset]
-  Reset --> State[state.json + reset marker]
-  Reset --> Notify[connector.sendMessage (foreground only)]
+  Inference[inference/router.ts] --> Error[stopReason=error]
+  Error --> Notify[send \"Inference failed.\"]
+  Notify --> Continue[session state preserved]
 ```
 
 ## Reset System Messages
