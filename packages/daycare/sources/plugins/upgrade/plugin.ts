@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { Type } from "@sinclair/typebox";
 import type { Static } from "@sinclair/typebox";
+import type { ToolResultMessage } from "@mariozechner/pi-ai";
 
 import { definePlugin } from "../../engine/plugins/types.js";
 import type { AgentDescriptor, MessageContext, ToolDefinition, ToolResultContract } from "@/types";
@@ -212,42 +213,42 @@ export const plugin = definePlugin({
 
         // Check if self-upgrade is enabled in configuration
         if (!selfUpgradeEnabled) {
+          const message =
+            "Self-upgrade is disabled in configuration. Enable it in the upgrade plugin settings (selfUpgrade.enabled: true).";
+          const toolMessage: ToolResultMessage = {
+            role: "toolResult",
+            toolCallId: toolCall.id,
+            toolName: toolCall.name,
+            content: [{ type: "text", text: message }],
+            isError: true,
+            timestamp: Date.now()
+          };
           return {
-            toolMessage: {
-              id: toolCall.id,
-              content: [
-                {
-                  type: "text",
-                  text: "Self-upgrade is disabled in configuration. Enable it in the upgrade plugin settings."
-                }
-              ],
-              isError: true
-            },
+            toolMessage,
             typedResult: {
               success: false,
-              message:
-                "Self-upgrade is disabled in configuration. Enable it in the upgrade plugin settings (selfUpgrade.enabled: true)."
+              message
             }
           };
         }
 
         // Only allow in foreground (user) sessions
         if (descriptor.type !== "user") {
+          const message =
+            "Self-upgrade is only available in foreground sessions (direct user chat).";
+          const toolMessage: ToolResultMessage = {
+            role: "toolResult",
+            toolCallId: toolCall.id,
+            toolName: toolCall.name,
+            content: [{ type: "text", text: message }],
+            isError: true,
+            timestamp: Date.now()
+          };
           return {
-            toolMessage: {
-              id: toolCall.id,
-              content: [
-                {
-                  type: "text",
-                  text: "Self-upgrade is only available in foreground sessions (direct user chat)."
-                }
-              ],
-              isError: true
-            },
+            toolMessage,
             typedResult: {
               success: false,
-              message:
-                "Self-upgrade is only available in foreground sessions (direct user chat)."
+              message
             }
           };
         }
@@ -291,20 +292,20 @@ export const plugin = definePlugin({
           });
 
           // If we reach here, the process is about to restart
+          const message = `Upgrade to ${versionToInstall} initiated. The process is restarting.`;
+          const toolMessage: ToolResultMessage = {
+            role: "toolResult",
+            toolCallId: toolCall.id,
+            toolName: toolCall.name,
+            content: [{ type: "text", text: message }],
+            isError: false,
+            timestamp: Date.now()
+          };
           return {
-            toolMessage: {
-              id: toolCall.id,
-              content: [
-                {
-                  type: "text",
-                  text: `Upgrade to ${versionToInstall} initiated. Restarting...`
-                }
-              ],
-              isError: false
-            },
+            toolMessage,
             typedResult: {
               success: true,
-              message: `Upgrade to ${versionToInstall} initiated. The process is restarting.`,
+              message,
               previousVersion: previousVersion ?? undefined,
               requestedVersion: versionToInstall
             }
@@ -315,15 +316,20 @@ export const plugin = definePlugin({
             error instanceof Error ? error.message : String(error);
           api.logger.error({ error }, "self_upgrade: Upgrade failed");
 
+          const message = `Upgrade failed: ${errorMessage}`;
+          const toolMessage: ToolResultMessage = {
+            role: "toolResult",
+            toolCallId: toolCall.id,
+            toolName: toolCall.name,
+            content: [{ type: "text", text: message }],
+            isError: true,
+            timestamp: Date.now()
+          };
           return {
-            toolMessage: {
-              id: toolCall.id,
-              content: [{ type: "text", text: `Upgrade failed: ${errorMessage}` }],
-              isError: true
-            },
+            toolMessage,
             typedResult: {
               success: false,
-              message: `Upgrade failed: ${errorMessage}`,
+              message,
               previousVersion: previousVersion ?? undefined,
               requestedVersion: versionToInstall
             }
