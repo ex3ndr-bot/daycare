@@ -1,3 +1,5 @@
+import path from "node:path";
+
 import type { AgentDescriptor, AgentTokenEntry, Config, MessageContext } from "@/types";
 import { AuthStore } from "../auth/store.js";
 import { configLoad } from "../config/configLoad.js";
@@ -69,6 +71,7 @@ import { PluginRegistry } from "./plugins/registry.js";
 import { Processes } from "./processes/processes.js";
 import { DelayedSignals } from "./signals/delayedSignals.js";
 import { Signals } from "./signals/signals.js";
+import { userHomeMigrate } from "./users/userHomeMigrate.js";
 
 const logger = getLogger("engine.runtime");
 const INCOMING_MESSAGES_DEBOUNCE_MS = 100;
@@ -337,13 +340,17 @@ export class Engine {
             signals: this.signals,
             agentSystem: this.agentSystem
         });
-        this.apps = new Apps({ workspaceDir: this.config.current.workspaceDir });
+        this.apps = new Apps({
+            appsDir: path.join(this.config.current.workspaceDir, "apps"),
+            usersDir: this.config.current.usersDir
+        });
     }
 
     async start(): Promise<void> {
         logger.debug("start: Engine.start() beginning");
         await ensureWorkspaceDir(this.config.current.defaultPermissions.workingDir);
         await storageUpgrade(this.config.current);
+        await userHomeMigrate(this.config.current);
 
         logger.debug("load: Loading agents");
         await this.agentSystem.load();

@@ -15,10 +15,10 @@ const appPermissionStateSchema = z
 
 /**
  * Reads shared app permission tags from app workspace state.
- * Expects: workspaceDir is absolute; appId is a validated app id.
+ * Expects: appsDir is absolute; appId is a validated app id.
  */
-export async function appPermissionStateRead(workspaceDir: string, appId: string): Promise<string[]> {
-    const filePath = appPermissionStatePathBuild(workspaceDir, appId);
+export async function appPermissionStateRead(appsDir: string, appId: string): Promise<string[]> {
+    const filePath = appPermissionStatePathBuild(appsDir, appId);
     let raw = "";
     try {
         raw = await fs.readFile(filePath, "utf8");

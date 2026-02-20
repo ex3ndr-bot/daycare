@@ -7,25 +7,25 @@ import { appPermissionBuild } from "./appPermissionBuild.js";
 import { appPermissionStateWrite } from "./appPermissionStateWrite.js";
 
 describe("appPermissionBuild", () => {
-    let workspaceDir: string;
+    let appsDir: string;
 
     beforeEach(async () => {
-        workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-app-permissions-"));
+        appsDir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-app-permissions-"));
     });
 
     afterEach(async () => {
-        await fs.rm(workspaceDir, { recursive: true, force: true });
+        await fs.rm(appsDir, { recursive: true, force: true });
     });
 
     it("builds app-scoped permissions and creates data dir", async () => {
-        const permissions = await appPermissionBuild(workspaceDir, "github-reviewer");
-        const expectedDataDir = path.join(workspaceDir, "apps", "github-reviewer", "data");
+        const permissions = await appPermissionBuild(appsDir, "github-reviewer");
+        const expectedDataDir = path.join(appsDir, "github-reviewer", "data");
 
         expect(permissions).toEqual({
-            workspaceDir: path.resolve(workspaceDir),
+            workspaceDir: path.resolve(appsDir),
             workingDir: expectedDataDir,
             writeDirs: [expectedDataDir],
-            readDirs: [path.resolve(workspaceDir)],
+            readDirs: [path.resolve(appsDir)],
             network: false,
             events: false
         });
@@ -35,18 +35,18 @@ describe("appPermissionBuild", () => {
     });
 
     it("merges shared app permissions persisted in app state", async () => {
-        await appPermissionStateWrite(workspaceDir, "github-reviewer", [
+        await appPermissionStateWrite(appsDir, "github-reviewer", [
             "@workspace",
             "@network",
             "@read:/tmp/daycare-app-read",
             "@write:/tmp/daycare-app-write"
         ]);
 
-        const permissions = await appPermissionBuild(workspaceDir, "github-reviewer");
+        const permissions = await appPermissionBuild(appsDir, "github-reviewer");
         expect(permissions.network).toBe(true);
         expect(permissions.readDirs).toContain("/tmp/daycare-app-read");
         expect(permissions.readDirs).toContain("/tmp/daycare-app-write");
-        expect(permissions.writeDirs).toContain(path.resolve(workspaceDir));
+        expect(permissions.writeDirs).toContain(path.resolve(appsDir));
         expect(permissions.writeDirs).toContain("/tmp/daycare-app-write");
     });
 });

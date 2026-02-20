@@ -7,13 +7,17 @@ import {
     DEFAULT_TOOLS_PATH,
     DEFAULT_USER_PATH
 } from "../../../paths.js";
+import type { UserHome } from "../../users/userHome.js";
 import type { AgentPromptFilesPaths } from "./agentPromptFilesEnsure.js";
 
 /**
  * Resolves prompt memory file paths from config data dir with default fallbacks.
  * Expects: dataDir is optional and, when present, points to the Daycare data root.
  */
-export function agentPromptPathsResolve(dataDir?: string): AgentPromptFilesPaths {
+export function agentPromptPathsResolve(dataDir?: string, userHome?: UserHome | null): AgentPromptFilesPaths {
+    if (userHome) {
+        return userHome.knowledgePaths();
+    }
     const resolvedDataDir = dataDir?.trim() ? path.resolve(dataDir) : "";
     if (resolvedDataDir) {
         return {

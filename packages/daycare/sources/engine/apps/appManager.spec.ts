@@ -8,18 +8,18 @@ import { ToolResolver } from "../modules/toolResolver.js";
 import { Apps } from "./appManager.js";
 
 describe("Apps", () => {
-    let workspaceDir: string;
+    let appsDir: string;
 
     beforeEach(async () => {
-        workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-apps-manager-"));
+        appsDir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-apps-manager-"));
     });
 
     afterEach(async () => {
-        await fs.rm(workspaceDir, { recursive: true, force: true });
+        await fs.rm(appsDir, { recursive: true, force: true });
     });
 
     it("discovers apps and registers/unregisters app tools", async () => {
-        const appDir = path.join(workspaceDir, "apps", "github-reviewer");
+        const appDir = path.join(appsDir, "github-reviewer");
         await fs.mkdir(appDir, { recursive: true });
         await fs.writeFile(
             path.join(appDir, "APP.md"),
@@ -52,7 +52,7 @@ describe("Apps", () => {
             ].join("\n")
         );
 
-        const apps = new Apps({ workspaceDir });
+        const apps = new Apps({ appsDir });
         const discovered = await apps.discover();
         expect(discovered).toHaveLength(1);
         expect(apps.get("github-reviewer")?.id).toBe("github-reviewer");
@@ -63,5 +63,45 @@ describe("Apps", () => {
 
         apps.unregisterTools(toolResolver);
         expect(toolResolver.listTools().map((tool) => tool.name)).not.toContain("app_github_reviewer");
+    });
+
+    it("discovers apps from per-user app roots", async () => {
+        const usersDir = path.join(appsDir, "users-fixture");
+        const appDir = path.join(usersDir, "usr_001", "apps", "research-helper");
+        await fs.mkdir(appDir, { recursive: true });
+        await fs.writeFile(
+            path.join(appDir, "APP.md"),
+            [
+                "---",
+                "name: research-helper",
+                "title: Research Helper",
+                "description: Helps research topics",
+                "---",
+                "",
+                "## System Prompt",
+                "",
+                "You are a focused research assistant."
+            ].join("\n")
+        );
+        await fs.writeFile(
+            path.join(appDir, "PERMISSIONS.md"),
+            [
+                "## Source Intent",
+                "",
+                "Research safely.",
+                "",
+                "## Rules",
+                "",
+                "### Allow",
+                "- Read files",
+                "",
+                "### Deny",
+                "- Delete files"
+            ].join("\n")
+        );
+
+        const apps = new Apps({ appsDir, usersDir });
+        const discovered = await apps.discover();
+        expect(discovered.map((entry) => entry.id)).toContain("research-helper");
     });
 });

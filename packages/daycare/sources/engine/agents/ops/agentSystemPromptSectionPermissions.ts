@@ -18,9 +18,11 @@ export async function agentSystemPromptSectionPermissions(context: AgentSystemPr
     const descriptor = context.descriptor;
     const workspace = permissions?.workingDir ?? "unknown";
     const writeDirs = permissions?.writeDirs ?? [];
-    const promptPaths = agentPromptPathsResolve(config?.dataDir);
+    const promptPaths = agentPromptPathsResolve(config?.dataDir, context.userHome);
     const appFolderPath =
-        config && descriptor ? (agentAppFolderPathResolve(descriptor, config.workspaceDir) ?? "") : "";
+        config && descriptor
+            ? (agentAppFolderPathResolve(descriptor, config.workspaceDir, context.userHome?.apps) ?? "")
+            : "";
     const excluded = new Set(
         [
             workspace,
@@ -53,7 +55,7 @@ export async function agentSystemPromptSectionPermissions(context: AgentSystemPr
         toolsPath: promptPaths.toolsPath,
         memoryPath: promptPaths.memoryPath,
         isForeground: descriptor?.type === "user",
-        skillsPath: config?.configDir ? path.join(config.configDir, "skills") : "",
+        skillsPath: context.userHome?.skills ?? (config?.configDir ? path.join(config.configDir, "skills") : ""),
         additionalWriteDirs,
         network: permissions?.network ?? false,
         events: permissions?.events ?? false

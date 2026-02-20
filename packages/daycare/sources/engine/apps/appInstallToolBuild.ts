@@ -53,8 +53,11 @@ export function appInstallToolBuild(apps: Apps): ToolDefinition {
             const resolvedSource = path.isAbsolute(source)
                 ? path.resolve(source)
                 : path.resolve(context.permissions.workingDir, source);
+            const appsDir = context.agentContext?.userId
+                ? context.agentSystem.userHomeForUserId(context.agentContext.userId).apps
+                : path.join(context.agentSystem.config.current.workspaceDir, "apps");
 
-            const descriptor = await appInstall(context.agentSystem.config.current.workspaceDir, resolvedSource);
+            const descriptor = await appInstall(appsDir, resolvedSource);
             await apps.discover();
             apps.registerTools(context.agentSystem.toolResolver);
 

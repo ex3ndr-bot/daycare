@@ -9,32 +9,32 @@ import { appPermissionStatePathBuild } from "./appPermissionStatePathBuild.js";
 import { appPermissionStateRead } from "./appPermissionStateRead.js";
 
 describe("appPermissionStateGrant", () => {
-    let workspaceDir: string;
+    let appsDir: string;
 
     beforeEach(async () => {
-        workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-app-state-"));
+        appsDir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-app-state-"));
     });
 
     afterEach(async () => {
-        await fs.rm(workspaceDir, { recursive: true, force: true });
+        await fs.rm(appsDir, { recursive: true, force: true });
     });
 
     it("persists shared app permissions in app workspace state.json", async () => {
-        await appPermissionStateGrant(workspaceDir, "github-reviewer", { kind: "workspace" });
-        await appPermissionStateGrant(workspaceDir, "github-reviewer", { kind: "network" });
-        await appPermissionStateGrant(workspaceDir, "github-reviewer", {
+        await appPermissionStateGrant(appsDir, "github-reviewer", { kind: "workspace" });
+        await appPermissionStateGrant(appsDir, "github-reviewer", { kind: "network" });
+        await appPermissionStateGrant(appsDir, "github-reviewer", {
             kind: "read",
             path: "/tmp/daycare-app-read"
         });
-        await appPermissionStateGrant(workspaceDir, "github-reviewer", {
+        await appPermissionStateGrant(appsDir, "github-reviewer", {
             kind: "network"
         });
 
-        const statePath = appPermissionStatePathBuild(workspaceDir, "github-reviewer");
+        const statePath = appPermissionStatePathBuild(appsDir, "github-reviewer");
         const stat = await fs.stat(statePath);
         expect(stat.isFile()).toBe(true);
 
-        const tags = await appPermissionStateRead(workspaceDir, "github-reviewer");
+        const tags = await appPermissionStateRead(appsDir, "github-reviewer");
         expect(tags).toEqual(["@workspace", "@network", "@read:/tmp/daycare-app-read"]);
     });
 });

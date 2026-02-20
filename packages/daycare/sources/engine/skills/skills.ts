@@ -9,6 +9,7 @@ import { skillListUser } from "./skillListUser.js";
 type SkillsOptions = {
     configRoot: string;
     pluginManager: Pick<PluginManager, "listRegisteredSkills">;
+    userRoot?: string;
 };
 
 /**
@@ -18,17 +19,19 @@ type SkillsOptions = {
 export class Skills {
     private readonly configRoot: string;
     private readonly pluginManager: Pick<PluginManager, "listRegisteredSkills">;
+    private readonly userRoot: string | undefined;
 
     constructor(options: SkillsOptions) {
         this.configRoot = options.configRoot;
         this.pluginManager = options.pluginManager;
+        this.userRoot = options.userRoot;
     }
 
     async list(): Promise<AgentSkill[]> {
         const [coreSkills, configSkills, userSkills, pluginSkills] = await Promise.all([
             skillListCore(),
             skillListConfig(this.configRoot),
-            skillListUser(),
+            skillListUser(this.userRoot),
             skillListRegistered(this.pluginManager.listRegisteredSkills())
         ]);
         return [...coreSkills, ...configSkills, ...userSkills, ...pluginSkills];

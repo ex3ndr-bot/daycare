@@ -8,11 +8,11 @@ import { appPermissionsValidate } from "./appPermissionsValidate.js";
 import type { AppDescriptor } from "./appTypes.js";
 
 /**
- * Installs an app from a source directory into `<workspace>/apps/<app-id>`.
+ * Installs an app from a source directory into `<appsDir>/<app-id>`.
  * Expects: sourceDir contains APP.md + PERMISSIONS.md and destination app name does not exist.
  */
-export async function appInstall(workspaceDir: string, sourceDir: string): Promise<AppDescriptor> {
-    const resolvedWorkspace = path.resolve(workspaceDir);
+export async function appInstall(appsDir: string, sourceDir: string): Promise<AppDescriptor> {
+    const resolvedAppsDir = path.resolve(appsDir);
     const resolvedSource = path.resolve(sourceDir);
     const sourceStat = await fs.stat(resolvedSource).catch(() => null);
     if (!sourceStat?.isDirectory()) {
@@ -32,14 +32,13 @@ export async function appInstall(workspaceDir: string, sourceDir: string): Promi
     }
     appPermissionsValidate(appPermissionsParse(sourcePermissionsContent));
 
-    const appsRoot = path.join(resolvedWorkspace, "apps");
-    const destinationPath = path.join(appsRoot, sourceManifest.name);
+    const destinationPath = path.join(resolvedAppsDir, sourceManifest.name);
     const destinationStat = await fs.stat(destinationPath).catch(() => null);
     if (destinationStat) {
         throw new Error(`App already installed: ${sourceManifest.name}`);
     }
 
-    await fs.mkdir(appsRoot, { recursive: true });
+    await fs.mkdir(resolvedAppsDir, { recursive: true });
     await fs.cp(resolvedSource, destinationPath, { recursive: true, force: false, errorOnExist: true });
     await fs.mkdir(path.join(destinationPath, "data"), { recursive: true });
 

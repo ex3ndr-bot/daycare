@@ -7,16 +7,16 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { appInstall } from "./appInstall.js";
 
 describe("appInstall", () => {
-    let workspaceDir: string;
+    let appsDir: string;
     let sourceRoot: string;
 
     beforeEach(async () => {
-        workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-app-install-workspace-"));
+        appsDir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-app-install-apps-"));
         sourceRoot = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-app-install-source-"));
     });
 
     afterEach(async () => {
-        await fs.rm(workspaceDir, { recursive: true, force: true });
+        await fs.rm(appsDir, { recursive: true, force: true });
         await fs.rm(sourceRoot, { recursive: true, force: true });
     });
 
@@ -55,9 +55,9 @@ describe("appInstall", () => {
         );
         await fs.writeFile(path.join(sourceDir, "README.md"), "hello");
 
-        const installed = await appInstall(workspaceDir, sourceDir);
+        const installed = await appInstall(appsDir, sourceDir);
         expect(installed.id).toBe("github-reviewer");
-        expect(installed.path).toBe(path.join(workspaceDir, "apps", "github-reviewer"));
+        expect(installed.path).toBe(path.join(appsDir, "github-reviewer"));
 
         const dataStat = await fs.stat(path.join(installed.path, "data"));
         expect(dataStat.isDirectory()).toBe(true);
@@ -97,7 +97,7 @@ describe("appInstall", () => {
             ].join("\n")
         );
 
-        await expect(appInstall(workspaceDir, sourceDir)).rejects.toThrow("App name must be username-style");
+        await expect(appInstall(appsDir, sourceDir)).rejects.toThrow("App name must be username-style");
     });
 
     it("throws when destination app already exists", async () => {
@@ -133,9 +133,9 @@ describe("appInstall", () => {
                 "- Delete files"
             ].join("\n")
         );
-        await fs.mkdir(path.join(workspaceDir, "apps", "github-reviewer"), { recursive: true });
+        await fs.mkdir(path.join(appsDir, "github-reviewer"), { recursive: true });
 
-        await expect(appInstall(workspaceDir, sourceDir)).rejects.toThrow("App already installed");
+        await expect(appInstall(appsDir, sourceDir)).rejects.toThrow("App already installed");
     });
 
     it("throws when source is missing PERMISSIONS.md", async () => {
@@ -156,6 +156,6 @@ describe("appInstall", () => {
             ].join("\n")
         );
 
-        await expect(appInstall(workspaceDir, sourceDir)).rejects.toThrow("missing PERMISSIONS.md");
+        await expect(appInstall(appsDir, sourceDir)).rejects.toThrow("missing PERMISSIONS.md");
     });
 });

@@ -15,7 +15,7 @@ import type { AgentSystemPromptContext } from "./agentSystemPromptContext.js";
 export async function agentSystemPromptSectionMemory(context: AgentSystemPromptContext = {}): Promise<string> {
     const descriptor = context.descriptor;
     const isForeground = descriptor?.type === "user";
-    const promptPaths = agentPromptPathsResolve(context.agentSystem?.config?.current.dataDir);
+    const promptPaths = agentPromptPathsResolve(context.agentSystem?.config?.current.dataDir, context.userHome);
     const readPromptFile = async (filePath: string, fallbackPrompt: string): Promise<string> => {
         const resolvedPath = path.resolve(filePath);
         try {

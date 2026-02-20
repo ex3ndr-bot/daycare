@@ -3,6 +3,7 @@ import type { ToolResultMessage } from "@mariozechner/pi-ai";
 import { type Static, Type } from "@sinclair/typebox";
 import type { ToolDefinition, ToolResultContract } from "@/types";
 import { toolMessageTextExtract } from "../modules/tools/toolReturnOutcome.js";
+import { appDiscover } from "./appDiscover.js";
 import type { Apps } from "./appManager.js";
 import { type AppRuleAction, appRuleApply } from "./appRuleApply.js";
 
@@ -59,11 +60,10 @@ export function appRuleToolBuild(apps: Apps): ToolDefinition {
                 throw new Error("app_id is required.");
             }
 
-            let descriptor = apps.get(appId);
-            if (!descriptor) {
-                await apps.discover();
-                descriptor = apps.get(appId);
-            }
+            const appsDir = context.agentContext?.userId
+                ? context.agentSystem.userHomeForUserId(context.agentContext.userId).apps
+                : path.join(context.agentSystem.config.current.workspaceDir, "apps");
+            const descriptor = (await appDiscover(appsDir)).find((entry) => entry.id === appId) ?? null;
             if (!descriptor) {
                 throw new Error(`Unknown app: ${appId}`);
             }

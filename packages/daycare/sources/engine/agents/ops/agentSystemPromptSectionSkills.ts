@@ -21,7 +21,8 @@ export async function agentSystemPromptSectionSkills(context: AgentSystemPromptC
         const pluginManager = context.agentSystem?.pluginManager ?? { listRegisteredSkills: () => [] };
         const skills = new Skills({
             configRoot: configSkillsRoot,
-            pluginManager
+            pluginManager,
+            userRoot: context.userHome?.skills
         });
         return skillPromptFormat(await skills.list());
     })();

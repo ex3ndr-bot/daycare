@@ -21,6 +21,7 @@ describe("configResolve", () => {
 
         expect(config.workspaceDir).toBe(path.resolve("/tmp/daycare/workspace"));
         expect(config.filesDir).toBe(path.resolve("/tmp/daycare/workspace/files"));
+        expect(config.usersDir).toBe(path.resolve("/tmp/daycare/.daycare/users"));
         expect(config.dbPath).toBe(path.resolve("/tmp/daycare/.daycare/daycare.db"));
     });
 

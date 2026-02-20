@@ -8,23 +8,23 @@ import { appPermissionStateRead } from "./appPermissionStateRead.js";
 
 /**
  * Builds locked-down session permissions for an app agent.
- * Expects: workspaceDir is absolute; appId is a validated app id.
+ * Expects: appsDir is absolute; appId is a validated app id.
  */
-export async function appPermissionBuild(workspaceDir: string, appId: string): Promise<SessionPermissions> {
-    const resolvedWorkspace = path.resolve(workspaceDir);
-    const appDataDir = path.join(resolvedWorkspace, "apps", appId, "data");
+export async function appPermissionBuild(appsDir: string, appId: string): Promise<SessionPermissions> {
+    const resolvedAppsDir = path.resolve(appsDir);
+    const appDataDir = path.join(resolvedAppsDir, appId, "data");
     await fs.mkdir(appDataDir, { recursive: true });
 
     const permissions: SessionPermissions = {
-        workspaceDir: resolvedWorkspace,
+        workspaceDir: resolvedAppsDir,
         workingDir: appDataDir,
         writeDirs: [appDataDir],
-        readDirs: [resolvedWorkspace],
+        readDirs: [resolvedAppsDir],
         network: false,
         events: false
     };
 
-    const sharedPermissions = await appPermissionStateRead(resolvedWorkspace, appId);
+    const sharedPermissions = await appPermissionStateRead(resolvedAppsDir, appId);
     for (const permission of sharedPermissions) {
         permissionAccessApply(permissions, permissionAccessParse(permission));
     }

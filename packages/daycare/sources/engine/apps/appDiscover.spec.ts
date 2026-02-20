@@ -6,19 +6,19 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { appDiscover } from "./appDiscover.js";
 
 describe("appDiscover", () => {
-    let workspaceDir: string;
+    let appsDir: string;
 
     beforeEach(async () => {
-        workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-app-discover-"));
+        appsDir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-app-discover-"));
     });
 
     afterEach(async () => {
-        await fs.rm(workspaceDir, { recursive: true, force: true });
+        await fs.rm(appsDir, { recursive: true, force: true });
     });
 
     it("returns discovered valid apps and skips invalid manifests", async () => {
-        const validDir = path.join(workspaceDir, "apps", "github-reviewer");
-        const invalidDir = path.join(workspaceDir, "apps", "broken");
+        const validDir = path.join(appsDir, "github-reviewer");
+        const invalidDir = path.join(appsDir, "broken");
         await fs.mkdir(validDir, { recursive: true });
         await fs.mkdir(invalidDir, { recursive: true });
 
@@ -83,14 +83,14 @@ describe("appDiscover", () => {
             ].join("\n")
         );
 
-        const apps = await appDiscover(workspaceDir);
+        const apps = await appDiscover(appsDir);
         expect(apps).toHaveLength(1);
         expect(apps[0]?.id).toBe("github-reviewer");
         expect(apps[0]?.path).toBe(validDir);
     });
 
     it("returns empty when apps directory does not exist", async () => {
-        const apps = await appDiscover(workspaceDir);
+        const apps = await appDiscover(path.join(appsDir, "missing"));
         expect(apps).toEqual([]);
     });
 });

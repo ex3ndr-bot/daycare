@@ -19,6 +19,7 @@ export function configResolve(settings: SettingsConfig, settingsPath: string, ov
     const dataDir = path.resolve(resolvedSettings.engine?.dataDir ?? DEFAULT_DAYCARE_DIR);
     const workspaceDir = resolveWorkspaceDir(configDir, resolvedSettings.assistant ?? null);
     const agentsDir = path.join(dataDir, "agents");
+    const usersDir = path.join(dataDir, "users");
     const dbPath = path.resolve(resolvedSettings.engine?.dbPath ?? path.join(dataDir, "daycare.db"));
     const filesDir = path.join(workspaceDir, "files");
     const authPath = path.join(dataDir, "auth.json");
@@ -33,6 +34,7 @@ export function configResolve(settings: SettingsConfig, settingsPath: string, ov
         configDir,
         dataDir,
         agentsDir,
+        usersDir,
         dbPath,
         filesDir,
         authPath,

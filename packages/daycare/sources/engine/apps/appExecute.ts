@@ -1,8 +1,11 @@
+import path from "node:path";
+
 import { createId } from "@paralleldrive/cuid2";
 
 import type { ToolExecutionContext } from "@/types";
 import { agentStateRead } from "../agents/ops/agentStateRead.js";
 import { agentStateWrite } from "../agents/ops/agentStateWrite.js";
+import { appDiscover } from "./appDiscover.js";
 import { appPermissionBuild } from "./appPermissionBuild.js";
 import { appReviewProvidersResolve } from "./appReviewProvidersResolve.js";
 import { appToolExecutorBuild } from "./appToolExecutorBuild.js";
@@ -28,15 +31,24 @@ export async function appExecute(input: AppExecuteInput): Promise<AppExecuteResu
     const agentSystem = input.context.agentSystem;
     const config = agentSystem.config.current;
     const waitForResponse = input.waitForResponse ?? false;
-    const appPermissions = await appPermissionBuild(config.workspaceDir, input.app.id);
+    const appsDir = input.context.agentContext?.userId
+        ? agentSystem.userHomeForUserId(input.context.agentContext.userId).apps
+        : path.join(config.workspaceDir, "apps");
+    const appDescriptor =
+        (await appDiscover(appsDir)).find((entry) => entry.id === input.app.id) ??
+        (input.context.agentContext?.userId ? null : input.app);
+    if (!appDescriptor) {
+        throw new Error(`Unknown app: ${input.app.id}`);
+    }
+    const appPermissions = await appPermissionBuild(appsDir, appDescriptor.id);
 
     const descriptor = {
         type: "app" as const,
         id: createId(),
         parentAgentId: input.context.agent.id,
-        name: input.app.manifest.title,
-        systemPrompt: input.app.manifest.systemPrompt,
-        appId: input.app.id
+        name: appDescriptor.manifest.title,
+        systemPrompt: appDescriptor.manifest.systemPrompt,
+        appId: appDescriptor.id
     };
 
     const agentId = await agentSystem.agentIdForTarget({ descriptor });
@@ -53,15 +65,15 @@ export async function appExecute(input: AppExecuteInput): Promise<AppExecuteResu
     await agentStateWrite(config, agentId, nextState);
     agentSystem.updateAgentPermissions(agentId, appPermissions, updatedAt);
 
-    const reviewProviders = appReviewProvidersResolve(config, input.app.manifest.model);
+    const reviewProviders = appReviewProvidersResolve(config, appDescriptor.manifest.model);
     const reviewedExecutor = appToolExecutorBuild({
-        appId: input.app.id,
-        appName: input.app.manifest.title,
-        appSystemPrompt: input.app.manifest.systemPrompt,
+        appId: appDescriptor.id,
+        appName: appDescriptor.manifest.title,
+        appSystemPrompt: appDescriptor.manifest.systemPrompt,
         reviewerEnabled: config.settings.security.appReviewerEnabled,
         rlmEnabled: config.features.rlm,
-        sourceIntent: input.app.permissions.sourceIntent,
-        rules: input.app.permissions.rules,
+        sourceIntent: appDescriptor.permissions.sourceIntent,
+        rules: appDescriptor.permissions.rules,
         inferenceRouter: agentSystem.inferenceRouter,
         toolResolver: agentSystem.toolResolver,
         providersOverride: reviewProviders
@@ -69,7 +81,7 @@ export async function appExecute(input: AppExecuteInput): Promise<AppExecuteResu
 
     const message = {
         type: "message" as const,
-        message: { text: appTaskPromptBuild(input.app, input.prompt) },
+        message: { text: appTaskPromptBuild(appDescriptor, input.prompt) },
         context: {},
         toolResolverOverride: reviewedExecutor
     };

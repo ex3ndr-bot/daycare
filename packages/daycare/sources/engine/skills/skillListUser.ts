@@ -9,14 +9,23 @@ import type { AgentSkill } from "./skillTypes.js";
  *
  * Expects: ~/.agents/skills may be missing; missing roots return an empty list.
  */
-export async function skillListUser(): Promise<AgentSkill[]> {
-    if (!(await skillRootExists(DEFAULT_USER_SKILLS_ROOT))) {
-        return [];
-    }
-    return skillListFromRoot(DEFAULT_USER_SKILLS_ROOT, {
-        source: "user",
-        root: DEFAULT_USER_SKILLS_ROOT
-    });
+export async function skillListUser(userRoot?: string): Promise<AgentSkill[]> {
+    const roots = Array.from(
+        new Set(
+            [DEFAULT_USER_SKILLS_ROOT, userRoot]
+                .filter((entry): entry is string => typeof entry === "string" && entry.trim().length > 0)
+                .map((entry) => entry.trim())
+        )
+    );
+    const skills = await Promise.all(
+        roots.map(async (root) => {
+            if (!(await skillRootExists(root))) {
+                return [] as AgentSkill[];
+            }
+            return skillListFromRoot(root, { source: "user", root });
+        })
+    );
+    return skills.flat();
 }
 
 async function skillRootExists(root: string): Promise<boolean> {

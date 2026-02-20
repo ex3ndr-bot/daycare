@@ -11,11 +11,11 @@ import type { AppDescriptor } from "./appTypes.js";
 const logger = getLogger("engine.apps.discover");
 
 /**
- * Discovers installed apps from `<workspace>/apps/<app-id>/APP.md` and PERMISSIONS.md.
- * Expects: workspaceDir is an absolute workspace path.
+ * Discovers installed apps from `<appsDir>/<app-id>/APP.md` and PERMISSIONS.md.
+ * Expects: appsDir is an absolute apps root path.
  */
-export async function appDiscover(workspaceDir: string): Promise<AppDescriptor[]> {
-    const appsRoot = path.join(path.resolve(workspaceDir), "apps");
+export async function appDiscover(appsDir: string): Promise<AppDescriptor[]> {
+    const appsRoot = path.resolve(appsDir);
     let entries: import("node:fs").Dirent[] = [];
     try {
         entries = await fs.readdir(appsRoot, { withFileTypes: true });

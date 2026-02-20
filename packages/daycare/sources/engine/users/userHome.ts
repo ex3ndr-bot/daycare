@@ -1,0 +1,39 @@
+import path from "node:path";
+
+import type { AgentPromptFilesPaths } from "../agents/ops/agentPromptFilesEnsure.js";
+
+/**
+ * Resolves all per-user home paths under the configured users directory.
+ * Expects: usersDir is absolute and userId is a non-empty stable id.
+ */
+export class UserHome {
+    readonly root: string;
+    readonly skills: string;
+    readonly apps: string;
+    readonly home: string;
+    readonly desktop: string;
+    readonly documents: string;
+    readonly developer: string;
+    readonly knowledge: string;
+
+    constructor(usersDir: string, userId: string) {
+        this.root = path.resolve(usersDir, userId);
+        this.skills = path.join(this.root, "skills");
+        this.apps = path.join(this.root, "apps");
+        this.home = path.join(this.root, "home");
+        this.desktop = path.join(this.home, "desktop");
+        this.documents = path.join(this.home, "documents");
+        this.developer = path.join(this.home, "developer");
+        this.knowledge = path.join(this.home, "knowledge");
+    }
+
+    knowledgePaths(): AgentPromptFilesPaths {
+        return {
+            soulPath: path.join(this.knowledge, "SOUL.md"),
+            userPath: path.join(this.knowledge, "USER.md"),
+            agentsPath: path.join(this.knowledge, "AGENTS.md"),
+            toolsPath: path.join(this.knowledge, "TOOLS.md"),
+            memoryPath: path.join(this.knowledge, "MEMORY.md")
+        };
+    }
+}

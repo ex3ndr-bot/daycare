@@ -1,9 +1,9 @@
-import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import type { Context } from "@mariozechner/pi-ai";
 import { createId } from "@paralleldrive/cuid2";
 import type { MessageContext, ToolExecutionContext } from "@/types";
+import { FileStore } from "../../files/store.js";
 import { getLogger } from "../../log.js";
 import { listActiveInferenceProviders } from "../../providers/catalog.js";
 import { sessionDbCreate } from "../../storage/sessionDbCreate.js";
@@ -24,12 +24,15 @@ import { rlmToolDescriptionBuild } from "../modules/rlm/rlmToolDescriptionBuild.
 import { rlmToolResultBuild } from "../modules/rlm/rlmToolResultBuild.js";
 import type { ToolResolverApi } from "../modules/toolResolver.js";
 import { toolListContextBuild } from "../modules/tools/toolListContextBuild.js";
+import { permissionBuildUser } from "../permissions/permissionBuildUser.js";
 import { permissionClone } from "../permissions/permissionClone.js";
 import { permissionEnsureDefaultFile } from "../permissions/permissionEnsureDefaultFile.js";
 import { permissionMergeDefault } from "../permissions/permissionMergeDefault.js";
 import { permissionTagsApply } from "../permissions/permissionTagsApply.js";
 import { signalMessageBuild } from "../signals/signalMessageBuild.js";
 import { Skills } from "../skills/skills.js";
+import type { UserHome } from "../users/userHome.js";
+import { userHomeEnsure } from "../users/userHomeEnsure.js";
 import { AgentContext } from "./agentContext.js";
 import type { AgentSystem } from "./agentSystem.js";
 import { agentDescriptorIsCron } from "./ops/agentDescriptorIsCron.js";
@@ -80,6 +83,8 @@ export class Agent {
     private processing = false;
     private started = false;
     private inferenceAbortController: AbortController | null = null;
+    private readonly userHome: UserHome | null;
+    private readonly fileStore: FileStore;
 
     private constructor(
         id: string,
@@ -87,7 +92,8 @@ export class Agent {
         descriptor: AgentDescriptor,
         state: AgentState,
         inbox: AgentInbox,
-        agentSystem: AgentSystem
+        agentSystem: AgentSystem,
+        userHome?: UserHome | null
     ) {
         this.id = id;
         this.userId = userId;
@@ -95,6 +101,8 @@ export class Agent {
         this.state = state;
         this.inbox = inbox;
         this.agentSystem = agentSystem;
+        this.userHome = userHome ?? null;
+        this.fileStore = this.userHome ? new FileStore(this.userHome.desktop) : this.agentSystem.fileStore;
     }
 
     /**
@@ -106,17 +114,23 @@ export class Agent {
         descriptor: AgentDescriptor,
         userId: string,
         inbox: AgentInbox,
-        agentSystem: AgentSystem
+        agentSystem: AgentSystem,
+        userHome?: UserHome | null
     ): Promise<Agent> {
         if (!cuid2Is(agentId)) {
             throw new Error("Agent id must be a cuid2 value.");
+        }
+        if (userHome) {
+            await userHomeEnsure(userHome);
         }
         const now = Date.now();
         const state: AgentState = {
             context: { messages: [] },
             activeSessionId: null,
             inferenceSessionId: createId(),
-            permissions: permissionClone(agentSystem.config.current.defaultPermissions),
+            permissions: userHome
+                ? permissionBuildUser(userHome)
+                : permissionClone(agentSystem.config.current.defaultPermissions),
             tokens: null,
             stats: {},
             createdAt: now,
@@ -124,7 +138,7 @@ export class Agent {
             state: "active"
         };
 
-        const agent = new Agent(agentId, userId, descriptor, state, inbox, agentSystem);
+        const agent = new Agent(agentId, userId, descriptor, state, inbox, agentSystem, userHome);
         await agentDescriptorWrite(agentSystem.config.current, agentId, descriptor, userId);
         await agentStateWrite(agentSystem.config.current, agentId, state);
         state.activeSessionId = await sessionDbCreate(agentSystem.config.current, {
@@ -152,9 +166,10 @@ export class Agent {
         descriptor: AgentDescriptor,
         state: AgentState,
         inbox: AgentInbox,
-        agentSystem: AgentSystem
+        agentSystem: AgentSystem,
+        userHome?: UserHome | null
     ): Agent {
-        return new Agent(agentId, userId, descriptor, state, inbox, agentSystem);
+        return new Agent(agentId, userId, descriptor, state, inbox, agentSystem, userHome);
     }
 
     start(): void {
@@ -322,7 +337,7 @@ export class Agent {
         this.state.updatedAt = receivedAt;
 
         const rawText = entry.message.rawText ?? entry.message.text ?? "";
-        const files = toFileReferences(entry.message.files ?? []);
+        const files = await this.messageFilesNormalize(entry.message.files ?? []);
         let compactionAt: number | null = null;
         let pendingUserRecord: AgentHistoryRecord | null = {
             type: "user_message",
@@ -341,7 +356,8 @@ export class Agent {
         const configSkillsRoot = path.join(this.agentSystem.config.current.configDir, "skills");
         const skills = new Skills({
             configRoot: configSkillsRoot,
-            pluginManager
+            pluginManager,
+            userRoot: this.userHome?.skills
         });
         const agentKind = this.resolveAgentKind();
         const allowCronTools = agentDescriptorIsCron(this.descriptor);
@@ -369,14 +385,15 @@ export class Agent {
                 ? await rlmToolDescriptionBuild(availableTools)
                 : undefined;
 
-        await agentPromptFilesEnsure(agentPromptPathsResolve(this.agentSystem.config.current.dataDir));
+        await agentPromptFilesEnsure(agentPromptPathsResolve(this.agentSystem.config.current.dataDir, this.userHome));
         logger.debug(`event: handleMessage building system prompt agentId=${this.id}`);
         const systemPrompt = await agentSystemPrompt({
             provider: providerSettings?.id,
             model: providerSettings?.model,
             permissions: this.state.permissions,
             descriptor: this.descriptor,
-            agentSystem: this.agentSystem
+            agentSystem: this.agentSystem,
+            userHome: this.userHome ?? undefined
         });
 
         try {
@@ -497,7 +514,7 @@ export class Agent {
                     connectorRegistry: this.agentSystem.connectorRegistry,
                     inferenceRouter: this.agentSystem.inferenceRouter,
                     toolResolver,
-                    fileStore: this.agentSystem.fileStore,
+                    fileStore: this.fileStore,
                     authStore: this.agentSystem.authStore,
                     eventBus: this.agentSystem.eventBus,
                     assistant: this.agentSystem.config.current.settings.assistant ?? null,
@@ -932,7 +949,7 @@ export class Agent {
     private rlmRestoreContextBuild(source: string): ToolExecutionContext {
         return {
             connectorRegistry: this.agentSystem.connectorRegistry,
-            fileStore: this.agentSystem.fileStore,
+            fileStore: this.fileStore,
             auth: this.agentSystem.authStore,
             logger,
             assistant: this.agentSystem.config.current.settings.assistant ?? null,
@@ -995,6 +1012,28 @@ export class Agent {
         const tasks = await this.agentSystem.crons.listTasks();
         const task = tasks.find((entry) => entry.taskUid === descriptor.id) ?? null;
         return task?.id ?? null;
+    }
+
+    private async messageFilesNormalize(
+        files: Array<{ id: string; name: string; path: string; mimeType: string; size: number }>
+    ): Promise<Array<{ id: string; name: string; path: string; mimeType: string; size: number }>> {
+        const copied = toFileReferences(files);
+        if (!this.userHome || copied.length === 0) {
+            return copied;
+        }
+        const relocated: Array<{ id: string; name: string; path: string; mimeType: string; size: number }> = [];
+        for (const file of copied) {
+            try {
+                relocated.push(await fileStoreCopyIfNeeded(this.fileStore, this.userHome.desktop, file));
+            } catch (error) {
+                logger.warn(
+                    { agentId: this.id, filePath: file.path, error },
+                    "warn: Failed to route file to user home"
+                );
+                relocated.push(file);
+            }
+        }
+        return relocated;
     }
 
     private async listContextTools(
@@ -1103,6 +1142,31 @@ export class Agent {
 
 function isChannelSignalType(type: string): boolean {
     return type.startsWith("channel.") && type.endsWith(":message");
+}
+
+async function fileStoreCopyIfNeeded(
+    fileStore: FileStore,
+    targetDir: string,
+    file: { id: string; name: string; path: string; mimeType: string; size: number }
+): Promise<{ id: string; name: string; path: string; mimeType: string; size: number }> {
+    const resolvedPath = path.resolve(file.path);
+    const normalizedTarget = path.resolve(targetDir);
+    if (resolvedPath === normalizedTarget || resolvedPath.startsWith(`${normalizedTarget}${path.sep}`)) {
+        return file;
+    }
+    const stored = await fileStore.saveFromPath({
+        name: file.name,
+        mimeType: file.mimeType,
+        source: "connector",
+        path: resolvedPath
+    });
+    return {
+        id: stored.id,
+        name: stored.name,
+        path: stored.path,
+        mimeType: stored.mimeType,
+        size: stored.size
+    };
 }
 
 function toFileReferences(

@@ -12,10 +12,12 @@ import { appRuleToolBuild } from "./appRuleToolBuild.js";
 
 describe("appRuleToolBuild", () => {
     let workspaceDir: string;
+    let appsDir: string;
 
     beforeEach(async () => {
         workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-app-rules-tool-"));
-        const appDir = path.join(workspaceDir, "apps", "github-reviewer");
+        appsDir = path.join(workspaceDir, "apps");
+        const appDir = path.join(appsDir, "github-reviewer");
         await fs.mkdir(appDir, { recursive: true });
         await fs.writeFile(
             path.join(appDir, "APP.md"),
@@ -54,7 +56,7 @@ describe("appRuleToolBuild", () => {
     });
 
     it("returns the permission result when approval is denied", async () => {
-        const apps = new Apps({ workspaceDir });
+        const apps = new Apps({ appsDir });
         await apps.discover();
         const tool = appRuleToolBuild(apps);
         const context = contextBuild(workspaceDir);
@@ -81,12 +83,12 @@ describe("appRuleToolBuild", () => {
             })
         });
 
-        const permissions = await permissionsRead(path.join(workspaceDir, "apps", "github-reviewer", "PERMISSIONS.md"));
+        const permissions = await permissionsRead(path.join(appsDir, "github-reviewer", "PERMISSIONS.md"));
         expect(permissions.rules.allow.map((rule) => rule.text)).not.toContain("Access network");
     });
 
     it("applies rule changes after permission approval", async () => {
-        const apps = new Apps({ workspaceDir });
+        const apps = new Apps({ appsDir });
         await apps.discover();
         const tool = appRuleToolBuild(apps);
         const context = contextBuild(workspaceDir);
@@ -107,7 +109,7 @@ describe("appRuleToolBuild", () => {
         expect(contentText(applyResult.toolMessage.content)).toContain("Rule added");
         expect(executeSpy).toHaveBeenCalledTimes(1);
 
-        const permissions = await permissionsRead(path.join(workspaceDir, "apps", "github-reviewer", "PERMISSIONS.md"));
+        const permissions = await permissionsRead(path.join(appsDir, "github-reviewer", "PERMISSIONS.md"));
         expect(permissions.rules.deny.map((rule) => rule.text)).toContain("Delete files recursively");
     });
 });
@@ -130,7 +132,10 @@ function contextBuild(workspaceDir: string): ToolExecutionContext {
         agentContext: null as unknown as ToolExecutionContext["agentContext"],
         source: "test",
         messageContext: {},
-        agentSystem: { toolResolver: new ToolResolver() } as unknown as ToolExecutionContext["agentSystem"],
+        agentSystem: {
+            toolResolver: new ToolResolver(),
+            config: { current: { workspaceDir } }
+        } as unknown as ToolExecutionContext["agentSystem"],
         heartbeats: null as unknown as ToolExecutionContext["heartbeats"]
     };
 }

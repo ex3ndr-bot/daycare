@@ -9,8 +9,8 @@ import type { StoredFile } from "./types.js";
 export class FileStore {
     private basePath: string;
 
-    constructor(config: Config) {
-        this.basePath = config.filesDir;
+    constructor(configOrBasePath: Config | string) {
+        this.basePath = typeof configOrBasePath === "string" ? configOrBasePath : configOrBasePath.filesDir;
     }
 
     resolvePath(): string {

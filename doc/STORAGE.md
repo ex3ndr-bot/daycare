@@ -24,6 +24,7 @@ export type Config = {
   configDir: string;
   dataDir: string;
   agentsDir: string;
+  usersDir: string;
   dbPath: string;
   filesDir: string;
   authPath: string;
@@ -39,9 +40,44 @@ Resolved by `sources/config/configResolve.ts`:
 - `dataDir = settings.engine.dataDir ?? DEFAULT_DAYCARE_DIR`
 - `dbPath = settings.engine.dbPath ?? path.join(dataDir, "daycare.db")`
 - `agentsDir = path.join(dataDir, "agents")`
+- `usersDir = path.join(dataDir, "users")`
 - `authPath = path.join(dataDir, "auth.json")`
 - `workspaceDir = resolveWorkspaceDir(configDir, settings.assistant)`
 - `filesDir = path.join(workspaceDir, "files")`
+
+---
+
+## Per-User Home Layout
+
+Runtime user data is isolated under `usersDir`:
+
+```text
+<dataDir>/users/<userId>/
+  skills/
+  apps/
+  home/
+    desktop/
+    documents/
+    developer/
+    knowledge/
+      SOUL.md
+      USER.md
+      AGENTS.md
+      TOOLS.md
+      MEMORY.md
+```
+
+Global legacy locations (`<workspace>/files`, `<workspace>/apps`, `<dataDir>/*.md`) are still readable for migration
+and backward compatibility, but new user-scoped flows resolve through `UserHome`.
+
+```mermaid
+flowchart LR
+    A[Config.usersDir] --> B[UserHome(usersDir, userId)]
+    B --> C[home/desktop]
+    B --> D[home/knowledge/*.md]
+    B --> E[skills]
+    B --> F[apps]
+```
 
 ---
 

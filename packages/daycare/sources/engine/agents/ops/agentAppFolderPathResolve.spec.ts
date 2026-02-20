@@ -22,4 +22,21 @@ describe("agentAppFolderPathResolve", () => {
             )
         ).toBe("/workspace/apps/github-reviewer");
     });
+
+    it("resolves app folder path from a user apps root when provided", () => {
+        expect(
+            agentAppFolderPathResolve(
+                {
+                    type: "app",
+                    id: "agent-1",
+                    parentAgentId: "parent-1",
+                    name: "GitHub Reviewer",
+                    systemPrompt: "prompt",
+                    appId: "github-reviewer"
+                },
+                "/workspace",
+                "/.daycare/users/u1/apps"
+            )
+        ).toBe("/.daycare/users/u1/apps/github-reviewer");
+    });
 });

@@ -39,6 +39,7 @@ import { permissionClone } from "../permissions/permissionClone.js";
 import { permissionFormatTag } from "../permissions/permissionFormatTag.js";
 import type { PluginManager } from "../plugins/manager.js";
 import type { Signals } from "../signals/signals.js";
+import { UserHome } from "../users/userHome.js";
 import { Agent } from "./agent.js";
 import { AgentContext } from "./agentContext.js";
 import { agentDescriptorCacheKey } from "./ops/agentDescriptorCacheKey.js";
@@ -210,7 +211,8 @@ export class AgentSystem {
                 continue;
             }
             const inbox = new AgentInbox(agentId);
-            const agent = Agent.restore(agentId, record.userId, descriptor, state, inbox, this);
+            const userHome = this.userHomeForUserId(record.userId);
+            const agent = Agent.restore(agentId, record.userId, descriptor, state, inbox, this, userHome);
             const registered = this.registerEntry({
                 agentId,
                 userId: record.userId,
@@ -435,7 +437,20 @@ export class AgentSystem {
         access: PermissionAccess,
         options?: { source?: string; decision?: PermissionDecision }
     ): Promise<void> {
-        await appPermissionStateGrant(this.config.current.workspaceDir, appId, access);
+        const userIds = new Set<string>();
+        for (const entry of this.entries.values()) {
+            if (entry.descriptor.type !== "app" || entry.descriptor.appId !== appId) {
+                continue;
+            }
+            userIds.add(entry.userId);
+        }
+        if (userIds.size === 0) {
+            userIds.add(await this.ownerUserIdEnsure());
+        }
+        for (const userId of userIds) {
+            const userHome = this.userHomeForUserId(userId);
+            await appPermissionStateGrant(userHome.apps, appId, access);
+        }
         for (const entry of this.entries.values()) {
             if (entry.descriptor.type !== "app" || entry.descriptor.appId !== appId) {
                 continue;
@@ -629,7 +644,8 @@ export class AgentSystem {
         logger.debug(`event: Creating agent entry agentId=${agentId} type=${resolvedDescriptor.type}`);
         const inbox = new AgentInbox(agentId);
         const userId = await this.resolveUserIdForDescriptor(resolvedDescriptor);
-        const agent = await Agent.create(agentId, resolvedDescriptor, userId, inbox, this);
+        const userHome = this.userHomeForUserId(userId);
+        const agent = await Agent.create(agentId, resolvedDescriptor, userId, inbox, this, userHome);
         const entry = this.registerEntry({
             agentId,
             userId,
@@ -909,7 +925,8 @@ export class AgentSystem {
             return null;
         }
         const inbox = new AgentInbox(agentId);
-        const agent = Agent.restore(agentId, recordUserId, descriptor, state, inbox, this);
+        const userHome = this.userHomeForUserId(recordUserId);
+        const agent = Agent.restore(agentId, recordUserId, descriptor, state, inbox, this, userHome);
         const entry = this.registerEntry({
             agentId,
             userId: recordUserId,
@@ -992,6 +1009,14 @@ export class AgentSystem {
             }
             throw new Error("Failed to resolve owner user");
         }
+    }
+
+    /**
+     * Resolves a UserHome facade for a concrete user id.
+     * Expects: userId belongs to an existing or soon-to-be-created runtime user.
+     */
+    userHomeForUserId(userId: string): UserHome {
+        return new UserHome(this.config.current.usersDir, userId);
     }
 
     private createCompletion(): {

@@ -6,6 +6,7 @@ export type Config = {
     configDir: string;
     dataDir: string;
     agentsDir: string;
+    usersDir: string;
     dbPath: string;
     filesDir: string;
     authPath: string;

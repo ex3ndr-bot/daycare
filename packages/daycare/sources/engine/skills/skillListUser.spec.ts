@@ -42,4 +42,33 @@ describe("skillListUser", () => {
         mockedPaths.userSkillsRoot = path.join(os.tmpdir(), `daycare-user-skills-missing-${Date.now()}`);
         await expect(skillListUser()).resolves.toEqual([]);
     });
+
+    it("loads skills from both system and user roots when userRoot is provided", async () => {
+        const systemRoot = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-system-skills-"));
+        const userRoot = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-user-scoped-skills-"));
+        mockedPaths.userSkillsRoot = systemRoot;
+
+        try {
+            const systemSkillDir = path.join(systemRoot, "system-one");
+            await fs.mkdir(systemSkillDir, { recursive: true });
+            await fs.writeFile(
+                path.join(systemSkillDir, "SKILL.md"),
+                "---\nname: system-one\ndescription: System skill\n---\n\nSystem body"
+            );
+
+            const userSkillDir = path.join(userRoot, "user-two");
+            await fs.mkdir(userSkillDir, { recursive: true });
+            await fs.writeFile(
+                path.join(userSkillDir, "SKILL.md"),
+                "---\nname: user-two\ndescription: User skill\n---\n\nUser body"
+            );
+
+            const skills = await skillListUser(userRoot);
+            const names = skills.map((skill) => skill.name).sort();
+            expect(names).toEqual(["system-one", "user-two"]);
+        } finally {
+            await fs.rm(systemRoot, { recursive: true, force: true });
+            await fs.rm(userRoot, { recursive: true, force: true });
+        }
+    });
 });
