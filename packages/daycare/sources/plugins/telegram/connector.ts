@@ -155,9 +155,9 @@ export class TelegramConnector implements Connector {
 
             const files = await this.extractFiles(message);
             logger.debug(`event: Extracted files from message fileCount=${files.length}`);
-            const fallbackText = this.documentFallbackText(message, files);
+            const documentNoticeText = this.documentNoticeText(message, files);
             const payload: ConnectorMessage = {
-                text: rawText ?? message.caption ?? fallbackText,
+                text: rawText ?? message.caption ?? documentNoticeText,
                 files: files.length > 0 ? files : undefined
             };
 
@@ -754,11 +754,17 @@ export class TelegramConnector implements Connector {
         return files;
     }
 
-    private documentFallbackText(message: TelegramBot.Message, files: FileReference[]): string | null {
-        if (!message.document?.file_id || files.length > 0) {
+    private documentNoticeText(message: TelegramBot.Message, files: FileReference[]): string | null {
+        if (!message.document?.file_id) {
             return null;
         }
         const fileName = message.document.file_name?.trim();
+        if (files.length > 0) {
+            if (fileName) {
+                return `Document received: ${fileName}.`;
+            }
+            return "Document received.";
+        }
         if (fileName) {
             return `Document received: ${fileName} (download failed).`;
         }

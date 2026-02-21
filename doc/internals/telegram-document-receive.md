@@ -2,12 +2,12 @@
 
 ## Summary
 
-Telegram document updates now always reach agent handlers, even when file download fails.  
-When a document-only message cannot be downloaded, the connector emits a fallback text message instead of an empty payload.
+Telegram document updates now always include explicit text for agent handlers.  
+When a document-only message arrives, the connector emits a `Document received: ...` notice, and keeps the download-failed suffix when storage fails.
 
 ## Behavior
 
-- Successful document download: message contains `files`.
+- Successful document download with no text/caption: message contains `files` and `Document received: <name>.` text.
 - Failed document download with no text/caption: message contains fallback text (`Document received ... (download failed).`).
 - Existing text/caption behavior remains unchanged.
 
@@ -18,8 +18,8 @@ flowchart TD
   A[Telegram update message] --> B{Has text command?}
   B -->|Yes| C[Dispatch command handlers]
   B -->|No| D[Extract files]
-  D --> E{Document present and no file saved?}
-  E -->|Yes| F[Set fallback text]
+  D --> E{Document present and no user text?}
+  E -->|Yes| F[Set document notice text]
   E -->|No| G[Use text or caption]
   F --> H[Dispatch message handlers]
   G --> H

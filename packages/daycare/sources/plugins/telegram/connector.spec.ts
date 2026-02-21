@@ -288,7 +288,7 @@ describe("TelegramConnector incoming documents", () => {
             MessageContext,
             AgentDescriptor
         ];
-        expect(message.text).toBeNull();
+        expect(message.text).toBe("Document received: report.pdf.");
         expect(message.files).toEqual([
             {
                 id: "f-1",
