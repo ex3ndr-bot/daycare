@@ -11,6 +11,7 @@ type TelegramBotMock = {
     sendPhoto: MockFn;
     sendVideo: MockFn;
     sendDocument: MockFn;
+    downloadFile: MockFn;
     editMessageText: MockFn;
     answerCallbackQuery: MockFn;
     startPolling: MockFn;
@@ -27,6 +28,7 @@ vi.mock("node-telegram-bot-api", () => {
         sendPhoto = vi.fn(async () => ({ message_id: 101, chat: { id: 123 } }));
         sendVideo = vi.fn(async () => ({ message_id: 101, chat: { id: 123 } }));
         sendDocument = vi.fn(async () => ({ message_id: 101, chat: { id: 123 } }));
+        downloadFile = vi.fn(async () => "/tmp/downloaded-file");
         editMessageText = vi.fn(async () => undefined);
         answerCallbackQuery = vi.fn(async () => undefined);
         isPolling = vi.fn(() => false);
@@ -234,6 +236,117 @@ describe("TelegramConnector commands", () => {
             channelId: "123",
             userId: "123"
         });
+    });
+});
+
+describe("TelegramConnector incoming documents", () => {
+    beforeEach(() => {
+        telegramInstances.length = 0;
+    });
+
+    it("routes incoming documents to message handlers", async () => {
+        const fileStore = {
+            saveFromPath: vi.fn(async (input: { name: string; mimeType: string; path: string }) => ({
+                id: "f-1",
+                name: input.name,
+                mimeType: input.mimeType,
+                path: "/tmp/stored-report.pdf",
+                size: 128
+            }))
+        } as unknown as FileFolder;
+        const connector = new TelegramConnector({
+            token: "token",
+            allowedUids: ["123"],
+            polling: false,
+            clearWebhook: false,
+            statePath: null,
+            fileStore,
+            dataDir: "/tmp",
+            enableGracefulShutdown: false
+        });
+        const messageHandlerMock = vi.fn(async (_message, _context, _descriptor) => undefined);
+        connector.onMessage(messageHandlerMock);
+
+        const bot = telegramInstances[0];
+        expect(bot).toBeTruthy();
+        bot!.downloadFile.mockResolvedValueOnce("/tmp/downloaded-report.pdf");
+        const botMessageHandler = bot!.handlers.get("message")?.[0];
+        await botMessageHandler?.({
+            message_id: 55,
+            chat: { id: 123, type: "private" },
+            from: { id: 123 },
+            document: {
+                file_id: "doc-1",
+                file_name: "report.pdf",
+                mime_type: "application/pdf"
+            }
+        });
+
+        expect(messageHandlerMock).toHaveBeenCalledTimes(1);
+        const [message, context, descriptor] = messageHandlerMock.mock.calls[0] as [
+            { text: string | null; files?: Array<{ name: string; mimeType: string; path: string; size: number }> },
+            MessageContext,
+            AgentDescriptor
+        ];
+        expect(message.text).toBeNull();
+        expect(message.files).toEqual([
+            {
+                id: "f-1",
+                name: "report.pdf",
+                mimeType: "application/pdf",
+                path: "/tmp/stored-report.pdf",
+                size: 128
+            }
+        ]);
+        expect(context).toMatchObject({ messageId: "55" });
+        expect(descriptor).toMatchObject({
+            type: "user",
+            connector: "telegram",
+            channelId: "123",
+            userId: "123"
+        });
+    });
+
+    it("adds fallback text when document download fails", async () => {
+        const fileStore = {
+            saveFromPath: vi.fn()
+        } as unknown as FileFolder;
+        const connector = new TelegramConnector({
+            token: "token",
+            allowedUids: ["123"],
+            polling: false,
+            clearWebhook: false,
+            statePath: null,
+            fileStore,
+            dataDir: "/tmp",
+            enableGracefulShutdown: false
+        });
+        const messageHandlerMock = vi.fn(async (_message, _context, _descriptor) => undefined);
+        connector.onMessage(messageHandlerMock);
+
+        const bot = telegramInstances[0];
+        expect(bot).toBeTruthy();
+        bot!.downloadFile.mockRejectedValueOnce(new Error("download failed"));
+        const botMessageHandler = bot!.handlers.get("message")?.[0];
+        await botMessageHandler?.({
+            message_id: 56,
+            chat: { id: 123, type: "private" },
+            from: { id: 123 },
+            document: {
+                file_id: "doc-2",
+                file_name: "notes.txt",
+                mime_type: "text/plain"
+            }
+        });
+
+        expect(messageHandlerMock).toHaveBeenCalledTimes(1);
+        const [message] = messageHandlerMock.mock.calls[0] as [
+            { text: string | null; files?: unknown[] },
+            MessageContext,
+            AgentDescriptor
+        ];
+        expect(message.text).toBe("Document received: notes.txt (download failed).");
+        expect(message.files).toBeUndefined();
     });
 });
 
