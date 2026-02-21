@@ -1,4 +1,3 @@
-import { createId } from "@paralleldrive/cuid2";
 import type { Context } from "@/types";
 import { getLogger } from "../../log.js";
 import type { Storage } from "../../storage/storage.js";
@@ -51,34 +50,14 @@ export class Heartbeats {
                 const targetAgentId = await this.agentSystem.agentIdForTarget(target);
                 const permissions = await this.agentSystem.permissionsForTarget(target);
                 this.agentSystem.updateAgentPermissions(targetAgentId, permissions, Date.now());
-                const tasksByUserId = new Map<string, HeartbeatDefinition[]>();
-                for (const task of tasks) {
-                    const bucket = tasksByUserId.get(task.userId) ?? [];
-                    bucket.push(task);
-                    tasksByUserId.set(task.userId, bucket);
-                }
-                for (const [userId, userTasks] of tasksByUserId.entries()) {
-                    const batch = heartbeatPromptBuildBatch(userTasks);
-                    await this.agentSystem.postAndAwait(target, {
-                        type: "signal",
-                        subscriptionPattern: "internal.heartbeat.tick",
-                        signal: {
-                            id: createId(),
-                            type: "internal.heartbeat.tick",
-                            source: { type: "system", userId },
-                            createdAt: Date.now(),
-                            data: {
-                                prompt: batch.prompt,
-                                userId,
-                                tasks: userTasks.map((task) => ({
-                                    id: task.id,
-                                    title: task.title,
-                                    prompt: task.prompt
-                                }))
-                            }
-                        }
-                    });
-                }
+
+                const batch = heartbeatPromptBuildBatch(tasks);
+                await this.agentSystem.postAndAwait(target, {
+                    type: "system_message",
+                    text: batch.prompt,
+                    origin: "heartbeat",
+                    execute: true
+                });
             },
             onError: async (error, taskIds) => {
                 logger.warn({ taskIds, error }, "error: Heartbeat task failed");

@@ -6,6 +6,7 @@ import type { MessageContext, ToolExecutionContext } from "@/types";
 import { FileStore } from "../../files/store.js";
 import { getLogger } from "../../log.js";
 import { listActiveInferenceProviders } from "../../providers/catalog.js";
+import { tagExtractAll } from "../../util/tagExtract.js";
 import { cuid2Is } from "../../utils/cuid2Is.js";
 import { channelMessageBuild, channelSignalDataParse } from "../channels/channelMessageBuild.js";
 import { messageBuildSystemSilentText } from "../messages/messageBuildSystemSilentText.js";
@@ -13,6 +14,7 @@ import { messageBuildSystemText } from "../messages/messageBuildSystemText.js";
 import { messageBuildUser } from "../messages/messageBuildUser.js";
 import { messageExtractText } from "../messages/messageExtractText.js";
 import { messageFormatIncoming } from "../messages/messageFormatIncoming.js";
+import { executablePromptExpand } from "../modules/executablePrompts/executablePromptExpand.js";
 import { RLM_TOOL_NAME } from "../modules/rlm/rlmConstants.js";
 import { rlmErrorTextBuild } from "../modules/rlm/rlmErrorTextBuild.js";
 import { rlmHistoryCompleteErrorRecordBuild } from "../modules/rlm/rlmHistoryCompleteErrorRecordBuild.js";
@@ -581,9 +583,41 @@ export class Agent {
     }
 
     private async handleSystemMessage(item: AgentInboxSystemMessage): Promise<string | null> {
+        let systemText = item.text;
+        if (item.execute) {
+            if (!this.agentSystem.config.current.features.rlm) {
+                logger.debug(
+                    { agentId: this.id, origin: item.origin ?? "system" },
+                    "skip: Executable system message skipped because RLM is disabled"
+                );
+            } else {
+                const startedAt = Date.now();
+                const runPythonTagCount = tagExtractAll(systemText, "run_python").length;
+                systemText = await executablePromptExpand(
+                    systemText,
+                    {
+                        ...this.rlmRestoreContextBuild(item.origin ?? "system"),
+                        messageContext: item.context ?? {}
+                    },
+                    this.agentSystem.toolResolver
+                );
+                const errorTagCount = tagExtractAll(systemText, "exec_error").length;
+                logger.info(
+                    {
+                        agentId: this.id,
+                        origin: item.origin ?? "system",
+                        runPythonTagCount,
+                        errorTagCount,
+                        durationMs: Date.now() - startedAt
+                    },
+                    "event: Executable system message expanded"
+                );
+            }
+        }
+
         const text = item.silent
-            ? messageBuildSystemSilentText(item.text, item.origin)
-            : messageBuildSystemText(item.text, item.origin);
+            ? messageBuildSystemSilentText(systemText, item.origin)
+            : messageBuildSystemText(systemText, item.origin);
         if (item.silent) {
             const receivedAt = Date.now();
             await agentHistoryAppend(this.agentSystem.storage, this.id, {

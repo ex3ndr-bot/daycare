@@ -1,4 +1,3 @@
-import { createId } from "@paralleldrive/cuid2";
 import type { Context, SessionPermissions } from "@/types";
 import { getLogger } from "../../log.js";
 import type { Storage } from "../../storage/storage.js";
@@ -69,25 +68,11 @@ export class Crons {
                 this.agentSystem.updateAgentPermissions(targetAgentId, permissions, Date.now());
 
                 await this.agentSystem.postAndAwait(target, {
-                    type: "signal",
-                    subscriptionPattern: "internal.cron.task",
-                    signal: {
-                        id: createId(),
-                        type: "internal.cron.task",
-                        source: {
-                            type: "system",
-                            userId: task.userId
-                        },
-                        createdAt: Date.now(),
-                        data: {
-                            prompt: task.prompt,
-                            taskId: task.taskId,
-                            taskUid: task.taskUid,
-                            taskName: task.taskName,
-                            userId: task.userId,
-                            messageContext
-                        }
-                    }
+                    type: "system_message",
+                    text: cronTaskPromptBuild(task),
+                    origin: "cron",
+                    execute: true,
+                    context: messageContext
                 });
             },
             onError: async (error, taskId) => {
@@ -145,6 +130,17 @@ export class Crons {
     async loadTask(taskId: string) {
         return this.scheduler.loadTask(taskId);
     }
+}
+
+function cronTaskPromptBuild(task: { prompt: string; taskId: string; taskUid: string; taskName: string }): string {
+    return [
+        "[cron]",
+        `taskId: ${task.taskId}`,
+        `taskUid: ${task.taskUid}`,
+        `taskName: ${task.taskName}`,
+        "",
+        task.prompt
+    ].join("\n");
 }
 
 function mergeCronPermissions(base: SessionPermissions, current: SessionPermissions): SessionPermissions {

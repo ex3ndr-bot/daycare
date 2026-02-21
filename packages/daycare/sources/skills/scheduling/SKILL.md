@@ -119,6 +119,146 @@ If the API is down, notify me with a short summary.
 3. Use `heartbeat_run` to trigger immediately
 4. Use `heartbeat_remove` for cleanup
 
+## Executable Prompts
+
+Both cron and heartbeat prompts support **executable prompts** — `<run_python>` blocks
+that are expanded before the prompt reaches the LLM. This lets you embed dynamic data
+(API responses, file contents, computed values) directly in the scheduled prompt.
+
+### How It Works
+
+1. Write `<run_python>...</run_python>` blocks inside your cron or heartbeat prompt.
+2. When the task fires, the system expands each block by executing the Python code
+   via the RLM runtime **before** the prompt is sent to inference.
+3. Each block is replaced with its output. On failure, the block becomes
+   `<exec_error>error message</exec_error>`.
+4. Expansion is **single-pass** — if the output itself contains `<run_python>` tags,
+   they are not re-executed.
+
+Executable prompts require the `features.rlm` flag to be enabled. When RLM is disabled,
+prompts are forwarded as-is without expansion.
+
+### Cron Example with Executable Prompt
+
+```yaml
+---
+name: Daily metrics
+schedule: "0 9 * * *"
+---
+Here are today's metrics:
+<run_python>
+import json
+with open("/data/metrics.json") as f:
+    data = json.load(f)
+print(f"Active users: {data['active_users']}")
+print(f"Revenue: ${data['revenue']:.2f}")
+</run_python>
+
+Summarize the metrics above and flag anything unusual.
+```
+
+When this cron fires at 9am, the `<run_python>` block executes first. The LLM then
+receives a prompt with the actual metrics values already embedded:
+
+```
+Here are today's metrics:
+Active users: 1234
+Revenue: $56789.00
+
+Summarize the metrics above and flag anything unusual.
+```
+
+### Heartbeat Example with Executable Prompt
+
+```
+<run_python>
+import subprocess
+result = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True)
+if result.stdout.strip():
+    print(f"Uncommitted changes:\n{result.stdout}")
+else:
+    print("Working tree is clean.")
+</run_python>
+
+Review the git status above and remind me to commit if there are uncommitted changes.
+```
+
+### Combining Gate and Executable Prompts
+
+Gates run **before** the prompt; executable prompts expand **within** the prompt.
+Use gates for cheap pass/fail checks, and executable prompts for dynamic data injection:
+
+```yaml
+---
+name: Deploy check
+schedule: "*/30 * * * *"
+gate:
+  command: "curl -fsS https://api.example.com/deploy-status | grep -q pending"
+  allowedDomains:
+    - api.example.com
+---
+A deploy is pending. Here is the current status:
+<run_python>
+import urllib.request, json
+data = json.loads(urllib.request.urlopen("https://api.example.com/deploy-status").read())
+print(f"Version: {data['version']}")
+print(f"Started: {data['started_at']}")
+print(f"Progress: {data['progress']}%")
+</run_python>
+
+Summarize the deploy status and notify me if it's been stuck for more than 10 minutes.
+```
+
+The gate runs first — if there's no pending deploy (`curl` exits non-zero), the LLM
+is never invoked. If the gate passes, the `<run_python>` block fetches detailed status
+before the LLM sees the prompt.
+
+### Error Handling
+
+If a `<run_python>` block fails (syntax error, runtime exception, timeout), it is
+replaced with an error marker:
+
+```
+<exec_error>SyntaxError: unexpected EOF while parsing</exec_error>
+```
+
+The rest of the prompt is still sent to the LLM, which can see and report the error.
+
+## The `skip` Tool
+
+Both cron and heartbeat prompts land in an agent that has access to the **`skip`** tool.
+The model should call `skip` when there is nothing useful to do for the current run.
+
+When `skip` is called:
+- The agent loop stops immediately — no further inference or tool calls.
+- Any remaining tool calls in the same turn are cancelled.
+- This keeps costs low and avoids unnecessary LLM output.
+
+**When to call `skip`:**
+- The cron or heartbeat prompt describes a condition that isn't met (e.g., "notify if
+  there are errors" but executable prompt output shows no errors).
+- A monitoring task finds nothing to report.
+- The gate passed but the dynamic data shows the situation is already resolved.
+
+**Example prompt encouraging skip:**
+
+```yaml
+---
+name: Error monitor
+schedule: "*/15 * * * *"
+---
+<run_python>
+with open("/var/log/app.log") as f:
+    errors = [l for l in f.readlines()[-100:] if "ERROR" in l]
+print(f"Recent errors: {len(errors)}")
+for e in errors[:5]:
+    print(e.strip())
+</run_python>
+
+If there are 0 recent errors, call the skip tool — nothing to report.
+Otherwise, summarize the errors and suggest fixes.
+```
+
 ## Key Differences
 
 | Feature | Cron | Heartbeats |
@@ -128,4 +268,5 @@ If the API is down, notify me with a short summary.
 | Memory | Persistent `MEMORY.md` | Main agent context |
 | Workspace | Dedicated `files/` dir | None |
 | One-off | Yes (`deleteAfterRun`) | No |
+| Executable prompts | Yes | Yes |
 | Best for | Time-sensitive tasks | Ongoing reviews |

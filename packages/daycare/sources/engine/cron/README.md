@@ -39,7 +39,7 @@ flowchart TD
   Scheduler --> Repo[cronTasksRepository.findMany]
   Scheduler --> Tick[Compute next runs]
   Tick --> Gate[execGateCheck]
-  Gate -->|allow| AgentSystem[post internal.cron.task]
+  Gate -->|allow| AgentSystem[post system_message execute=true]
   Gate -->|deny| Skip[Skip run]
   AgentSystem --> Record[repo.update last_run_at]
 ```

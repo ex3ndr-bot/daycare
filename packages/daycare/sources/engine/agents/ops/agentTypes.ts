@@ -137,6 +137,7 @@ export type AgentInboxItem =
           text: string;
           origin?: string;
           silent?: boolean;
+          execute?: boolean;
           context?: MessageContext;
       }
     | {

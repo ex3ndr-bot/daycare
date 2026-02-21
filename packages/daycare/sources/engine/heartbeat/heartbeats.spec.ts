@@ -134,6 +134,64 @@ describe("Heartbeats", () => {
             storage.close();
         }
     });
+
+    it("posts executable system_message for heartbeat batches", async () => {
+        const dir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-heartbeats-execute-"));
+        tempDirs.push(dir);
+
+        const connectorRegistry = {} as HeartbeatsOptions["connectorRegistry"];
+        const permissionRequestRegistry = {} as HeartbeatsOptions["permissionRequestRegistry"];
+        const agentSystemMock = {
+            permissionsForTarget: vi.fn(async () => ({
+                workingDir: dir,
+                writeDirs: [],
+                readDirs: [],
+                network: false,
+                events: false
+            })),
+            agentIdForTarget: vi.fn(async () => "heartbeat-agent"),
+            agentContextForAgentId: vi.fn(async () => ({ agentId: "heartbeat-agent", userId: "user-1" })),
+            updateAgentPermissions: vi.fn(),
+            postAndAwait: vi.fn(async () => ({ type: "system_message", responseText: null })),
+            post: vi.fn(async () => undefined)
+        };
+        const agentSystem = agentSystemMock as unknown as HeartbeatsOptions["agentSystem"];
+        const storage = Storage.open(":memory:");
+        try {
+            const heartbeats = new Heartbeats({
+                config: new ConfigModule(configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"))),
+                storage,
+                eventBus: { emit: vi.fn() } as unknown as HeartbeatsOptions["eventBus"],
+                agentSystem,
+                connectorRegistry,
+                permissionRequestRegistry
+            });
+
+            const callback = (
+                heartbeats as unknown as {
+                    scheduler: {
+                        onRun?: (tasks: Array<{ id: string; title: string; prompt: string }>) => Promise<void>;
+                    };
+                }
+            ).scheduler.onRun;
+            expect(callback).toBeTypeOf("function");
+
+            await callback?.([{ id: "hb-1", title: "Morning check", prompt: "Collect status." }]);
+
+            expect(agentSystemMock.postAndAwait).toHaveBeenCalledTimes(1);
+            expect(agentSystemMock.postAndAwait).toHaveBeenCalledWith(
+                { descriptor: { type: "system", tag: "heartbeat" } },
+                {
+                    type: "system_message",
+                    text: "Collect status.",
+                    origin: "heartbeat",
+                    execute: true
+                }
+            );
+        } finally {
+            storage.close();
+        }
+    });
 });
 
 function contextBuild(userId: string): Context {

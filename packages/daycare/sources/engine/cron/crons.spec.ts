@@ -186,6 +186,91 @@ describe("Crons", () => {
             storage.close();
         }
     });
+
+    it("posts executable system_message for cron task runs", async () => {
+        const dir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-crons-execute-"));
+        tempDirs.push(dir);
+
+        const connectorRegistry = {} as CronsOptions["connectorRegistry"];
+        const permissionRequestRegistry = {} as CronsOptions["permissionRequestRegistry"];
+        const agentSystemMock = {
+            permissionsForTarget: vi.fn(async () => ({
+                workingDir: dir,
+                writeDirs: [],
+                readDirs: [],
+                network: false,
+                events: false
+            })),
+            agentIdForTarget: vi.fn(async () => "cron-agent"),
+            agentContextForAgentId: vi.fn(async () => ({ agentId: "cron-agent", userId: "user-1" })),
+            updateAgentPermissions: vi.fn(),
+            postAndAwait: vi.fn(async () => ({ type: "system_message", responseText: null })),
+            post: vi.fn(async () => undefined)
+        };
+        const agentSystem = agentSystemMock as unknown as CronsOptions["agentSystem"];
+        const storage = Storage.open(":memory:");
+        try {
+            const crons = new Crons({
+                config: new ConfigModule(configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"))),
+                storage,
+                eventBus: { emit: vi.fn() } as unknown as CronsOptions["eventBus"],
+                agentSystem,
+                connectorRegistry,
+                permissionRequestRegistry
+            });
+
+            const callback = (
+                crons as unknown as {
+                    scheduler: {
+                        onTask?: (
+                            task: {
+                                taskId: string;
+                                taskUid: string;
+                                taskName: string;
+                                prompt: string;
+                                agentId?: string;
+                                userId?: string;
+                            },
+                            messageContext: { messageId?: string; permissionTags?: string[] }
+                        ) => Promise<void>;
+                    };
+                }
+            ).scheduler.onTask;
+            expect(callback).toBeTypeOf("function");
+
+            const messageContext = { messageId: "msg-1", permissionTags: ["@network"] };
+            await callback?.(
+                {
+                    taskId: "task-1",
+                    taskUid: "uid-1",
+                    taskName: "Nightly sync",
+                    prompt: "Run checks",
+                    userId: "user-1"
+                },
+                messageContext
+            );
+
+            expect(agentSystemMock.postAndAwait).toHaveBeenCalledTimes(1);
+            expect(agentSystemMock.postAndAwait).toHaveBeenCalledWith(
+                { descriptor: { type: "system", tag: "cron" } },
+                expect.objectContaining({
+                    type: "system_message",
+                    origin: "cron",
+                    execute: true,
+                    context: messageContext
+                })
+            );
+
+            const posted = (agentSystemMock.postAndAwait.mock.calls[0] as unknown as [unknown, { text: string }])[1];
+            expect(posted.text).toContain("[cron]");
+            expect(posted.text).toContain("taskId: task-1");
+            expect(posted.text).toContain("taskUid: uid-1");
+            expect(posted.text).toContain("taskName: Nightly sync");
+            expect(posted.text).toContain("Run checks");
+        } finally {
+            storage.close();
+        }
+    });
 });
 
 function contextBuild(userId: string): Context {

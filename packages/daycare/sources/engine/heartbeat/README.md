@@ -35,7 +35,7 @@ flowchart TD
   Tick --> Load[repo.findMany]
   Load --> Gate[Per-task execGateCheck]
   Gate --> Batch[Build heartbeat batch prompt]
-  Batch --> AgentSystem[post internal.heartbeat.tick]
+  Batch --> AgentSystem[post system_message execute=true]
   AgentSystem --> Record[repo.recordRun unix ms]
 ```
 
