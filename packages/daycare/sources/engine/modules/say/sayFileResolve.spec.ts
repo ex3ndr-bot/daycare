@@ -4,19 +4,18 @@ import path from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { Config, SessionPermissions } from "@/types";
+import type { SessionPermissions } from "@/types";
 import { FileStore } from "../../../files/store.js";
 import { sayFileResolve } from "./sayFileResolve.js";
 
 describe("sayFileResolve", () => {
-    it("reuses existing file store records when the file path is already stored", async () => {
+    it("copies tagged files into the file store when resolving", async () => {
         const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-say-file-resolve-"));
         try {
-            const fileStore = new FileStore(configBuild(path.join(tempDir, "files-store")));
+            const fileStore = new FileStore(path.join(tempDir, "files-store"));
             const saved = await fileStore.saveBuffer({
                 name: "report.txt",
                 mimeType: "text/plain",
-                source: "test",
                 data: Buffer.from("hello")
             });
 
@@ -27,16 +26,12 @@ describe("sayFileResolve", () => {
                 logger: loggerBuild()
             });
 
-            expect(result).toEqual([
-                {
-                    id: saved.id,
-                    name: saved.name,
-                    mimeType: saved.mimeType,
-                    size: saved.size,
-                    path: saved.path,
-                    sendAs: "document"
-                }
-            ]);
+            expect(result).toHaveLength(1);
+            expect(result[0]?.mimeType).toBe(saved.mimeType);
+            expect(result[0]?.size).toBe(saved.size);
+            expect(result[0]?.sendAs).toBe("document");
+            expect(result[0]?.id).not.toBe(saved.id);
+            expect(result[0]?.path).not.toBe(saved.path);
         } finally {
             await fs.rm(tempDir, { recursive: true, force: true });
         }
@@ -50,7 +45,7 @@ describe("sayFileResolve", () => {
             await fs.mkdir(workingDir, { recursive: true });
             await fs.writeFile(path.join(workingDir, "notes.txt"), "notes");
 
-            const fileStore = new FileStore(configBuild(filesDir));
+            const fileStore = new FileStore(filesDir);
             const result = await sayFileResolve({
                 files: [{ path: path.join(workingDir, "notes.txt"), mode: "auto" }],
                 fileStore,
@@ -72,7 +67,7 @@ describe("sayFileResolve", () => {
         const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-say-file-resolve-"));
         try {
             const logger = loggerBuild();
-            const fileStore = new FileStore(configBuild(path.join(tempDir, "files-store")));
+            const fileStore = new FileStore(path.join(tempDir, "files-store"));
 
             const result = await sayFileResolve({
                 files: [{ path: "/definitely/missing/file.txt", mode: "auto" }],
@@ -88,10 +83,6 @@ describe("sayFileResolve", () => {
         }
     });
 });
-
-function configBuild(filesDir: string): Config {
-    return { filesDir } as unknown as Config;
-}
 
 function permissionsBuild(workingDir: string): SessionPermissions {
     return {

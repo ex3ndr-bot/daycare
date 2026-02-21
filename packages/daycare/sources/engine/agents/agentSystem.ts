@@ -962,11 +962,19 @@ export class AgentSystem {
     }
 
     private async resolveUserIdForConnectorKey(connectorKey: string): Promise<string> {
-        const user = await this.storage.resolveUserByConnectorKey(connectorKey);
-        return user.id;
+        try {
+            const user = await this.storage.resolveUserByConnectorKey(connectorKey);
+            const userId = user.id?.trim() ?? "";
+            if (userId) {
+                return userId;
+            }
+        } catch (error) {
+            logger.warn({ connectorKey, error }, "warn: Failed to resolve connector user; falling back to owner");
+        }
+        return this.ownerUserIdEnsure();
     }
 
-    private async ownerUserIdEnsure(): Promise<string> {
+    async ownerUserIdEnsure(): Promise<string> {
         const owner = await this.storage.users.findOwner();
         if (owner) {
             return owner.id;

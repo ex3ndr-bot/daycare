@@ -7,6 +7,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { configResolve } from "../../../config/configResolve.js";
 import { storageResolve } from "../../../storage/storageResolve.js";
+import { permissionBuildUser } from "../../permissions/permissionBuildUser.js";
+import { UserHome } from "../../users/userHome.js";
 import { agentDescriptorWrite } from "./agentDescriptorWrite.js";
 
 describe("agentDescriptorWrite", () => {
@@ -19,10 +21,10 @@ describe("agentDescriptorWrite", () => {
         const agentId = createId();
 
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
+            const storage = storageResolve(config);
+            const userId = createId();
+            const permissions = permissionBuildUser(new UserHome(config.usersDir, userId));
 
             let now = 1000;
             vi.spyOn(Date, "now").mockImplementation(() => {
@@ -30,20 +32,32 @@ describe("agentDescriptorWrite", () => {
                 return now;
             });
 
-            await agentDescriptorWrite(config, agentId, {
-                type: "cron",
-                id: agentId,
-                name: "first"
-            });
-            const firstRecord = await storageResolve(config).agents.findById(agentId);
+            await agentDescriptorWrite(
+                storage,
+                agentId,
+                {
+                    type: "cron",
+                    id: agentId,
+                    name: "first"
+                },
+                userId,
+                permissions
+            );
+            const firstRecord = await storage.agents.findById(agentId);
 
-            await agentDescriptorWrite(config, agentId, {
-                type: "cron",
-                id: agentId,
-                name: "second"
-            });
+            await agentDescriptorWrite(
+                storage,
+                agentId,
+                {
+                    type: "cron",
+                    id: agentId,
+                    name: "second"
+                },
+                userId,
+                permissions
+            );
 
-            const secondRecord = await storageResolve(config).agents.findById(agentId);
+            const secondRecord = await storage.agents.findById(agentId);
             expect(firstRecord?.createdAt).toBe(firstRecord?.updatedAt);
             expect(secondRecord?.createdAt).toBe(firstRecord?.createdAt);
             expect(secondRecord?.updatedAt).toBeGreaterThan(firstRecord?.updatedAt ?? 0);

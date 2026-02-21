@@ -8,8 +8,7 @@ describe("appReviewProvidersResolve", () => {
         const config = configResolve(
             {
                 inference: { providers: [{ id: "openai", model: "gpt-5-mini" }] },
-                engine: { dataDir: "/tmp/daycare-test-data" },
-                assistant: { workspaceDir: "/tmp/daycare-test-workspace" }
+                engine: { dataDir: "/tmp/daycare-test-data" }
             },
             "/tmp/daycare-test-settings.json"
         );
@@ -26,8 +25,7 @@ describe("appReviewProvidersResolve", () => {
                         { id: "anthropic", model: "claude-sonnet-4-5" }
                     ]
                 },
-                engine: { dataDir: "/tmp/daycare-test-data-2" },
-                assistant: { workspaceDir: "/tmp/daycare-test-workspace-2" }
+                engine: { dataDir: "/tmp/daycare-test-data-2" }
             },
             "/tmp/daycare-test-settings-2.json"
         );

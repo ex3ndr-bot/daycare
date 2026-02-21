@@ -2,19 +2,11 @@ import path from "node:path";
 import type { Config } from "@/types";
 import { AuthStore } from "../auth/store.js";
 import { configLoad } from "../config/configLoad.js";
-import { ConfigModule } from "../engine/config/configModule.js";
-import { Exposes } from "../engine/expose/exposes.js";
-import { EngineEventBus } from "../engine/ipc/events.js";
 import { ImageGenerationRegistry } from "../engine/modules/imageGenerationRegistry.js";
-import { InferenceRouter } from "../engine/modules/inference/router.js";
 import { InferenceRegistry } from "../engine/modules/inferenceRegistry.js";
-import { ModuleRegistry } from "../engine/modules/moduleRegistry.js";
 import { buildPluginCatalog, type PluginDefinition } from "../engine/plugins/catalog.js";
 import { resolveExclusivePlugins } from "../engine/plugins/exclusive.js";
 import { PluginModuleLoader } from "../engine/plugins/loader.js";
-import { PluginManager } from "../engine/plugins/manager.js";
-import { PluginRegistry } from "../engine/plugins/registry.js";
-import { Processes } from "../engine/processes/processes.js";
 import { FileStore } from "../files/store.js";
 import { getLogger } from "../log.js";
 import { getProviderDefinition, listProviderDefinitions } from "../providers/catalog.js";
@@ -24,7 +16,6 @@ import {
     listEnabledPlugins,
     listProviders,
     nextPluginInstanceId,
-    type PluginInstanceSettings,
     type ProviderSettings,
     updateSettingsFile,
     upsertPlugin,
@@ -146,18 +137,6 @@ async function addPlugin(settingsPath: string, config: Config, authStore: AuthSt
         note("No onboarding flow provided; using default settings.", "Plugin");
     }
 
-    try {
-        await validatePluginLoad(config, authStore, {
-            instanceId,
-            pluginId,
-            enabled: true,
-            settings: settingsConfig
-        });
-    } catch (error) {
-        outro(`Plugin failed to load: ${(error as Error).message}`);
-        return;
-    }
-
     await updateSettingsFile(settingsPath, (current) => {
         const nextSettings = Object.keys(settingsConfig).length > 0 ? settingsConfig : undefined;
         return {
@@ -245,45 +224,6 @@ function createPromptHelpers() {
     };
 }
 
-async function validatePluginLoad(
-    config: Awaited<ReturnType<typeof configLoad>>,
-    authStore: AuthStore,
-    pluginConfig: PluginInstanceSettings
-): Promise<void> {
-    const modules = new ModuleRegistry({
-        onMessage: async () => undefined,
-        onFatal: () => undefined
-    });
-    const pluginRegistry = new PluginRegistry(modules);
-    const fileStore = new FileStore(config);
-    const configModule = new ConfigModule(config);
-    const inferenceRouter = new InferenceRouter({
-        registry: modules.inference,
-        auth: authStore,
-        config: configModule
-    });
-    const pluginManager = new PluginManager({
-        config: configModule,
-        registry: pluginRegistry,
-        auth: authStore,
-        fileStore,
-        pluginCatalog: buildPluginCatalog(),
-        inferenceRouter,
-        processes: new Processes(config.dataDir, getLogger("processes.validate"), {
-            socketPath: config.socketPath
-        }),
-        exposes: new Exposes({ config: configModule, eventBus: new EngineEventBus() }),
-        mode: "validate"
-    });
-
-    await pluginManager.load(pluginConfig);
-    try {
-        await pluginManager.unload(pluginConfig.instanceId);
-    } catch (error) {
-        note(`Plugin validation unload failed: ${(error as Error).message}`, "Plugin");
-    }
-}
-
 async function runProviderOnboarding(definition: ProviderDefinition, authStore: AuthStore) {
     if (!definition.onboarding) {
         return { settings: {} };
@@ -306,7 +246,7 @@ async function validateProviderLoad(
 ) {
     const inferenceRegistry = new InferenceRegistry();
     const imageRegistry = new ImageGenerationRegistry();
-    const fileStore = new FileStore(config);
+    const fileStore = new FileStore(path.join(config.dataDir, "validate"));
     const logger = getLogger(`provider.validate.${definition.id}`);
     const instance = await Promise.resolve(
         definition.create({

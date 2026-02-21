@@ -1,4 +1,3 @@
-import type { SessionPermissions } from "../engine/permissions.js";
 import type { ResolvedFeaturesConfig, ResolvedSettingsConfig } from "../settings.js";
 
 export type Config = {
@@ -8,13 +7,10 @@ export type Config = {
     agentsDir: string;
     usersDir: string;
     dbPath: string;
-    filesDir: string;
     authPath: string;
     socketPath: string;
-    workspaceDir: string;
     features: ResolvedFeaturesConfig;
     settings: ResolvedSettingsConfig;
-    defaultPermissions: SessionPermissions;
     verbose: boolean;
 };
 

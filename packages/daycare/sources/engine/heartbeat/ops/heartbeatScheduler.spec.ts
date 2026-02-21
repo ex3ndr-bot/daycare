@@ -41,7 +41,7 @@ describe("HeartbeatScheduler", () => {
             repository: storage.heartbeatTasks,
             onRun,
             onTaskComplete,
-            defaultPermissions: defaultPermissions(dir)
+            resolveDefaultPermissions: () => defaultPermissions(dir)
         });
 
         const taskA = await scheduler.createTask(contextBuild("user-1"), { title: "Alpha", prompt: "Check alpha." });
@@ -73,7 +73,7 @@ describe("HeartbeatScheduler", () => {
             config: configModule(dir),
             repository: storage.heartbeatTasks,
             onRun,
-            defaultPermissions: defaultPermissions(dir)
+            resolveDefaultPermissions: () => defaultPermissions(dir)
         });
 
         const taskA = await scheduler.createTask(contextBuild("user-1"), { title: "Alpha", prompt: "Check alpha." });
@@ -106,7 +106,7 @@ describe("HeartbeatScheduler", () => {
             repository: storage.heartbeatTasks,
             onRun,
             gateCheck,
-            defaultPermissions: defaultPermissions(dir)
+            resolveDefaultPermissions: () => defaultPermissions(dir)
         });
 
         await scheduler.createTask(contextBuild("user-1"), {
@@ -141,7 +141,7 @@ describe("HeartbeatScheduler", () => {
             repository: storage.heartbeatTasks,
             onRun,
             gateCheck,
-            defaultPermissions: defaultPermissions(dir)
+            resolveDefaultPermissions: () => defaultPermissions(dir)
         });
 
         await scheduler.createTask(contextBuild("user-1"), {
@@ -184,7 +184,7 @@ describe("HeartbeatScheduler", () => {
             gateCheck,
             resolvePermissions,
             onGatePermissionRequest,
-            defaultPermissions: defaultPermissions(dir)
+            resolveDefaultPermissions: () => defaultPermissions(dir)
         });
 
         await scheduler.createTask(contextBuild("user-1"), {
@@ -222,7 +222,7 @@ describe("HeartbeatScheduler", () => {
             onRun,
             gateCheck,
             onGatePermissionRequest: vi.fn(async () => false),
-            defaultPermissions: defaultPermissions(dir)
+            resolveDefaultPermissions: () => defaultPermissions(dir)
         });
 
         await scheduler.createTask(contextBuild("user-1"), {
@@ -248,7 +248,7 @@ describe("HeartbeatScheduler", () => {
             config: configModule(dir),
             repository: storage.heartbeatTasks,
             onRun: vi.fn(),
-            defaultPermissions: defaultPermissions(dir)
+            resolveDefaultPermissions: () => defaultPermissions(dir)
         });
 
         const task = await scheduler.createTask(contextBuild("user-1"), {
@@ -269,7 +269,7 @@ describe("HeartbeatScheduler", () => {
             config: configModule(dir),
             repository: storage.heartbeatTasks,
             onRun: vi.fn(),
-            defaultPermissions: defaultPermissions(dir)
+            resolveDefaultPermissions: () => defaultPermissions(dir)
         });
 
         const task = await scheduler.createTask(contextBuild("user-1"), {

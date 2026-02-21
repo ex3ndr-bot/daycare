@@ -1,4 +1,4 @@
-import type { Context, SessionPermissions } from "@/types";
+import type { Context } from "@/types";
 import { getLogger } from "../../log.js";
 import type { Storage } from "../../storage/storage.js";
 import type { AgentSystem } from "../agents/agentSystem.js";
@@ -6,6 +6,7 @@ import type { ConfigModule } from "../config/configModule.js";
 import type { EngineEventBus } from "../ipc/events.js";
 import type { ConnectorRegistry } from "../modules/connectorRegistry.js";
 import type { PermissionRequestRegistry } from "../modules/tools/permissionRequestRegistry.js";
+import { permissionBuildUser } from "../permissions/permissionBuildUser.js";
 import { gatePermissionRequest } from "../scheduling/gatePermissionRequest.js";
 import type { CronTaskDefinition } from "./cronTypes.js";
 import { CronScheduler } from "./ops/cronScheduler.js";
@@ -35,20 +36,27 @@ export class Crons {
         this.eventBus = options.eventBus;
         this.agentSystem = options.agentSystem;
         this.storage = options.storage;
-        const currentConfig = options.config.current;
         this.scheduler = new CronScheduler({
             config: options.config,
             repository: this.storage.cronTasks,
-            defaultPermissions: currentConfig.defaultPermissions,
+            resolveDefaultPermissions: async (task) => {
+                const ownerUserId = await this.agentSystem.ownerUserIdEnsure();
+                const userId = task.userId?.trim() ? task.userId : ownerUserId;
+                return permissionBuildUser(this.agentSystem.userHomeForUserId(userId));
+            },
             resolvePermissions: async (task) => {
                 if (task.agentId) {
                     return this.agentSystem.permissionsForTarget({ agentId: task.agentId });
                 }
-                const base = currentConfig.defaultPermissions;
-                const current = await this.agentSystem.permissionsForTarget({
-                    descriptor: { type: "cron", id: task.taskUid, name: task.name }
-                });
-                return mergeCronPermissions(base, current);
+                try {
+                    return await this.agentSystem.permissionsForTarget({
+                        descriptor: { type: "cron", id: task.taskUid, name: task.name }
+                    });
+                } catch {
+                    const ownerUserId = await this.agentSystem.ownerUserIdEnsure();
+                    const userId = task.userId?.trim() ? task.userId : ownerUserId;
+                    return permissionBuildUser(this.agentSystem.userHomeForUserId(userId));
+                }
             },
             onTask: async (task, messageContext) => {
                 const target = task.agentId
@@ -60,10 +68,9 @@ export class Crons {
 
                 const permissions = task.agentId
                     ? await this.agentSystem.permissionsForTarget({ agentId: task.agentId })
-                    : mergeCronPermissions(
-                          currentConfig.defaultPermissions,
-                          await this.agentSystem.permissionsForTarget({ descriptor: { type: "system", tag: "cron" } })
-                      );
+                    : await this.agentSystem.permissionsForTarget({
+                          descriptor: { type: "cron", id: task.taskUid, name: task.taskName }
+                      });
                 const targetAgentId = await this.agentSystem.agentIdForTarget(target);
                 this.agentSystem.updateAgentPermissions(targetAgentId, permissions, Date.now());
 
@@ -141,16 +148,4 @@ function cronTaskPromptBuild(task: { prompt: string; taskId: string; taskUid: st
         "",
         task.prompt
     ].join("\n");
-}
-
-function mergeCronPermissions(base: SessionPermissions, current: SessionPermissions): SessionPermissions {
-    const writeDirs = new Set([...base.writeDirs, ...current.writeDirs]);
-    const readDirs = new Set([...base.readDirs, ...current.readDirs]);
-    return {
-        workingDir: current.workingDir,
-        writeDirs: Array.from(writeDirs.values()),
-        readDirs: Array.from(readDirs.values()),
-        network: base.network || current.network,
-        events: base.events || current.events
-    };
 }

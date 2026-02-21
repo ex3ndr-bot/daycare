@@ -14,24 +14,17 @@ import type { AgentSystemPromptContext } from "./agentSystemPromptContext.js";
  */
 export async function agentSystemPromptSectionPermissions(context: AgentSystemPromptContext = {}): Promise<string> {
     const permissions = context.permissions;
-    const config = context.agentSystem?.config?.current;
     const descriptor = context.descriptor;
     const workspace = permissions?.workingDir ?? "unknown";
     const writeDirs = permissions?.writeDirs ?? [];
-    const promptPaths = agentPromptPathsResolve(config?.dataDir, context.userHome);
+    if (!context.userHome) {
+        throw new Error("User home is required to render permissions section.");
+    }
+    const promptPaths = agentPromptPathsResolve(context.userHome);
     const appFolderPath =
-        config && descriptor
-            ? (agentAppFolderPathResolve(descriptor, config.workspaceDir, context.userHome?.apps) ?? "")
-            : "";
+        descriptor && context.userHome ? (agentAppFolderPathResolve(descriptor, context.userHome.apps) ?? "") : "";
     const excluded = new Set(
-        [
-            workspace,
-            promptPaths.soulPath,
-            promptPaths.userPath,
-            promptPaths.agentsPath,
-            promptPaths.toolsPath,
-            promptPaths.memoryPath
-        ]
+        [workspace, promptPaths.soulPath, promptPaths.userPath, promptPaths.agentsPath, promptPaths.toolsPath]
             .filter((entry) => entry && entry.trim().length > 0)
             .map((entry) => path.resolve(entry))
     );
@@ -53,9 +46,8 @@ export async function agentSystemPromptSectionPermissions(context: AgentSystemPr
         userPath: promptPaths.userPath,
         agentsPath: promptPaths.agentsPath,
         toolsPath: promptPaths.toolsPath,
-        memoryPath: promptPaths.memoryPath,
         isForeground: descriptor?.type === "user",
-        skillsPath: context.userHome?.skills ?? (config?.configDir ? path.join(config.configDir, "skills") : ""),
+        skillsPath: context.userHome.skills,
         additionalWriteDirs,
         network: permissions?.network ?? false,
         events: permissions?.events ?? false

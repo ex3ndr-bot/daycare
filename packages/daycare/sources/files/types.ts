@@ -4,8 +4,6 @@ export type StoredFile = {
     path: string;
     mimeType: string;
     size: number;
-    source: string;
-    createdAt: string;
 };
 
 export type FileReference = {

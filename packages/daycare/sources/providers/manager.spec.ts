@@ -89,7 +89,7 @@ describe("ProviderManager", () => {
         const manager = new ProviderManager({
             config: configModule,
             auth: new AuthStore(baseConfig),
-            fileStore: new FileStore(baseConfig),
+            fileStore: new FileStore(path.join(baseConfig.dataDir, "files")),
             inferenceRegistry,
             imageRegistry,
             providerDefinitionResolve: (id) => (id === "fake-provider" ? definition : null)
@@ -162,7 +162,7 @@ describe("ProviderManager", () => {
         const manager = new ProviderManager({
             config: new ConfigModule(config),
             auth: new AuthStore(config),
-            fileStore: new FileStore(config),
+            fileStore: new FileStore(path.join(config.dataDir, "files")),
             inferenceRegistry,
             imageRegistry,
             providerDefinitionResolve: (id) => (id === "fake-provider" ? definition : null)

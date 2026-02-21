@@ -14,10 +14,7 @@ describe("agentInferencePromptWrite", () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-inference-prompt-"));
         const agentId = createId();
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const context: Context = {
                 systemPrompt: "Follow instructions.",
                 messages: [

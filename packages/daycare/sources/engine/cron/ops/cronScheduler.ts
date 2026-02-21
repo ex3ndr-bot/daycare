@@ -18,7 +18,7 @@ const logger = getLogger("cron.scheduler");
 export type CronSchedulerOptions = {
     config: ConfigModule;
     repository: CronTasksRepository;
-    defaultPermissions: SessionPermissions;
+    resolveDefaultPermissions: (task: CronTaskDbRecord) => Promise<SessionPermissions> | SessionPermissions;
     resolvePermissions?: (task: CronTaskDbRecord) => Promise<SessionPermissions> | SessionPermissions;
     onTask: (context: CronTaskContext, messageContext: MessageContext) => void | Promise<void>;
     onError?: (error: unknown, taskId: string) => void | Promise<void>;
@@ -40,7 +40,7 @@ export class CronScheduler {
     private onError?: CronSchedulerOptions["onError"];
     private onGatePermissionRequest?: CronSchedulerOptions["onGatePermissionRequest"];
     private onTaskComplete?: CronSchedulerOptions["onTaskComplete"];
-    private defaultPermissions: SessionPermissions;
+    private resolveDefaultPermissions: CronSchedulerOptions["resolveDefaultPermissions"];
     private resolvePermissions?: CronSchedulerOptions["resolvePermissions"];
     private gateCheck: CronSchedulerOptions["gateCheck"];
     private tickTimer: NodeJS.Timeout | null = null;
@@ -53,7 +53,7 @@ export class CronScheduler {
         this.onError = options.onError;
         this.onGatePermissionRequest = options.onGatePermissionRequest;
         this.onTaskComplete = options.onTaskComplete;
-        this.defaultPermissions = options.defaultPermissions;
+        this.resolveDefaultPermissions = options.resolveDefaultPermissions;
         this.resolvePermissions = options.resolvePermissions;
         this.gateCheck = options.gateCheck ?? execGateCheck;
         logger.debug("init: CronScheduler initialized");
@@ -292,7 +292,7 @@ export class CronScheduler {
         if (!task.gate) {
             return { allowed: true };
         }
-        let basePermissions = (await this.resolvePermissions?.(task)) ?? this.defaultPermissions;
+        let basePermissions = (await this.resolvePermissions?.(task)) ?? (await this.resolveDefaultPermissions(task));
         let permissions = permissionClone(basePermissions);
         let permissionCheck = await gatePermissionsCheck(permissions, task.gate.permissions);
         if (!permissionCheck.allowed) {
@@ -316,7 +316,7 @@ export class CronScheduler {
                 return { allowed: false };
             }
 
-            basePermissions = (await this.resolvePermissions?.(task)) ?? this.defaultPermissions;
+            basePermissions = (await this.resolvePermissions?.(task)) ?? (await this.resolveDefaultPermissions(task));
             permissions = permissionClone(basePermissions);
             permissionCheck = await gatePermissionsCheck(permissions, task.gate.permissions);
             if (!permissionCheck.allowed) {

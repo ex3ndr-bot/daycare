@@ -16,13 +16,13 @@ describe("permissionBuildUser", () => {
         expect(permissions.writeDirs).toEqual(
             expect.arrayContaining([
                 userHome.desktop,
+                userHome.downloads,
                 userHome.documents,
                 userHome.developer,
                 knowledgePaths.soulPath,
                 knowledgePaths.userPath,
                 knowledgePaths.agentsPath,
-                knowledgePaths.toolsPath,
-                knowledgePaths.memoryPath
+                knowledgePaths.toolsPath
             ])
         );
         expect(permissions.readDirs).toEqual(expect.arrayContaining(permissions.writeDirs));

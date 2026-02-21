@@ -15,7 +15,10 @@ import type { AgentSystemPromptContext } from "./agentSystemPromptContext.js";
 export async function agentSystemPromptSectionMemory(context: AgentSystemPromptContext = {}): Promise<string> {
     const descriptor = context.descriptor;
     const isForeground = descriptor?.type === "user";
-    const promptPaths = agentPromptPathsResolve(context.agentSystem?.config?.current.dataDir, context.userHome);
+    if (!context.userHome) {
+        throw new Error("User home is required to render memory section.");
+    }
+    const promptPaths = agentPromptPathsResolve(context.userHome);
     const readPromptFile = async (filePath: string, fallbackPrompt: string): Promise<string> => {
         const resolvedPath = path.resolve(filePath);
         try {
@@ -32,12 +35,11 @@ export async function agentSystemPromptSectionMemory(context: AgentSystemPromptC
         return (await agentPromptBundledRead(fallbackPrompt)).trim();
     };
 
-    const [soul, user, agents, tools, memory, cronData] = await Promise.all([
+    const [soul, user, agents, tools, cronData] = await Promise.all([
         readPromptFile(promptPaths.soulPath, "SOUL.md"),
         readPromptFile(promptPaths.userPath, "USER.md"),
         readPromptFile(promptPaths.agentsPath, "AGENTS.md"),
         readPromptFile(promptPaths.toolsPath, "TOOLS.md"),
-        readPromptFile(promptPaths.memoryPath, "MEMORY.md"),
         (async () => {
             const tasks = await context.agentSystem?.crons?.listTasks();
             if (!tasks || tasks.length === 0 || !descriptor || !agentDescriptorIsCron(descriptor)) {
@@ -71,12 +73,10 @@ export async function agentSystemPromptSectionMemory(context: AgentSystemPromptC
         userPath: promptPaths.userPath,
         agentsPath: promptPaths.agentsPath,
         toolsPath: promptPaths.toolsPath,
-        memoryPath: promptPaths.memoryPath,
         soul,
         user,
         agents,
-        tools,
-        memory
+        tools
     });
     return section.trim();
 }

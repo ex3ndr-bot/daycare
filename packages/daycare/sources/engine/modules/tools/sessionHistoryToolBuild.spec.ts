@@ -10,6 +10,8 @@ import { configResolve } from "../../../config/configResolve.js";
 import { storageResolve } from "../../../storage/storageResolve.js";
 import { agentDescriptorWrite } from "../../agents/ops/agentDescriptorWrite.js";
 import { agentHistoryAppend } from "../../agents/ops/agentHistoryAppend.js";
+import { permissionBuildUser } from "../../permissions/permissionBuildUser.js";
+import { UserHome } from "../../users/userHome.js";
 import { sessionHistoryToolBuild } from "./sessionHistoryToolBuild.js";
 
 const toolCall = { id: "tool-1", name: "read_session_history" };
@@ -21,19 +23,26 @@ describe("sessionHistoryToolBuild", () => {
             const config = configResolve(
                 {
                     engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir },
                     providers: [{ id: "openai", model: "gpt-4o-mini", enabled: true }]
                 },
                 path.join(dir, "settings.json")
             );
             const currentAgentId = createId();
             const targetAgentId = createId();
-            await agentDescriptorWrite(config, targetAgentId, {
-                type: "subagent",
-                id: targetAgentId,
-                parentAgentId: currentAgentId,
-                name: "worker"
-            });
+            const userId = createId();
+            const permissions = permissionBuildUser(new UserHome(config.usersDir, userId));
+            await agentDescriptorWrite(
+                storageResolve(config),
+                targetAgentId,
+                {
+                    type: "subagent",
+                    id: targetAgentId,
+                    parentAgentId: currentAgentId,
+                    name: "worker"
+                },
+                userId,
+                permissions
+            );
             await agentHistoryAppend(config, targetAgentId, { type: "note", at: 10, text: "start" });
             await agentHistoryAppend(config, targetAgentId, {
                 type: "user_message",
@@ -77,19 +86,26 @@ describe("sessionHistoryToolBuild", () => {
             const config = configResolve(
                 {
                     engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir },
                     providers: [{ id: "openai", model: "gpt-4o-mini", enabled: true }]
                 },
                 path.join(dir, "settings.json")
             );
             const currentAgentId = createId();
             const targetAgentId = createId();
-            await agentDescriptorWrite(config, targetAgentId, {
-                type: "subagent",
-                id: targetAgentId,
-                parentAgentId: currentAgentId,
-                name: "worker"
-            });
+            const userId = createId();
+            const permissions = permissionBuildUser(new UserHome(config.usersDir, userId));
+            await agentDescriptorWrite(
+                storageResolve(config),
+                targetAgentId,
+                {
+                    type: "subagent",
+                    id: targetAgentId,
+                    parentAgentId: currentAgentId,
+                    name: "worker"
+                },
+                userId,
+                permissions
+            );
             await agentHistoryAppend(config, targetAgentId, { type: "note", at: 10, text: "start" });
             await agentHistoryAppend(config, targetAgentId, {
                 type: "note",
@@ -142,19 +158,26 @@ describe("sessionHistoryToolBuild", () => {
             const config = configResolve(
                 {
                     engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir },
                     providers: [{ id: "openai", model: "gpt-4o-mini", enabled: true }]
                 },
                 path.join(dir, "settings.json")
             );
             const currentAgentId = createId();
             const targetAgentId = createId();
-            await agentDescriptorWrite(config, targetAgentId, {
-                type: "subagent",
-                id: targetAgentId,
-                parentAgentId: currentAgentId,
-                name: "worker"
-            });
+            const userId = createId();
+            const permissions = permissionBuildUser(new UserHome(config.usersDir, userId));
+            await agentDescriptorWrite(
+                storageResolve(config),
+                targetAgentId,
+                {
+                    type: "subagent",
+                    id: targetAgentId,
+                    parentAgentId: currentAgentId,
+                    name: "worker"
+                },
+                userId,
+                permissions
+            );
             await agentHistoryAppend(config, targetAgentId, { type: "note", at: 10, text: "start" });
 
             const tool = sessionHistoryToolBuild();
@@ -191,7 +214,7 @@ function buildContext(
         auth: null as unknown as ToolExecutionContext["auth"],
         logger: console as unknown as ToolExecutionContext["logger"],
         assistant: null,
-        permissions: config.defaultPermissions,
+        permissions: permissionBuildUser(new UserHome(config.usersDir, "tool-user")),
         agent: { id: agentId } as unknown as ToolExecutionContext["agent"],
         ctx: null as unknown as ToolExecutionContext["ctx"],
         source: "test",

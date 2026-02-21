@@ -66,7 +66,6 @@ export function configSettingsParse(raw: unknown): SettingsConfig {
                 .optional(),
             assistant: z
                 .object({
-                    workspaceDir: z.string().min(1).optional(),
                     systemPrompt: z.string().min(1).optional()
                 })
                 .passthrough()

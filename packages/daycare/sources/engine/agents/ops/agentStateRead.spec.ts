@@ -6,6 +6,8 @@ import { describe, expect, it } from "vitest";
 
 import { configResolve } from "../../../config/configResolve.js";
 import { storageResolve } from "../../../storage/storageResolve.js";
+import { permissionBuildUser } from "../../permissions/permissionBuildUser.js";
+import { UserHome } from "../../users/userHome.js";
 import { agentDescriptorWrite } from "./agentDescriptorWrite.js";
 import { agentStateRead } from "./agentStateRead.js";
 import { agentStateWrite } from "./agentStateWrite.js";
@@ -16,15 +18,20 @@ describe("agentStateRead", () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-state-"));
         const agentId = createId();
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
+            const userId = createId();
+            const permissions = permissionBuildUser(new UserHome(config.usersDir, userId));
+            await agentDescriptorWrite(
+                storageResolve(config),
+                agentId,
+                {
+                    type: "cron",
+                    id: agentId,
+                    name: "state"
+                },
+                userId,
+                permissions
             );
-            await agentDescriptorWrite(config, agentId, {
-                type: "cron",
-                id: agentId,
-                name: "state"
-            });
             const sessionId = await storageResolve(config).sessions.create({
                 agentId,
                 inferenceSessionId: "session-1",
@@ -36,7 +43,7 @@ describe("agentStateRead", () => {
                     messages: [{ role: "user", content: "hello", timestamp: 1 }]
                 },
                 activeSessionId: sessionId,
-                permissions: { ...config.defaultPermissions },
+                permissions: { ...permissions },
                 tokens: null,
                 stats: {},
                 createdAt: 1,
@@ -59,10 +66,7 @@ describe("agentStateRead", () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-state-"));
         const agentId = createId();
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
 
             const restored = await agentStateRead(config, agentId);
             expect(restored).toBeNull();
@@ -75,18 +79,23 @@ describe("agentStateRead", () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-state-"));
         const agentId = createId();
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
+            const userId = createId();
+            const permissions = permissionBuildUser(new UserHome(config.usersDir, userId));
+            await agentDescriptorWrite(
+                storageResolve(config),
+                agentId,
+                {
+                    type: "cron",
+                    id: agentId,
+                    name: "state"
+                },
+                userId,
+                permissions
             );
-            await agentDescriptorWrite(config, agentId, {
-                type: "cron",
-                id: agentId,
-                name: "state"
-            });
             const state: AgentState = {
                 context: { messages: [] },
-                permissions: { ...config.defaultPermissions },
+                permissions: { ...permissions },
                 tokens: null,
                 stats: {},
                 createdAt: 1,

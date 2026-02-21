@@ -12,11 +12,13 @@ import { appRuleToolBuild } from "./appRuleToolBuild.js";
 
 describe("appRuleToolBuild", () => {
     let workspaceDir: string;
+    let usersDir: string;
     let appsDir: string;
 
     beforeEach(async () => {
         workspaceDir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-app-rules-tool-"));
-        appsDir = path.join(workspaceDir, "apps");
+        usersDir = path.join(workspaceDir, "users");
+        appsDir = path.join(usersDir, "user-1", "apps");
         const appDir = path.join(appsDir, "github-reviewer");
         await fs.mkdir(appDir, { recursive: true });
         await fs.writeFile(
@@ -56,7 +58,7 @@ describe("appRuleToolBuild", () => {
     });
 
     it("returns the permission result when approval is denied", async () => {
-        const apps = new Apps({ appsDir });
+        const apps = new Apps({ usersDir });
         await apps.discover();
         const tool = appRuleToolBuild(apps);
         const context = contextBuild(workspaceDir);
@@ -88,7 +90,7 @@ describe("appRuleToolBuild", () => {
     });
 
     it("applies rule changes after permission approval", async () => {
-        const apps = new Apps({ appsDir });
+        const apps = new Apps({ usersDir });
         await apps.discover();
         const tool = appRuleToolBuild(apps);
         const context = contextBuild(workspaceDir);
@@ -115,6 +117,7 @@ describe("appRuleToolBuild", () => {
 });
 
 function contextBuild(workspaceDir: string): ToolExecutionContext {
+    const usersDir = path.join(workspaceDir, "users");
     return {
         connectorRegistry: null as unknown as ToolExecutionContext["connectorRegistry"],
         fileStore: null as unknown as ToolExecutionContext["fileStore"],
@@ -134,8 +137,8 @@ function contextBuild(workspaceDir: string): ToolExecutionContext {
         messageContext: {},
         agentSystem: {
             toolResolver: new ToolResolver(),
-            config: { current: { workspaceDir } },
-            userHomeForUserId: () => ({ apps: path.join(workspaceDir, "apps") })
+            config: { current: { usersDir } },
+            userHomeForUserId: () => ({ apps: path.join(usersDir, "user-1", "apps") })
         } as unknown as ToolExecutionContext["agentSystem"],
         heartbeats: null as unknown as ToolExecutionContext["heartbeats"]
     };

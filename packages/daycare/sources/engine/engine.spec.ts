@@ -14,10 +14,7 @@ describe("Engine reset command", () => {
     it("posts reset with message context for user commands", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const engine = new Engine({ config, eventBus: new EngineEventBus() });
             const postSpy = vi.spyOn(engine.agentSystem, "post").mockResolvedValue(undefined);
 
@@ -74,10 +71,7 @@ describe("Engine reset command", () => {
         vi.useFakeTimers();
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const engine = new Engine({ config, eventBus: new EngineEventBus() });
             const postSpy = vi.spyOn(engine.agentSystem, "post").mockResolvedValue(undefined);
             const state: {
@@ -145,7 +139,7 @@ describe("Engine RLM mode", () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
         try {
             const config = configResolve(
-                { features: { rlm: true }, engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
+                { features: { rlm: true }, engine: { dataDir: dir } },
                 path.join(dir, "settings.json")
             );
             const engine = new Engine({ config, eventBus: new EngineEventBus() });
@@ -165,10 +159,7 @@ describe("Engine startup plugin hooks", () => {
     it("runs preStart hooks before systems and postStart hooks after systems", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const engine = new Engine({ config, eventBus: new EngineEventBus() });
             const order: string[] = [];
 
@@ -212,10 +203,7 @@ describe("Engine expose lifecycle", () => {
     it("starts and stops expose module with engine lifecycle", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const engine = new Engine({ config, eventBus: new EngineEventBus() });
             const startSpy = vi.spyOn(engine.exposes, "start").mockResolvedValue(undefined);
             const stopSpy = vi.spyOn(engine.exposes, "stop").mockResolvedValue(undefined);
@@ -235,10 +223,7 @@ describe("Engine tool registration", () => {
     it("registers the skill tool in normal mode", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const engine = new Engine({ config, eventBus: new EngineEventBus() });
             await engine.start();
 
@@ -258,7 +243,7 @@ describe("Engine app registration", () => {
     it("discovers apps on startup and registers app tools", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
         try {
-            const appDir = path.join(dir, "apps", "github-reviewer");
+            const appDir = path.join(dir, "users", "user-1", "apps", "github-reviewer");
             await fs.mkdir(appDir, { recursive: true });
             await fs.writeFile(
                 path.join(appDir, "APP.md"),
@@ -291,10 +276,7 @@ describe("Engine app registration", () => {
                 ].join("\n")
             );
 
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const engine = new Engine({ config, eventBus: new EngineEventBus() });
             await engine.start();
 
@@ -314,10 +296,7 @@ describe("Engine abort command", () => {
     it("aborts active inference for user commands and confirms in channel", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const engine = new Engine({ config, eventBus: new EngineEventBus() });
             vi.spyOn(engine.agentSystem, "abortInferenceForTarget").mockReturnValue(true);
             const postSpy = vi.spyOn(engine.agentSystem, "post").mockResolvedValue(undefined);
@@ -377,10 +356,7 @@ describe("Engine compact command", () => {
     it("posts compact work for user commands", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const engine = new Engine({ config, eventBus: new EngineEventBus() });
             const postSpy = vi.spyOn(engine.agentSystem, "post").mockResolvedValue(undefined);
 
@@ -435,10 +411,7 @@ describe("Engine plugin commands", () => {
     it("dispatches unknown slash commands to the plugin command registry", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const engine = new Engine({ config, eventBus: new EngineEventBus() });
             const pluginHandler = vi.fn(async () => undefined);
             engine.modules.commands.register("upgrade-plugin", {
@@ -496,10 +469,7 @@ describe("Engine message batching", () => {
         vi.useFakeTimers();
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const engine = new Engine({ config, eventBus: new EngineEventBus() });
             const postSpy = vi.spyOn(engine.agentSystem, "post").mockResolvedValue(undefined);
             const messageState: {
@@ -562,10 +532,7 @@ describe("Engine permission callbacks", () => {
     it("resolves pending permission requests via the registry", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const engine = new Engine({ config, eventBus: new EngineEventBus() });
             const resolveSpy = vi.spyOn(engine.permissionRequestRegistry, "resolve").mockReturnValue(true);
             vi.spyOn(engine.agentSystem, "getAgentDescriptor").mockReturnValue({
@@ -634,10 +601,7 @@ describe("Engine permission callbacks", () => {
     it("still sends foreground notice for background requester decisions", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-engine-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const engine = new Engine({ config, eventBus: new EngineEventBus() });
             vi.spyOn(engine.permissionRequestRegistry, "resolve").mockReturnValue(false);
             vi.spyOn(engine.agentSystem, "getAgentDescriptor").mockReturnValue({

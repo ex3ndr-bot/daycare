@@ -328,8 +328,7 @@ describe("Exposes", () => {
 function createExposes(rootDir: string): Exposes {
     const config = configResolve(
         {
-            engine: { dataDir: path.join(rootDir, ".daycare") },
-            assistant: { workspaceDir: rootDir }
+            engine: { dataDir: path.join(rootDir, ".daycare") }
         },
         path.join(rootDir, "settings.json")
     );
@@ -367,8 +366,7 @@ function exposeEndpointRowRead(
 ): { domain: string; auth: { passwordHash: string } | null } {
     const config = configResolve(
         {
-            engine: { dataDir: path.join(rootDir, ".daycare") },
-            assistant: { workspaceDir: rootDir }
+            engine: { dataDir: path.join(rootDir, ".daycare") }
         },
         path.join(rootDir, "settings.json")
     );

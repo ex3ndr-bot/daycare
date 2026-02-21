@@ -56,8 +56,7 @@ export function buildOpenAiImageProvider(context: ProviderContext): ImageGenerat
                 const stored = await generationContext.fileStore.saveBuffer({
                     name: `openai-image-${Date.now()}-${index + 1}.png`,
                     mimeType: "image/png",
-                    data: buffer,
-                    source: providerId
+                    data: buffer
                 });
                 files.push({
                     id: stored.id,

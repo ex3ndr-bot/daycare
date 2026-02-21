@@ -5,7 +5,6 @@ import type { Config } from "@/types";
 import { getLogger } from "../../log.js";
 import type { Storage } from "../../storage/storage.js";
 import { storageResolve } from "../../storage/storageResolve.js";
-import { agentPromptPathsResolve } from "../agents/ops/agentPromptPathsResolve.js";
 import { UserHome } from "./userHome.js";
 import { userHomeEnsure } from "./userHomeEnsure.js";
 
@@ -16,7 +15,11 @@ const logger = getLogger("engine.users.migrate");
  * Migrates legacy shared files/apps into the owner user's UserHome tree once.
  * Expects: storage migrations have already run and config paths are absolute.
  */
-export async function userHomeMigrate(config: Config, storageOrConfig?: Storage | Config): Promise<void> {
+export async function userHomeMigrate(
+    config: Config,
+    storageOrConfig?: Storage | Config,
+    legacyPaths?: { filesDir: string; appsDir: string }
+): Promise<void> {
     const storage = storageResolve(storageOrConfig ?? config);
     const markerPath = path.join(config.usersDir, MARKER_FILENAME);
     if (await pathExists(markerPath)) {
@@ -27,8 +30,10 @@ export async function userHomeMigrate(config: Config, storageOrConfig?: Storage 
     const ownerHome = new UserHome(config.usersDir, ownerUserId);
     await userHomeEnsure(ownerHome);
     await knowledgeFilesCopy(config, ownerHome);
-    await directoryCopy(config.filesDir, ownerHome.desktop);
-    await directoryCopy(path.join(config.workspaceDir, "apps"), ownerHome.apps);
+    if (legacyPaths) {
+        await directoryCopy(legacyPaths.filesDir, ownerHome.desktop);
+        await directoryCopy(legacyPaths.appsDir, ownerHome.apps);
+    }
     await fs.mkdir(config.usersDir, { recursive: true });
     await fs.writeFile(markerPath, `${JSON.stringify({ migratedAt: Date.now(), ownerUserId }, null, 2)}\n`, "utf8");
 }
@@ -60,14 +65,18 @@ async function ownerUserIdEnsure(storage: Storage): Promise<string> {
 }
 
 async function knowledgeFilesCopy(config: Config, ownerHome: UserHome): Promise<void> {
-    const legacyPaths = agentPromptPathsResolve(config.dataDir);
+    const legacyPaths = {
+        soulPath: path.join(config.dataDir, "SOUL.md"),
+        userPath: path.join(config.dataDir, "USER.md"),
+        agentsPath: path.join(config.dataDir, "AGENTS.md"),
+        toolsPath: path.join(config.dataDir, "TOOLS.md")
+    };
     const nextPaths = ownerHome.knowledgePaths();
     const pairs = [
         { from: legacyPaths.soulPath, to: nextPaths.soulPath },
         { from: legacyPaths.userPath, to: nextPaths.userPath },
         { from: legacyPaths.agentsPath, to: nextPaths.agentsPath },
-        { from: legacyPaths.toolsPath, to: nextPaths.toolsPath },
-        { from: legacyPaths.memoryPath, to: nextPaths.memoryPath }
+        { from: legacyPaths.toolsPath, to: nextPaths.toolsPath }
     ];
     for (const pair of pairs) {
         if (!(await pathExists(pair.from))) {

@@ -13,14 +13,12 @@ vi.mock("../../../util/renderToPng.js", () => ({
 
 describe("buildMermaidPngTool", () => {
     it("renders a png file from mermaid source", async () => {
-        const saveBuffer = vi.fn(async (options: { name: string; mimeType: string; data: Buffer; source: string }) => ({
+        const saveBuffer = vi.fn(async (options: { name: string; mimeType: string; data: Buffer }) => ({
             id: "file-1",
             name: options.name,
             path: "/tmp/file-1.png",
             mimeType: options.mimeType,
-            size: options.data.byteLength,
-            source: options.source,
-            createdAt: "2026-01-01T00:00:00.000Z"
+            size: options.data.byteLength
         }));
 
         const tool = buildMermaidPngTool();
@@ -37,8 +35,7 @@ describe("buildMermaidPngTool", () => {
         expect(mocks.renderToPng).toHaveBeenCalledTimes(1);
         expect(saveBuffer.mock.calls[0]?.[0]).toMatchObject({
             name: "pipeline.png",
-            mimeType: "image/png",
-            source: "generate_mermaid_png"
+            mimeType: "image/png"
         });
         expect(result.toolMessage.isError).toBe(false);
         expect(result.toolMessage.content).toEqual([
@@ -86,14 +83,12 @@ describe("buildMermaidPngTool", () => {
 });
 
 function contextBuild(
-    saveBuffer: (options: { name: string; mimeType: string; data: Buffer; source: string }) => Promise<{
+    saveBuffer: (options: { name: string; mimeType: string; data: Buffer }) => Promise<{
         id: string;
         name: string;
         path: string;
         mimeType: string;
         size: number;
-        source: string;
-        createdAt: string;
     }>
 ): ToolExecutionContext {
     return {

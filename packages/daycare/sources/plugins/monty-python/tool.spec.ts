@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { AgentState, ToolExecutionContext } from "@/types";
 import { Agent } from "../../engine/agents/agent.js";
 import { AgentInbox } from "../../engine/agents/ops/agentInbox.js";
+import { UserHome } from "../../engine/users/userHome.js";
 import { buildMontyPythonTool } from "./tool.js";
 
 const toolCall = { id: "tool-call-1", name: "python" };
@@ -104,7 +105,8 @@ function createContext(workingDir: string): ToolExecutionContext {
         descriptor,
         state,
         new AgentInbox(agentId),
-        {} as unknown as Parameters<typeof Agent.restore>[5]
+        {} as unknown as Parameters<typeof Agent.restore>[5],
+        new UserHome(path.join(workingDir, "users"), "user-1")
     );
 
     return {

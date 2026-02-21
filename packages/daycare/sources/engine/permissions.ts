@@ -1,7 +1,4 @@
-import { promises as fs } from "node:fs";
 import path from "node:path";
-
-import type { AssistantSettings } from "../settings.js";
 
 export type SessionPermissions = {
     workspaceDir?: string;
@@ -11,18 +8,6 @@ export type SessionPermissions = {
     network: boolean;
     events: boolean;
 };
-
-export function resolveWorkspaceDir(configDir: string, assistant?: AssistantSettings | null): string {
-    const configured = assistant?.workspaceDir?.trim();
-    if (configured) {
-        return path.isAbsolute(configured) ? path.resolve(configured) : path.resolve(configDir, configured);
-    }
-    return path.resolve(configDir, "workspace");
-}
-
-export async function ensureWorkspaceDir(dir: string): Promise<void> {
-    await fs.mkdir(dir, { recursive: true });
-}
 
 export function normalizePermissions(value: unknown, defaultWorkingDir: string): SessionPermissions {
     let writeDirs: string[] = [];

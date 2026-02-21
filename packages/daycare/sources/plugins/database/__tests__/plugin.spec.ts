@@ -13,6 +13,7 @@ import { AgentInbox } from "../../../engine/agents/ops/agentInbox.js";
 import { ModuleRegistry } from "../../../engine/modules/moduleRegistry.js";
 import { PluginRegistry } from "../../../engine/plugins/registry.js";
 import { Processes } from "../../../engine/processes/processes.js";
+import { UserHome } from "../../../engine/users/userHome.js";
 import { FileStore } from "../../../files/store.js";
 import { getLogger } from "../../../log.js";
 import { plugin } from "../plugin.js";
@@ -27,7 +28,7 @@ describe("database plugin", () => {
     it("creates db files, runs SQL, and updates db.md", async () => {
         const config = configResolve({ engine: { dataDir: baseDir } }, path.join(baseDir, "settings.json"));
         const auth = new AuthStore(config);
-        const fileStore = new FileStore(config);
+        const fileStore = new FileStore(path.join(config.dataDir, "files"));
         const modules = new ModuleRegistry({ onMessage: async () => undefined });
         const pluginRegistry = new PluginRegistry(modules);
 
@@ -64,7 +65,8 @@ describe("database plugin", () => {
             descriptor,
             state,
             new AgentInbox(agentId),
-            {} as unknown as Parameters<typeof Agent.restore>[5]
+            {} as unknown as Parameters<typeof Agent.restore>[5],
+            new UserHome(path.join(baseDir, "users"), "user-1")
         );
         const api = {
             instance: { instanceId, pluginId: "database" },

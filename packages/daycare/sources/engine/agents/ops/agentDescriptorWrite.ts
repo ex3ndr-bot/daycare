@@ -1,7 +1,6 @@
 import { createId } from "@paralleldrive/cuid2";
-import type { Config, SessionPermissions } from "@/types";
+import type { SessionPermissions } from "@/types";
 import type { Storage } from "../../../storage/storage.js";
-import { storageResolve } from "../../../storage/storageResolve.js";
 import type { AgentDescriptor } from "./agentDescriptorTypes.js";
 
 /**
@@ -10,13 +9,12 @@ import type { AgentDescriptor } from "./agentDescriptorTypes.js";
  * Resolves user ownership as existing agent userId -> provided userId -> owner -> new owner.
  */
 export async function agentDescriptorWrite(
-    storageOrConfig: Storage | Config,
+    storage: Storage,
     agentId: string,
     descriptor: AgentDescriptor,
-    userId?: string,
-    defaultPermissions?: SessionPermissions
+    userId: string | undefined,
+    defaultPermissions: SessionPermissions
 ): Promise<void> {
-    const storage = storageResolve(storageOrConfig);
     const existing = await storage.agents.findById(agentId);
     // Preserve existing ownership when present, otherwise resolve from caller/owner fallback chain.
     let resolvedUserId = existing?.userId ?? userId;
@@ -37,8 +35,7 @@ export async function agentDescriptorWrite(
         }
     }
     const now = Date.now();
-    const nextPermissions =
-        existing?.permissions ?? defaultPermissions ?? configDefaultPermissionsResolve(storageOrConfig);
+    const nextPermissions = existing?.permissions ?? defaultPermissions;
     await storage.agents.create({
         id: agentId,
         userId: resolvedUserId,
@@ -52,26 +49,4 @@ export async function agentDescriptorWrite(
         createdAt: existing?.createdAt ?? now,
         updatedAt: now
     });
-}
-
-function configDefaultPermissionsResolve(storageOrConfig: Storage | Config): SessionPermissions {
-    if (configIs(storageOrConfig)) {
-        return storageOrConfig.defaultPermissions;
-    }
-    throw new Error("defaultPermissions is required when writing a new descriptor with Storage");
-}
-
-function configIs(value: Storage | Config): value is Config {
-    if (!("defaultPermissions" in value)) {
-        return false;
-    }
-    const permissions = value.defaultPermissions as SessionPermissions | undefined;
-    return (
-        !!permissions &&
-        typeof permissions.workingDir === "string" &&
-        Array.isArray(permissions.writeDirs) &&
-        Array.isArray(permissions.readDirs) &&
-        typeof permissions.network === "boolean" &&
-        typeof permissions.events === "boolean"
-    );
 }

@@ -505,7 +505,6 @@ export class WhatsAppConnector implements Connector {
                     const stored = await this.fileStore.saveFromPath({
                         name: fileName,
                         mimeType,
-                        source: "whatsapp",
                         path: tempPath
                     });
 

@@ -6,6 +6,7 @@ import type { ConfigModule } from "../config/configModule.js";
 import type { EngineEventBus } from "../ipc/events.js";
 import type { ConnectorRegistry } from "../modules/connectorRegistry.js";
 import type { PermissionRequestRegistry } from "../modules/tools/permissionRequestRegistry.js";
+import { permissionBuildUser } from "../permissions/permissionBuildUser.js";
 import { gatePermissionRequest } from "../scheduling/gatePermissionRequest.js";
 import type { HeartbeatCreateTaskArgs, HeartbeatDefinition } from "./heartbeatTypes.js";
 import { heartbeatPromptBuildBatch } from "./ops/heartbeatPromptBuildBatch.js";
@@ -35,12 +36,14 @@ export class Heartbeats {
     constructor(options: HeartbeatsOptions) {
         this.eventBus = options.eventBus;
         this.agentSystem = options.agentSystem;
-        const currentConfig = options.config.current;
         this.scheduler = new HeartbeatScheduler({
             config: options.config,
             repository: options.storage.heartbeatTasks,
             intervalMs: options.intervalMs,
-            defaultPermissions: currentConfig.defaultPermissions,
+            resolveDefaultPermissions: async () => {
+                const ownerUserId = await this.agentSystem.ownerUserIdEnsure();
+                return permissionBuildUser(this.agentSystem.userHomeForUserId(ownerUserId));
+            },
             resolvePermissions: async () =>
                 this.agentSystem.permissionsForTarget({
                     descriptor: { type: "system", tag: "heartbeat" }

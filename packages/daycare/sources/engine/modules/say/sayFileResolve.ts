@@ -42,11 +42,6 @@ async function sayFileReferenceResolve(
     permissions: SessionPermissions
 ): Promise<FileReference | null> {
     const normalizedInputPath = pathNormalize(filePath, permissions.workingDir);
-    const stored = await fileStorePathLookup(normalizedInputPath, fileStore);
-    if (stored) {
-        return stored;
-    }
-
     const allowedDirs = [permissions.workingDir, ...permissions.readDirs];
     const { realPath } = await pathResolveSecure(allowedDirs, normalizedInputPath);
 
@@ -68,7 +63,6 @@ async function sayFileReferenceResolve(
     const saved = await fileStore.saveFromPath({
         name: path.basename(realPath),
         mimeType: mimeTypeResolve(realPath),
-        source: "say_file",
         path: realPath
     });
 
@@ -86,31 +80,6 @@ function pathNormalize(filePath: string, workingDir: string): string {
         return path.resolve(filePath);
     }
     return path.resolve(workingDir, filePath);
-}
-
-async function fileStorePathLookup(filePath: string, fileStore: FileStore): Promise<FileReference | null> {
-    const baseName = path.basename(filePath);
-    const separator = baseName.indexOf("__");
-    if (separator <= 0) {
-        return null;
-    }
-
-    const possibleId = baseName.slice(0, separator);
-    const stored = await fileStore.get(possibleId);
-    if (!stored) {
-        return null;
-    }
-    if (path.resolve(stored.path) !== path.resolve(filePath)) {
-        return null;
-    }
-
-    return {
-        id: stored.id,
-        name: stored.name,
-        mimeType: stored.mimeType,
-        size: stored.size,
-        path: stored.path
-    };
 }
 
 function mimeTypeResolve(filePath: string): string {

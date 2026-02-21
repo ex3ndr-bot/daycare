@@ -41,7 +41,7 @@ function createManager(
     const config = configResolve({ engine: { dataDir: rootDir } }, path.join(rootDir, "settings.json"));
     const configModule = new ConfigModule(config);
     const auth = new AuthStore(config);
-    const fileStore = new FileStore(config);
+    const fileStore = new FileStore(path.join(config.dataDir, "files"));
     const inferenceRouter = new InferenceRouter({
         registry: modules.inference,
         auth,

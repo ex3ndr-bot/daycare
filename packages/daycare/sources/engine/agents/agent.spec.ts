@@ -29,10 +29,7 @@ describe("Agent", () => {
     it("persists descriptor, state, and history on create", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const agentSystem = new AgentSystem({
                 config: new ConfigModule(config),
                 eventBus: new EngineEventBus(),
@@ -43,7 +40,7 @@ describe("Agent", () => {
                 toolResolver: new ToolResolver(),
                 pluginManager: {} as unknown as PluginManager,
                 inferenceRouter: {} as unknown as InferenceRouter,
-                fileStore: new FileStore(config),
+                fileStore: new FileStore(path.join(config.dataDir, "files")),
                 authStore: new AuthStore(config)
             });
             agentSystem.setCrons({} as unknown as Crons);
@@ -55,7 +52,9 @@ describe("Agent", () => {
                 channelId: "channel-1",
                 userId: "user-1"
             };
-            await Agent.create(agentId, descriptor, createId(), new AgentInbox(agentId), agentSystem);
+            const userId = createId();
+            const userHome = agentSystem.userHomeForUserId(userId);
+            await Agent.create(agentId, descriptor, userId, new AgentInbox(agentId), agentSystem, userHome);
 
             const restoredDescriptor = await agentDescriptorRead(config, agentId);
             expect(restoredDescriptor).toEqual(descriptor);
@@ -64,7 +63,7 @@ describe("Agent", () => {
             if (!state) {
                 throw new Error("State not found");
             }
-            expect(state.permissions.workingDir).toBe(config.defaultPermissions.workingDir);
+            expect(state.permissions.workingDir).toBe(userHome.desktop);
             expect(state?.activeSessionId).toBeTruthy();
 
             const history = await agentHistoryLoad(config, agentId);
@@ -77,10 +76,7 @@ describe("Agent", () => {
     it("sends reset confirmation from agent for user resets with context", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const connectorRegistry = new ConnectorRegistry({
                 onMessage: async () => undefined
             });
@@ -101,7 +97,7 @@ describe("Agent", () => {
                 toolResolver: new ToolResolver(),
                 pluginManager: {} as unknown as PluginManager,
                 inferenceRouter: {} as unknown as InferenceRouter,
-                fileStore: new FileStore(config),
+                fileStore: new FileStore(path.join(config.dataDir, "files")),
                 authStore: new AuthStore(config)
             });
             agentSystem.setCrons({} as unknown as Crons);
@@ -138,10 +134,7 @@ describe("Agent", () => {
     it("rotates inference session id on reset", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const agentSystem = new AgentSystem({
                 config: new ConfigModule(config),
                 eventBus: new EngineEventBus(),
@@ -152,7 +145,7 @@ describe("Agent", () => {
                 toolResolver: new ToolResolver(),
                 pluginManager: {} as unknown as PluginManager,
                 inferenceRouter: {} as unknown as InferenceRouter,
-                fileStore: new FileStore(config),
+                fileStore: new FileStore(path.join(config.dataDir, "files")),
                 authStore: new AuthStore(config)
             });
             agentSystem.setCrons({} as unknown as Crons);
@@ -184,7 +177,6 @@ describe("Agent", () => {
             const config = configResolve(
                 {
                     engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir },
                     providers: [{ id: "openai", model: "gpt-4.1" }]
                 },
                 path.join(dir, "settings.json")
@@ -199,7 +191,7 @@ describe("Agent", () => {
                 toolResolver: new ToolResolver(),
                 pluginManager: pluginManagerStubBuild(),
                 inferenceRouter: inferenceRouterStubBuild(),
-                fileStore: new FileStore(config),
+                fileStore: new FileStore(path.join(config.dataDir, "files")),
                 authStore: new AuthStore(config)
             });
             agentSystem.setCrons({ listTasks: async () => [] } as unknown as Crons);
@@ -240,7 +232,6 @@ describe("Agent", () => {
             const config = configResolve(
                 {
                     engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir },
                     providers: [{ id: "openai", model: "gpt-4.1" }],
                     features: { rlm: true }
                 },
@@ -256,7 +247,7 @@ describe("Agent", () => {
                 toolResolver: new ToolResolver(),
                 pluginManager: pluginManagerStubBuild(),
                 inferenceRouter: inferenceRouterStubBuild(),
-                fileStore: new FileStore(config),
+                fileStore: new FileStore(path.join(config.dataDir, "files")),
                 authStore: new AuthStore(config)
             });
             agentSystem.setCrons({ listTasks: async () => [] } as unknown as Crons);
@@ -298,7 +289,6 @@ describe("Agent", () => {
             const config = configResolve(
                 {
                     engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir },
                     providers: [{ id: "openai", model: "gpt-4.1" }],
                     features: { rlm: true }
                 },
@@ -314,7 +304,7 @@ describe("Agent", () => {
                 toolResolver: new ToolResolver(),
                 pluginManager: pluginManagerStubBuild(),
                 inferenceRouter: inferenceRouterStubBuild(),
-                fileStore: new FileStore(config),
+                fileStore: new FileStore(path.join(config.dataDir, "files")),
                 authStore: new AuthStore(config)
             });
             agentSystem.setCrons({ listTasks: async () => [] } as unknown as Crons);
@@ -356,7 +346,6 @@ describe("Agent", () => {
             const config = configResolve(
                 {
                     engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir },
                     providers: [{ id: "openai", model: "gpt-4.1" }]
                 },
                 path.join(dir, "settings.json")
@@ -413,7 +402,7 @@ describe("Agent", () => {
                 toolResolver: new ToolResolver(),
                 pluginManager: {} as unknown as PluginManager,
                 inferenceRouter,
-                fileStore: new FileStore(config),
+                fileStore: new FileStore(path.join(config.dataDir, "files")),
                 authStore: new AuthStore(config)
             });
             agentSystem.setCrons({} as unknown as Crons);
@@ -471,7 +460,6 @@ describe("Agent", () => {
             const config = configResolve(
                 {
                     engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir },
                     providers: [{ id: "openai", model: "gpt-4.1" }]
                 },
                 path.join(dir, "settings.json")
@@ -521,7 +509,7 @@ describe("Agent", () => {
                 toolResolver: new ToolResolver(),
                 pluginManager: {} as unknown as PluginManager,
                 inferenceRouter,
-                fileStore: new FileStore(config),
+                fileStore: new FileStore(path.join(config.dataDir, "files")),
                 authStore: new AuthStore(config)
             });
             agentSystem.setCrons({} as unknown as Crons);
@@ -556,10 +544,7 @@ describe("Agent", () => {
     it("drops queued signals after unsubscribe before agent handles inbox", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const eventBus = new EngineEventBus();
             const agentSystem = new AgentSystem({
                 config: new ConfigModule(config),
@@ -571,7 +556,7 @@ describe("Agent", () => {
                 toolResolver: new ToolResolver(),
                 pluginManager: {} as unknown as PluginManager,
                 inferenceRouter: {} as unknown as InferenceRouter,
-                fileStore: new FileStore(config),
+                fileStore: new FileStore(path.join(config.dataDir, "files")),
                 authStore: new AuthStore(config)
             });
             agentSystem.setCrons({} as unknown as Crons);
@@ -613,10 +598,7 @@ describe("Agent", () => {
     it("delivers queued signal when subscribed at handling time", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const eventBus = new EngineEventBus();
             const agentSystem = new AgentSystem({
                 config: new ConfigModule(config),
@@ -628,7 +610,7 @@ describe("Agent", () => {
                 toolResolver: new ToolResolver(),
                 pluginManager: {} as unknown as PluginManager,
                 inferenceRouter: {} as unknown as InferenceRouter,
-                fileStore: new FileStore(config),
+                fileStore: new FileStore(path.join(config.dataDir, "files")),
                 authStore: new AuthStore(config)
             });
             agentSystem.setCrons({} as unknown as Crons);
@@ -675,10 +657,7 @@ describe("Agent", () => {
     it("does not deliver agent-sourced signals back to the same agent", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const eventBus = new EngineEventBus();
             const agentSystem = new AgentSystem({
                 config: new ConfigModule(config),
@@ -690,7 +669,7 @@ describe("Agent", () => {
                 toolResolver: new ToolResolver(),
                 pluginManager: {} as unknown as PluginManager,
                 inferenceRouter: {} as unknown as InferenceRouter,
-                fileStore: new FileStore(config),
+                fileStore: new FileStore(path.join(config.dataDir, "files")),
                 authStore: new AuthStore(config)
             });
             agentSystem.setCrons({} as unknown as Crons);
@@ -759,10 +738,7 @@ describe("Agent", () => {
     it("emits wake and sleep lifecycle signals", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const eventBus = new EngineEventBus();
             const agentSystem = new AgentSystem({
                 config: new ConfigModule(config),
@@ -774,7 +750,7 @@ describe("Agent", () => {
                 toolResolver: new ToolResolver(),
                 pluginManager: {} as unknown as PluginManager,
                 inferenceRouter: {} as unknown as InferenceRouter,
-                fileStore: new FileStore(config),
+                fileStore: new FileStore(path.join(config.dataDir, "files")),
                 authStore: new AuthStore(config)
             });
             agentSystem.setCrons({} as unknown as Crons);
@@ -815,10 +791,7 @@ describe("Agent", () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-"));
         let delayedSignals: DelayedSignals | null = null;
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const eventBus = new EngineEventBus();
             const configModule = new ConfigModule(config);
             const signals = new Signals({ eventBus, configDir: config.configDir });
@@ -833,7 +806,7 @@ describe("Agent", () => {
                 toolResolver: new ToolResolver(),
                 pluginManager: {} as unknown as PluginManager,
                 inferenceRouter: {} as unknown as InferenceRouter,
-                fileStore: new FileStore(config),
+                fileStore: new FileStore(path.join(config.dataDir, "files")),
                 authStore: new AuthStore(config),
                 delayedSignals
             });
@@ -878,10 +851,7 @@ describe("Agent", () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-"));
         let delayedSignals: DelayedSignals | null = null;
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const eventBus = new EngineEventBus();
             const configModule = new ConfigModule(config);
             const signals = new Signals({ eventBus, configDir: config.configDir });
@@ -896,7 +866,7 @@ describe("Agent", () => {
                 toolResolver: new ToolResolver(),
                 pluginManager: {} as unknown as PluginManager,
                 inferenceRouter: {} as unknown as InferenceRouter,
-                fileStore: new FileStore(config),
+                fileStore: new FileStore(path.join(config.dataDir, "files")),
                 authStore: new AuthStore(config),
                 delayedSignals
             });

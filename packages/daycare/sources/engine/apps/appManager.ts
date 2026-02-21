@@ -9,23 +9,20 @@ import type { AppDescriptor } from "./appTypes.js";
 const APP_TOOLS_PLUGIN_ID = "core.apps";
 
 type AppsOptions = {
-    appsDir: string;
-    usersDir?: string;
+    usersDir: string;
 };
 
 export class Apps {
-    private readonly appsDir: string;
-    private readonly usersDir: string | undefined;
+    private readonly usersDir: string;
     private descriptors: AppDescriptor[] = [];
     private toolNames = new Set<string>();
 
     constructor(options: AppsOptions) {
-        this.appsDir = options.appsDir;
         this.usersDir = options.usersDir;
     }
 
     async discover(): Promise<AppDescriptor[]> {
-        const roots = await appRootsList(this.appsDir, this.usersDir);
+        const roots = await appRootsList(this.usersDir);
         const discovered = await Promise.all(roots.map((root) => appDiscover(root)));
         const descriptorsById = new Map<string, AppDescriptor>();
         for (const entries of discovered) {
@@ -73,12 +70,9 @@ export class Apps {
     }
 }
 
-async function appRootsList(globalAppsDir: string, usersDir?: string): Promise<string[]> {
-    const roots = [path.resolve(globalAppsDir)];
-    const resolvedUsersDir = usersDir?.trim() ? path.resolve(usersDir) : "";
-    if (!resolvedUsersDir) {
-        return roots;
-    }
+async function appRootsList(usersDir: string): Promise<string[]> {
+    const roots: string[] = [];
+    const resolvedUsersDir = path.resolve(usersDir);
     let entries: import("node:fs").Dirent[] = [];
     try {
         entries = await fs.readdir(resolvedUsersDir, { withFileTypes: true });

@@ -14,7 +14,7 @@ export type HeartbeatSchedulerOptions = {
     config: ConfigModule;
     repository: HeartbeatTasksRepository;
     intervalMs?: number;
-    defaultPermissions: SessionPermissions;
+    resolveDefaultPermissions: () => Promise<SessionPermissions> | SessionPermissions;
     resolvePermissions?: () => Promise<SessionPermissions> | SessionPermissions;
     onRun: (tasks: HeartbeatDefinition[], runAt: Date) => void | Promise<void>;
     onError?: (error: unknown, taskIds?: string[]) => void | Promise<void>;

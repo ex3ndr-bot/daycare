@@ -59,13 +59,13 @@ import { skipToolBuild } from "./modules/tools/skipTool.js";
 import { toolListContextBuild } from "./modules/tools/toolListContextBuild.js";
 import { topologyTool } from "./modules/tools/topologyToolBuild.js";
 import { permissionDescribeDecision } from "./permissions/permissionDescribeDecision.js";
-import { ensureWorkspaceDir } from "./permissions.js";
 import { buildPluginCatalog } from "./plugins/catalog.js";
 import { PluginManager } from "./plugins/manager.js";
 import { PluginRegistry } from "./plugins/registry.js";
 import { Processes } from "./processes/processes.js";
 import { DelayedSignals } from "./signals/delayedSignals.js";
 import { Signals } from "./signals/signals.js";
+import { userHomeEnsure } from "./users/userHomeEnsure.js";
 import { userHomeMigrate } from "./users/userHomeMigrate.js";
 
 const logger = getLogger("engine.runtime");
@@ -128,7 +128,7 @@ export class Engine {
         });
         this.permissionRequestRegistry = new PermissionRequestRegistry();
         this.authStore = new AuthStore(this.config.current);
-        this.fileStore = new FileStore(this.config.current);
+        this.fileStore = new FileStore(path.join(this.config.current.dataDir, "files"));
         this.processes = new Processes(this.config.current.dataDir, getLogger("engine.processes"), {
             socketPath: this.config.current.socketPath,
             repository: this.storage.processes
@@ -351,15 +351,23 @@ export class Engine {
             agentSystem: this.agentSystem
         });
         this.apps = new Apps({
-            appsDir: path.join(this.config.current.workspaceDir, "apps"),
             usersDir: this.config.current.usersDir
         });
     }
 
     async start(): Promise<void> {
         logger.debug("start: Engine.start() beginning");
-        await ensureWorkspaceDir(this.config.current.defaultPermissions.workingDir);
-        await userHomeMigrate(this.config.current, this.storage);
+        const ownerUserId = await this.agentSystem.ownerUserIdEnsure();
+        const ownerUserHome = this.agentSystem.userHomeForUserId(ownerUserId);
+        await userHomeEnsure(ownerUserHome);
+        const legacyWorkspaceDir = legacyWorkspaceDirResolve(
+            this.config.current.configDir,
+            this.config.current.settings.assistant
+        );
+        await userHomeMigrate(this.config.current, this.storage, {
+            filesDir: path.join(legacyWorkspaceDir, "files"),
+            appsDir: path.join(legacyWorkspaceDir, "apps")
+        });
 
         logger.debug("load: Loading agents");
         await this.agentSystem.load();
@@ -612,7 +620,8 @@ export class Engine {
                 return;
             }
             this.config.configSet(latest);
-            await ensureWorkspaceDir(this.config.current.defaultPermissions.workingDir);
+            const ownerUserId = await this.agentSystem.ownerUserIdEnsure();
+            await userHomeEnsure(this.agentSystem.userHomeForUserId(ownerUserId));
             await this.providerManager.reload();
             await this.pluginManager.reload();
             this.inferenceRouter.reload();
@@ -647,7 +656,7 @@ function configReloadEqual(left: Config, right: Config): boolean {
         configReloadPathsEqual(left, right) &&
         left.verbose === right.verbose &&
         valueDeepEqual(left.settings, right.settings) &&
-        valueDeepEqual(left.defaultPermissions, right.defaultPermissions)
+        left.usersDir === right.usersDir
     );
 }
 
@@ -657,9 +666,21 @@ function configReloadPathsEqual(left: Config, right: Config): boolean {
         left.configDir === right.configDir &&
         left.dataDir === right.dataDir &&
         left.agentsDir === right.agentsDir &&
-        left.filesDir === right.filesDir &&
+        left.usersDir === right.usersDir &&
         left.authPath === right.authPath &&
-        left.socketPath === right.socketPath &&
-        left.workspaceDir === right.workspaceDir
+        left.socketPath === right.socketPath
     );
+}
+
+function legacyWorkspaceDirResolve(configDir: string, assistant: unknown): string {
+    const configured =
+        assistant &&
+        typeof assistant === "object" &&
+        typeof (assistant as { workspaceDir?: unknown }).workspaceDir === "string"
+            ? (assistant as { workspaceDir?: string }).workspaceDir?.trim()
+            : "";
+    if (configured) {
+        return path.isAbsolute(configured) ? path.resolve(configured) : path.resolve(configDir, configured);
+    }
+    return path.resolve(configDir, "workspace");
 }

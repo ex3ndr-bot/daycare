@@ -5,6 +5,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import type { ToolExecutionContext } from "@/types";
+import { FileStore } from "../../../files/store.js";
 import { ImageGenerationRegistry } from "../imageGenerationRegistry.js";
 import { buildImageGenerationTool } from "./image-generation.js";
 
@@ -38,12 +39,12 @@ describe("buildImageGenerationTool", () => {
                 name: "generate_image"
             });
 
-            const workspace = result.toolMessage.details?.workspace as
+            const downloads = result.toolMessage.details?.downloads as
                 | { dir: string; files: Array<{ path: string }> }
                 | undefined;
-            expect(workspace?.dir).toBe(path.join(tempDir, "files"));
-            expect(workspace?.files).toHaveLength(1);
-            const generatedPath = workspace?.files[0]?.path;
+            expect(downloads?.dir).toBe(path.join(tempDir, "downloads"));
+            expect(downloads?.files).toHaveLength(1);
+            const generatedPath = downloads?.files[0]?.path;
             expect(generatedPath).toBeTruthy();
             if (!generatedPath) {
                 throw new Error("Missing generated file path");
@@ -61,9 +62,10 @@ describe("buildImageGenerationTool", () => {
 });
 
 function contextBuild(workingDir: string): ToolExecutionContext {
+    const fileStore = new FileStore(path.join(workingDir, "downloads"));
     return {
         connectorRegistry: null as unknown as ToolExecutionContext["connectorRegistry"],
-        fileStore: null as unknown as ToolExecutionContext["fileStore"],
+        fileStore,
         auth: null as unknown as ToolExecutionContext["auth"],
         logger: console as unknown as ToolExecutionContext["logger"],
         assistant: null,

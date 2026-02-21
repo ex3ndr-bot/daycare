@@ -1,8 +1,6 @@
 import path from "node:path";
 
 import { resolveEngineSocketPath } from "../engine/ipc/socket.js";
-import { permissionBuildDefault } from "../engine/permissions/permissionBuildDefault.js";
-import { resolveWorkspaceDir } from "../engine/permissions.js";
 import { DEFAULT_DAYCARE_DIR } from "../paths.js";
 import type { ResolvedSettingsConfig, SettingsConfig } from "../settings.js";
 import { freezeDeep } from "../util/freezeDeep.js";
@@ -17,16 +15,12 @@ export function configResolve(settings: SettingsConfig, settingsPath: string, ov
     const resolvedSettingsPath = path.resolve(settingsPath);
     const configDir = path.dirname(resolvedSettingsPath);
     const dataDir = path.resolve(resolvedSettings.engine?.dataDir ?? DEFAULT_DAYCARE_DIR);
-    const workspaceDir = resolveWorkspaceDir(configDir, resolvedSettings.assistant ?? null);
     const agentsDir = path.join(dataDir, "agents");
     const usersDir = path.join(dataDir, "users");
     const dbPath = path.resolve(resolvedSettings.engine?.dbPath ?? path.join(dataDir, "daycare.db"));
-    const filesDir = path.join(workspaceDir, "files");
     const authPath = path.join(dataDir, "auth.json");
     const socketPath = resolveEngineSocketPath(resolvedSettings.engine?.socketPath);
-    const defaultPermissions = permissionBuildDefault(workspaceDir, configDir);
     const frozenSettings = freezeDeep(structuredClone(resolvedSettings));
-    const frozenPermissions = freezeDeep(defaultPermissions);
     const verbose = overrides.verbose ?? false;
 
     return freezeDeep({
@@ -36,13 +30,10 @@ export function configResolve(settings: SettingsConfig, settingsPath: string, ov
         agentsDir,
         usersDir,
         dbPath,
-        filesDir,
         authPath,
         socketPath,
-        workspaceDir,
         features: frozenSettings.features,
         settings: frozenSettings,
-        defaultPermissions: frozenPermissions,
         verbose
     });
 }

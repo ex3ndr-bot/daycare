@@ -113,11 +113,7 @@ export const plugin = definePlugin({
                                     throw new Error(`Gemini image generation failed: ${response.status}`);
                                 }
                                 const data = (await response.json()) as GeminiResponse;
-                                const extracted = await extractGeminiImages(
-                                    data,
-                                    generationContext.fileStore,
-                                    providerId
-                                );
+                                const extracted = await extractGeminiImages(data, generationContext.fileStore);
                                 files.push(...extracted);
                                 if (files.length >= count) {
                                     break;
@@ -153,7 +149,7 @@ export const plugin = definePlugin({
                             throw new Error(`Nano Banana Pro image generation failed: ${response.status}`);
                         }
                         const data = (await response.json()) as NanoBananaProResponse;
-                        const extracted = await extractImages(data, generationContext.fileStore, providerId);
+                        const extracted = await extractImages(data, generationContext.fileStore);
                         return { files: extracted.slice(0, count) };
                     }
                 });
@@ -165,7 +161,7 @@ export const plugin = definePlugin({
     }
 });
 
-async function extractImages(data: NanoBananaProResponse, fileStore: FileStore, source: string) {
+async function extractImages(data: NanoBananaProResponse, fileStore: FileStore) {
     const files = [];
     const entries = data.data ?? [];
     for (let index = 0; index < entries.length; index += 1) {
@@ -179,8 +175,7 @@ async function extractImages(data: NanoBananaProResponse, fileStore: FileStore, 
             const stored = await fileStore.saveBuffer({
                 name: `nano-banana-pro-${Date.now()}-${index + 1}.png`,
                 mimeType: "image/png",
-                data: buffer,
-                source
+                data: buffer
             });
             files.push({
                 id: stored.id,
@@ -201,8 +196,7 @@ async function extractImages(data: NanoBananaProResponse, fileStore: FileStore, 
             const stored = await fileStore.saveBuffer({
                 name: `nano-banana-pro-${Date.now()}-${index + 1}.png`,
                 mimeType: contentType,
-                data: buffer,
-                source
+                data: buffer
             });
             files.push({
                 id: stored.id,
@@ -221,8 +215,7 @@ async function extractImages(data: NanoBananaProResponse, fileStore: FileStore, 
             const stored = await fileStore.saveBuffer({
                 name: `nano-banana-pro-${Date.now()}-1.png`,
                 mimeType: "image/png",
-                data: buffer,
-                source
+                data: buffer
             });
             files.push({
                 id: stored.id,
@@ -261,7 +254,7 @@ function buildGeminiPayload(prompt: string, size?: string) {
     return payload;
 }
 
-async function extractGeminiImages(data: GeminiResponse, fileStore: FileStore, source: string) {
+async function extractGeminiImages(data: GeminiResponse, fileStore: FileStore) {
     const files = [];
     const candidates = data.candidates ?? [];
     for (const candidate of candidates) {
@@ -278,8 +271,7 @@ async function extractGeminiImages(data: GeminiResponse, fileStore: FileStore, s
             const stored = await fileStore.saveBuffer({
                 name: `nano-banana-pro-${Date.now()}-${files.length + 1}.png`,
                 mimeType,
-                data: buffer,
-                source
+                data: buffer
             });
             files.push({
                 id: stored.id,

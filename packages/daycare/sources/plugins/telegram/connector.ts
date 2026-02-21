@@ -761,7 +761,6 @@ export class TelegramConnector implements Connector {
             const stored = await this.fileStore.saveFromPath({
                 name,
                 mimeType,
-                source: "telegram",
                 path: downloadedPath
             });
             await fs.rm(downloadedPath, { force: true });

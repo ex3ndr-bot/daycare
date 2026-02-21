@@ -5,6 +5,7 @@ import path from "node:path";
 import type { Tool } from "@mariozechner/pi-ai";
 import { describe, expect, it } from "vitest";
 
+import { UserHome } from "../../users/userHome.js";
 import { agentPromptBundledRead } from "./agentPromptBundledRead.js";
 import { agentSystemPrompt } from "./agentSystemPrompt.js";
 
@@ -37,25 +38,25 @@ describe("agentSystemPrompt", () => {
     it("renders bundled templates with prompt files from agent system data dir", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-system-prompt-build-"));
         try {
-            const soulPath = path.join(dir, "SOUL.md");
-            const userPath = path.join(dir, "USER.md");
-            const agentsPath = path.join(dir, "AGENTS.md");
-            const toolsPath = path.join(dir, "TOOLS.md");
-            const memoryPath = path.join(dir, "MEMORY.md");
+            const userHome = new UserHome(path.join(dir, "users"), "user-1");
+            const soulPath = path.join(userHome.knowledge, "SOUL.md");
+            const userPath = path.join(userHome.knowledge, "USER.md");
+            const agentsPath = path.join(userHome.knowledge, "AGENTS.md");
+            const toolsPath = path.join(userHome.knowledge, "TOOLS.md");
 
+            await mkdir(userHome.knowledge, { recursive: true });
             await writeFile(soulPath, "Soul prompt text\n", "utf8");
             await writeFile(userPath, "User prompt text\n", "utf8");
             await writeFile(agentsPath, "Agents prompt text\n", "utf8");
             await writeFile(toolsPath, "Tools prompt text\n", "utf8");
-            await writeFile(memoryPath, "Memory prompt text\n", "utf8");
 
             const agentSystem = {
                 config: {
                     current: {
                         dataDir: dir,
+                        usersDir: path.join(dir, "users"),
                         configDir: path.join(dir, ".daycare"),
                         agentsDir: path.join(dir, "agents"),
-                        workspaceDir: "/tmp/workspace",
                         features: {
                             noTools: false,
                             rlm: false,
@@ -85,6 +86,7 @@ describe("agentSystemPrompt", () => {
                     channelId: "channel-1",
                     userId: "user-1"
                 },
+                userHome,
                 agentSystem
             });
 
@@ -92,7 +94,6 @@ describe("agentSystemPrompt", () => {
             expect(rendered).toContain("Connector: telegram, channel: channel-1, user: user-1.");
             expect(rendered).toContain("Soul prompt text");
             expect(rendered).toContain("Tools prompt text");
-            expect(rendered).toContain("Memory prompt text");
         } finally {
             await rm(dir, { recursive: true, force: true });
         }
@@ -101,20 +102,20 @@ describe("agentSystemPrompt", () => {
     it("loads prompt sections internally from runtime context", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-system-prompt-sections-"));
         try {
-            const soulPath = path.join(dir, "SOUL.md");
-            const userPath = path.join(dir, "USER.md");
-            const agentsPath = path.join(dir, "AGENTS.md");
-            const toolsPath = path.join(dir, "TOOLS.md");
-            const memoryPath = path.join(dir, "MEMORY.md");
+            const userHome = new UserHome(path.join(dir, "users"), "user-1");
+            const soulPath = path.join(userHome.knowledge, "SOUL.md");
+            const userPath = path.join(userHome.knowledge, "USER.md");
+            const agentsPath = path.join(userHome.knowledge, "AGENTS.md");
+            const toolsPath = path.join(userHome.knowledge, "TOOLS.md");
             const configDir = path.join(dir, ".daycare");
             const agentsDir = path.join(dir, ".agents");
             const configSkillPath = path.join(configDir, "skills", "my-skill", "SKILL.md");
 
+            await mkdir(userHome.knowledge, { recursive: true });
             await writeFile(soulPath, "Soul prompt text\n", "utf8");
             await writeFile(userPath, "User prompt text\n", "utf8");
             await writeFile(agentsPath, "Agents prompt text\n", "utf8");
             await writeFile(toolsPath, "Tools prompt text\n", "utf8");
-            await writeFile(memoryPath, "Memory prompt text\n", "utf8");
             await mkdir(path.dirname(configSkillPath), { recursive: true });
             await writeFile(
                 configSkillPath,
@@ -125,9 +126,9 @@ describe("agentSystemPrompt", () => {
                 config: {
                     current: {
                         dataDir: dir,
+                        usersDir: path.join(dir, "users"),
                         configDir,
                         agentsDir,
-                        workspaceDir: "/tmp/workspace",
                         features: {
                             noTools: true,
                             rlm: true,
@@ -173,6 +174,7 @@ describe("agentSystemPrompt", () => {
                     description: "Helper agent",
                     systemPrompt: "Handle long-running research."
                 },
+                userHome,
                 agentSystem
             });
 

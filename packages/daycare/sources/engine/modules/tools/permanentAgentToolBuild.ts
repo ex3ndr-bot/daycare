@@ -11,7 +11,7 @@ import type { PermanentAgentSummary } from "../../agents/ops/agentPermanentTypes
 import { agentStateRead } from "../../agents/ops/agentStateRead.js";
 import { agentStateWrite } from "../../agents/ops/agentStateWrite.js";
 import { pathResolveSecure } from "../../permissions/pathResolveSecure.js";
-import { permissionClone } from "../../permissions/permissionClone.js";
+import { permissionBuildUser } from "../../permissions/permissionBuildUser.js";
 import { permissionTagsApply } from "../../permissions/permissionTagsApply.js";
 import { permissionTagsNormalize } from "../../permissions/permissionTagsNormalize.js";
 import { permissionTagsValidate } from "../../permissions/permissionTagsValidate.js";
@@ -50,7 +50,7 @@ const permanentAgentReturns: ToolResultContract<PermanentAgentResult> = {
 
 /**
  * Builds the create_permanent_agent tool to create or update permanent agents.
- * Expects: agent name + system prompt are provided; workspaceDir stays within the main workspace.
+ * Expects: agent name + system prompt are provided; workspaceDir stays within the owner user's home.
  */
 export function permanentAgentToolBuild(): ToolDefinition {
     return {
@@ -81,13 +81,14 @@ export function permanentAgentToolBuild(): ToolDefinition {
             const permissionTags = permissionTagsNormalize(payload.permissions);
             await permissionTagsValidate(toolContext.permissions, permissionTags);
 
-            const config = toolContext.agentSystem.config.current;
             const storage = toolContext.agentSystem.storage;
             const existingAgents = await agentPermanentList(storage);
             const resolvedAgent = resolveExistingAgent(existingAgents, payload.agentId, name);
             const agentId = resolvedAgent?.agentId ?? createId();
+            const ownerUserId = contextUserIdResolve(toolContext);
+            const ownerUserHome = toolContext.agentSystem.userHomeForUserId(ownerUserId);
             const resolvedWorkspaceDir = payload.workspaceDir
-                ? await resolveWorkspaceDir(config.workspaceDir, payload.workspaceDir)
+                ? await resolveWorkspaceDir(ownerUserHome.home, payload.workspaceDir)
                 : (resolvedAgent?.descriptor.workspaceDir ?? null);
 
             const descriptor = {
@@ -103,10 +104,10 @@ export function permanentAgentToolBuild(): ToolDefinition {
                 systemPrompt,
                 ...(resolvedWorkspaceDir ? { workspaceDir: resolvedWorkspaceDir } : {})
             };
-            const ownerUserId = contextUserIdResolve(toolContext);
+            const basePermissions = permissionBuildUser(ownerUserHome);
 
             if (resolvedAgent) {
-                await agentDescriptorWrite(storage, agentId, descriptor, ownerUserId, config.defaultPermissions);
+                await agentDescriptorWrite(storage, agentId, descriptor, ownerUserId, basePermissions);
                 toolContext.agentSystem.updateAgentDescriptor(agentId, descriptor);
 
                 const state = await agentStateRead(storage, agentId);
@@ -124,7 +125,7 @@ export function permanentAgentToolBuild(): ToolDefinition {
                 toolContext.agentSystem.updateAgentPermissions(agentId, nextState.permissions, nextState.updatedAt);
             } else {
                 const now = Date.now();
-                const permissions = updatePermissions(permissionClone(config.defaultPermissions), resolvedWorkspaceDir);
+                const permissions = updatePermissions(basePermissions, resolvedWorkspaceDir);
                 permissionTagsApply(permissions, permissionTags);
                 const state: AgentState = {
                     context: { messages: [] },
@@ -137,7 +138,7 @@ export function permanentAgentToolBuild(): ToolDefinition {
                     updatedAt: now,
                     state: "active"
                 };
-                await agentDescriptorWrite(storage, agentId, descriptor, ownerUserId, config.defaultPermissions);
+                await agentDescriptorWrite(storage, agentId, descriptor, ownerUserId, basePermissions);
                 await agentStateWrite(storage, agentId, state);
                 state.activeSessionId = await storage.sessions.create({
                     agentId,

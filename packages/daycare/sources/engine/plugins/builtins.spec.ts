@@ -8,7 +8,6 @@ import { configResolve } from "../../config/configResolve.js";
 import { FileStore } from "../../files/store.js";
 import { getLogger } from "../../log.js";
 import { plugin as braveSearch } from "../../plugins/brave-search/plugin.js";
-import { plugin as memory } from "../../plugins/memory/plugin.js";
 import { plugin as telegram } from "../../plugins/telegram/plugin.js";
 import { Processes } from "../processes/processes.js";
 import type { PluginRegistrar } from "./registry.js";
@@ -43,7 +42,7 @@ async function createApi<TSettings>(
 ): Promise<PluginApi<TSettings>> {
     const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
     const auth = new AuthStore(config);
-    const fileStore = new FileStore(config);
+    const fileStore = new FileStore(path.join(config.dataDir, "files"));
     const inference = {
         complete: async () => {
             throw new Error("Inference not available in tests");
@@ -89,22 +88,8 @@ describe("built-in plugins", () => {
         const braveInstance = await braveSearch.create(braveApi);
         await braveInstance.load?.();
 
-        const memorySettings = memory.settingsSchema.parse({});
-        const memoryApi = await createApi("memory-main", "memory", memorySettings, registrar, dir);
-        const memoryInstance = await memory.create(memoryApi);
-        await memoryInstance.load?.();
-
         expect(registrar.registerTool).toHaveBeenCalledWith(
             expect.objectContaining({ tool: expect.objectContaining({ name: "search_v2" }) })
-        );
-        expect(registrar.registerTool).toHaveBeenCalledWith(
-            expect.objectContaining({ tool: expect.objectContaining({ name: "memory_create_entity" }) })
-        );
-        expect(registrar.registerTool).toHaveBeenCalledWith(
-            expect.objectContaining({ tool: expect.objectContaining({ name: "memory_upsert_record" }) })
-        );
-        expect(registrar.registerTool).toHaveBeenCalledWith(
-            expect.objectContaining({ tool: expect.objectContaining({ name: "memory_list_entities" }) })
         );
     });
 

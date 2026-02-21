@@ -45,7 +45,7 @@ describeIf("nano-banana-pro image generation", () => {
             const auth = new AuthStore(config);
             await auth.setApiKey("nano-banana-pro", apiKey);
 
-            const fileStore = new FileStore(config);
+            const fileStore = new FileStore(path.join(config.dataDir, "files"));
             let registeredProvider: ImageGenerationProvider | null = null;
 
             const registrar = {

@@ -9,6 +9,7 @@ import { configResolve } from "../../../config/configResolve.js";
 import { Storage } from "../../../storage/storage.js";
 import { agentPermanentList } from "../../agents/ops/agentPermanentList.js";
 import { agentStateRead } from "../../agents/ops/agentStateRead.js";
+import { UserHome } from "../../users/userHome.js";
 import { permanentAgentToolBuild } from "./permanentAgentToolBuild.js";
 
 const toolCall = { id: "tool-1", name: "create_permanent_agent" };
@@ -19,8 +20,7 @@ describe("permanentAgentToolBuild", () => {
         try {
             const config = configResolve(
                 {
-                    engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir }
+                    engine: { dataDir: dir }
                 },
                 path.join(dir, "settings.json")
             );
@@ -65,8 +65,7 @@ describe("permanentAgentToolBuild", () => {
         try {
             const config = configResolve(
                 {
-                    engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir }
+                    engine: { dataDir: dir }
                 },
                 path.join(dir, "settings.json")
             );
@@ -102,8 +101,7 @@ describe("permanentAgentToolBuild", () => {
         try {
             const config = configResolve(
                 {
-                    engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir }
+                    engine: { dataDir: dir }
                 },
                 path.join(dir, "settings.json")
             );
@@ -141,8 +139,7 @@ describe("permanentAgentToolBuild", () => {
         try {
             const config = configResolve(
                 {
-                    engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir }
+                    engine: { dataDir: dir }
                 },
                 path.join(dir, "settings.json")
             );
@@ -194,6 +191,7 @@ function contextBuild(
         storage: Storage;
         updateAgentDescriptor: (agentId: string, descriptor: unknown) => void;
         updateAgentPermissions: (agentId: string, nextPermissions: SessionPermissions, updatedAt: number) => void;
+        userHomeForUserId?: (userId: string) => UserHome;
     }
 ): ToolExecutionContext {
     return {
@@ -210,7 +208,12 @@ function contextBuild(
         } as unknown as ToolExecutionContext["ctx"],
         source: "test",
         messageContext: {},
-        agentSystem: agentSystem as unknown as ToolExecutionContext["agentSystem"],
+        agentSystem: {
+            ...agentSystem,
+            userHomeForUserId:
+                agentSystem.userHomeForUserId ??
+                ((userId: string) => new UserHome(agentSystem.config.current.usersDir, userId))
+        } as unknown as ToolExecutionContext["agentSystem"],
         heartbeats: null as unknown as ToolExecutionContext["heartbeats"]
     };
 }

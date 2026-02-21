@@ -12,10 +12,7 @@ describe("agentSystemPromptWrite", () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-system-prompt-"));
         const agentId = createId();
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
 
             const firstPrompt = "System prompt v1";
             const firstWrite = await agentSystemPromptWrite(config, agentId, firstPrompt);

@@ -28,6 +28,7 @@ describe("userHomeEnsure", () => {
             userHome.apps,
             userHome.home,
             userHome.desktop,
+            userHome.downloads,
             userHome.documents,
             userHome.developer,
             userHome.knowledge
@@ -42,8 +43,7 @@ describe("userHomeEnsure", () => {
             knowledgePaths.soulPath,
             knowledgePaths.userPath,
             knowledgePaths.agentsPath,
-            knowledgePaths.toolsPath,
-            knowledgePaths.memoryPath
+            knowledgePaths.toolsPath
         ];
         for (const filePath of filePaths) {
             const fileStat = await stat(filePath);

@@ -23,8 +23,7 @@ describe("FileStore", () => {
         const saved = await store.saveBuffer({
             name: "hello.txt",
             mimeType: "text/plain",
-            data: Buffer.from("hello"),
-            source: "test"
+            data: Buffer.from("hello")
         });
 
         expect(saved.path.startsWith(path.resolve(basePath))).toBe(true);

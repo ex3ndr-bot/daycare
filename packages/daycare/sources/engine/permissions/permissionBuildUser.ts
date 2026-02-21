@@ -9,13 +9,13 @@ export function permissionBuildUser(userHome: UserHome): SessionPermissions {
     const knowledgePaths = userHome.knowledgePaths();
     const writeDirs = [
         userHome.desktop,
+        userHome.downloads,
         userHome.documents,
         userHome.developer,
         knowledgePaths.soulPath,
         knowledgePaths.userPath,
         knowledgePaths.agentsPath,
-        knowledgePaths.toolsPath,
-        knowledgePaths.memoryPath
+        knowledgePaths.toolsPath
     ];
     const readDirs = [...writeDirs, userHome.skills];
     return {

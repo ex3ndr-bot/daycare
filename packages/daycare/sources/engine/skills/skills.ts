@@ -31,7 +31,7 @@ export class Skills {
         const [coreSkills, configSkills, userSkills, pluginSkills] = await Promise.all([
             skillListCore(),
             skillListConfig(this.configRoot),
-            skillListUser(this.userRoot),
+            this.userRoot ? skillListUser(this.userRoot) : Promise.resolve([]),
             skillListRegistered(this.pluginManager.listRegisteredSkills())
         ]);
         return [...coreSkills, ...configSkills, ...userSkills, ...pluginSkills];

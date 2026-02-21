@@ -12,8 +12,10 @@ import { agentDescriptorWrite } from "../../agents/ops/agentDescriptorWrite.js";
 import { agentStateWrite } from "../../agents/ops/agentStateWrite.js";
 import type { Crons } from "../../cron/crons.js";
 import type { HeartbeatDefinition } from "../../heartbeat/heartbeatTypes.js";
+import { permissionBuildUser } from "../../permissions/permissionBuildUser.js";
 import type { Signals } from "../../signals/signals.js";
 import type { SignalSubscription } from "../../signals/signalTypes.js";
+import { UserHome } from "../../users/userHome.js";
 import { topologyTool } from "./topologyToolBuild.js";
 
 const toolCall = { id: "tool-1", name: "topology" };
@@ -24,8 +26,7 @@ describe("topologyTool", () => {
         try {
             const config = configResolve(
                 {
-                    engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir }
+                    engine: { dataDir: dir }
                 },
                 path.join(dir, "settings.json")
             );
@@ -85,25 +86,37 @@ describe("topologyTool", () => {
         try {
             const config = configResolve(
                 {
-                    engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir }
+                    engine: { dataDir: dir }
                 },
                 path.join(dir, "settings.json")
             );
 
-            await agentDescriptorWrite(config, "agent-caller", {
-                type: "subagent",
-                id: "agent-caller",
-                parentAgentId: "agent-other",
-                name: "monitor"
-            });
-            await agentStateWrite(config, "agent-caller", stateBuild(config.defaultPermissions, 50));
+            const permissions = permissionBuildUser(new UserHome(config.usersDir, "user-1"));
+            await agentDescriptorWrite(
+                storageResolve(config),
+                "agent-caller",
+                {
+                    type: "subagent",
+                    id: "agent-caller",
+                    parentAgentId: "agent-other",
+                    name: "monitor"
+                },
+                "user-1",
+                permissions
+            );
+            await agentStateWrite(config, "agent-caller", stateBuild(permissions, 50));
 
-            await agentDescriptorWrite(config, "agent-other", {
-                type: "system",
-                tag: "cron"
-            });
-            await agentStateWrite(config, "agent-other", stateBuild(config.defaultPermissions, 10));
+            await agentDescriptorWrite(
+                storageResolve(config),
+                "agent-other",
+                {
+                    type: "system",
+                    tag: "cron"
+                },
+                "user-1",
+                permissions
+            );
+            await agentStateWrite(config, "agent-other", stateBuild(permissions, 10));
 
             const tool = topologyTool(
                 {
@@ -232,19 +245,25 @@ describe("topologyTool", () => {
         try {
             const config = configResolve(
                 {
-                    engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir }
+                    engine: { dataDir: dir }
                 },
                 path.join(dir, "settings.json")
             );
 
-            await agentDescriptorWrite(config, "agent-caller", {
-                type: "user",
-                connector: "telegram",
-                userId: "u1",
-                channelId: "c1"
-            });
-            await agentStateWrite(config, "agent-caller", stateBuild(config.defaultPermissions, 100));
+            const permissions = permissionBuildUser(new UserHome(config.usersDir, "user-1"));
+            await agentDescriptorWrite(
+                storageResolve(config),
+                "agent-caller",
+                {
+                    type: "user",
+                    connector: "telegram",
+                    userId: "u1",
+                    channelId: "c1"
+                },
+                "user-1",
+                permissions
+            );
+            await agentStateWrite(config, "agent-caller", stateBuild(permissions, 100));
 
             const tool = topologyTool(
                 {
@@ -332,7 +351,7 @@ function contextBuild(
         auth: null as unknown as ToolExecutionContext["auth"],
         logger: console as unknown as ToolExecutionContext["logger"],
         assistant: null,
-        permissions: config.defaultPermissions,
+        permissions: permissionBuildUser(new UserHome(config.usersDir, options.callerUserId)),
         agent: { id: options.callerAgentId } as unknown as ToolExecutionContext["agent"],
         ctx: {
             agentId: options.callerAgentId,

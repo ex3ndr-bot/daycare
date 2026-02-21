@@ -213,7 +213,7 @@ async function setupProvider(providerId: string, config: ProviderConfig) {
     const providerManager = new ProviderManager({
         config: configModule,
         auth,
-        fileStore: new FileStore(resolvedConfig),
+        fileStore: new FileStore(path.join(resolvedConfig.dataDir, "files")),
         inferenceRegistry,
         imageRegistry
     });

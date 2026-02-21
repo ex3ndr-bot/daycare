@@ -12,6 +12,7 @@ export class UserHome {
     readonly apps: string;
     readonly home: string;
     readonly desktop: string;
+    readonly downloads: string;
     readonly documents: string;
     readonly developer: string;
     readonly knowledge: string;
@@ -22,6 +23,7 @@ export class UserHome {
         this.apps = path.join(this.root, "apps");
         this.home = path.join(this.root, "home");
         this.desktop = path.join(this.home, "desktop");
+        this.downloads = path.join(this.home, "downloads");
         this.documents = path.join(this.home, "documents");
         this.developer = path.join(this.home, "developer");
         this.knowledge = path.join(this.home, "knowledge");
@@ -32,8 +34,7 @@ export class UserHome {
             soulPath: path.join(this.knowledge, "SOUL.md"),
             userPath: path.join(this.knowledge, "USER.md"),
             agentsPath: path.join(this.knowledge, "AGENTS.md"),
-            toolsPath: path.join(this.knowledge, "TOOLS.md"),
-            memoryPath: path.join(this.knowledge, "MEMORY.md")
+            toolsPath: path.join(this.knowledge, "TOOLS.md")
         };
     }
 }

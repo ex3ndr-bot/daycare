@@ -1,5 +1,3 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import type { ToolResultMessage } from "@mariozechner/pi-ai";
 import { Type } from "@sinclair/typebox";
 import type { ToolDefinition, ToolResultContract } from "@/types";
@@ -22,7 +20,7 @@ const imageGenerationResultSchema = Type.Object(
         summary: Type.String(),
         provider: Type.String(),
         fileCount: Type.Number(),
-        workspaceDir: Type.String()
+        downloadsDir: Type.String()
     },
     { additionalProperties: false }
 );
@@ -31,13 +29,51 @@ type ImageGenerationResult = {
     summary: string;
     provider: string;
     fileCount: number;
-    workspaceDir: string;
+    downloadsDir: string;
 };
 
 const imageGenerationReturns: ToolResultContract<ImageGenerationResult> = {
     schema: imageGenerationResultSchema,
     toLLMText: (result) => result.summary
 };
+
+const imageExtensionByMimeType: Record<string, string> = {
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/png": ".png",
+    "image/gif": ".gif",
+    "image/webp": ".webp",
+    "image/svg+xml": ".svg",
+    "image/bmp": ".bmp",
+    "image/tiff": ".tiff",
+    "image/avif": ".avif",
+    "image/x-icon": ".ico",
+    "image/vnd.microsoft.icon": ".ico"
+};
+
+function imageExtensionResolve(mimeType: string): string {
+    const normalized = mimeType.trim().toLowerCase();
+    if (normalized.length === 0) {
+        return ".bin";
+    }
+    const mapped = imageExtensionByMimeType[normalized];
+    if (mapped) {
+        return mapped;
+    }
+    if (!normalized.startsWith("image/")) {
+        return ".bin";
+    }
+    const subtype = normalized.slice("image/".length).split(";")[0]?.trim() ?? "";
+    const baseSubtype = subtype.split("+")[0]?.trim() ?? "";
+    if (baseSubtype.length === 0) {
+        return ".bin";
+    }
+    const safeSubtype = baseSubtype.replace(/[^a-z0-9.-]/g, "");
+    if (safeSubtype.length === 0) {
+        return ".bin";
+    }
+    return safeSubtype.startsWith("x-") ? `.${safeSubtype.slice(2)}` : `.${safeSubtype}`;
+}
 
 export function buildImageGenerationTool(imageRegistry: ImageGenerationRegistry): ToolDefinition {
     return {
@@ -76,32 +112,33 @@ export function buildImageGenerationTool(imageRegistry: ImageGenerationRegistry)
                 }
             );
 
-            const workspaceDir = toolContext.permissions.workingDir;
-            const workspaceFilesDir = path.join(workspaceDir, "files");
-            await fs.mkdir(workspaceFilesDir, { recursive: true });
+            const downloadsDir = toolContext.fileStore.resolvePath();
             const createdAt = new Date();
             const timestamp = createdAt.toISOString().replace(/[:.]/g, "-");
 
-            const summary = `Generated ${result.files.length} image(s) with ${providerId}. Saved under ${workspaceFilesDir}.`;
+            const summary = `Generated ${result.files.length} image(s) with ${providerId}. Saved under ${downloadsDir}.`;
             const content: Array<{ type: "text"; text: string }> = [
                 {
                     type: "text",
                     text: summary
                 }
             ];
-            const workspaceFiles: Array<{ name: string; path: string; mimeType: string }> = [];
+            const savedFiles: Array<{ id: string; name: string; path: string; mimeType: string; size: number }> = [];
             for (const [index, file] of result.files.entries()) {
                 if (!file.mimeType.startsWith("image/")) {
                     continue;
                 }
                 const suffix = result.files.length > 1 ? `-${index + 1}` : "";
-                const filename = `${timestamp}${suffix}.png`;
-                const outputPath = path.join(workspaceFilesDir, filename);
-                await fs.copyFile(file.path, outputPath);
-                workspaceFiles.push({ name: filename, path: outputPath, mimeType: file.mimeType });
+                const extension = imageExtensionResolve(file.mimeType);
+                const saved = await toolContext.fileStore.saveFromPath({
+                    name: `${timestamp}${suffix}${extension}`,
+                    mimeType: file.mimeType,
+                    path: file.path
+                });
+                savedFiles.push(saved);
                 content.push({
                     type: "text",
-                    text: `Image file: ${outputPath} (${file.mimeType})`
+                    text: `Image file: ${saved.path} (${file.mimeType})`
                 });
             }
 
@@ -118,9 +155,15 @@ export function buildImageGenerationTool(imageRegistry: ImageGenerationRegistry)
                         mimeType: file.mimeType,
                         size: file.size
                     })),
-                    workspace: {
-                        dir: workspaceFilesDir,
-                        files: workspaceFiles
+                    downloads: {
+                        dir: downloadsDir,
+                        files: savedFiles.map((file) => ({
+                            id: file.id,
+                            name: file.name,
+                            path: file.path,
+                            mimeType: file.mimeType,
+                            size: file.size
+                        }))
                     }
                 },
                 isError: false,
@@ -132,8 +175,8 @@ export function buildImageGenerationTool(imageRegistry: ImageGenerationRegistry)
                 typedResult: {
                     summary,
                     provider: providerId,
-                    fileCount: workspaceFiles.length,
-                    workspaceDir: workspaceFilesDir
+                    fileCount: savedFiles.length,
+                    downloadsDir
                 }
             };
         }

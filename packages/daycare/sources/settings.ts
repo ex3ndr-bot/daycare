@@ -82,7 +82,6 @@ export type SettingsConfig = {
 };
 
 export type AssistantSettings = {
-    workspaceDir?: string;
     systemPrompt?: string;
 };
 

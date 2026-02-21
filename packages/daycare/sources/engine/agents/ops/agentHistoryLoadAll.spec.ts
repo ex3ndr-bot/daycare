@@ -7,6 +7,8 @@ import { describe, expect, it } from "vitest";
 import { configResolve } from "../../../config/configResolve.js";
 import { storageResolve } from "../../../storage/storageResolve.js";
 import { storageUpgrade } from "../../../storage/storageUpgrade.js";
+import { permissionBuildUser } from "../../permissions/permissionBuildUser.js";
+import { UserHome } from "../../users/userHome.js";
 import { agentDescriptorWrite } from "./agentDescriptorWrite.js";
 import { agentHistoryAppend } from "./agentHistoryAppend.js";
 import { agentHistoryLoadAll } from "./agentHistoryLoadAll.js";
@@ -18,16 +20,21 @@ describe("agentHistoryLoadAll", () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-agent-history-all-"));
         const agentId = createId();
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             await storageUpgrade(config);
-            await agentDescriptorWrite(config, agentId, {
-                type: "cron",
-                id: agentId,
-                name: "history"
-            });
+            const userId = createId();
+            const permissions = permissionBuildUser(new UserHome(config.usersDir, userId));
+            await agentDescriptorWrite(
+                storageResolve(config),
+                agentId,
+                {
+                    type: "cron",
+                    id: agentId,
+                    name: "history"
+                },
+                userId,
+                permissions
+            );
 
             const initial = await agentStateRead(config, agentId);
             if (!initial) {

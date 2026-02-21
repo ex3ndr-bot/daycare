@@ -15,7 +15,6 @@ import { openSecure, pathResolveSecure } from "../../permissions/pathResolveSecu
 
 const schema = Type.Object(
     {
-        fileId: Type.Optional(Type.String({ minLength: 1 })),
         path: Type.Optional(Type.String({ minLength: 1 })),
         name: Type.Optional(Type.String({ minLength: 1 })),
         mimeType: Type.Optional(Type.String({ minLength: 1 })),
@@ -30,7 +29,6 @@ const schema = Type.Object(
 );
 
 type SendFileArgs = {
-    fileId?: string;
     path?: string;
     name?: string;
     mimeType?: string;
@@ -150,27 +148,9 @@ export function buildSendFileTool(): ToolDefinition<typeof schema> {
 }
 
 async function resolveFile(payload: SendFileArgs, context: ToolExecutionContext): Promise<FileReference> {
-    const hasFileId = typeof payload.fileId === "string" && payload.fileId.length > 0;
     const hasPath = typeof payload.path === "string" && payload.path.length > 0;
-    if (!hasFileId && !hasPath) {
-        throw new Error("fileId or path is required");
-    }
-    if (hasFileId && hasPath) {
-        throw new Error("Provide only one of fileId or path");
-    }
-
-    if (hasFileId) {
-        const stored = await context.fileStore.get(payload.fileId!);
-        if (!stored) {
-            throw new Error(`Unknown file id: ${payload.fileId}`);
-        }
-        return {
-            id: stored.id,
-            name: stored.name,
-            mimeType: stored.mimeType,
-            size: stored.size,
-            path: stored.path
-        };
+    if (!hasPath) {
+        throw new Error("path is required");
     }
 
     // Securely resolve path, following symlinks and verifying containment
@@ -203,7 +183,6 @@ async function resolveFile(payload: SendFileArgs, context: ToolExecutionContext)
     const stored = await context.fileStore.saveFromPath({
         name,
         mimeType,
-        source: "send_file",
         path: resolved
     });
     return {

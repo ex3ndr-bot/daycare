@@ -14,6 +14,7 @@ describe("UserHome", () => {
         expect(userHome.apps).toBe(path.join(usersDir, "usr_123", "apps"));
         expect(userHome.home).toBe(path.join(usersDir, "usr_123", "home"));
         expect(userHome.desktop).toBe(path.join(usersDir, "usr_123", "home", "desktop"));
+        expect(userHome.downloads).toBe(path.join(usersDir, "usr_123", "home", "downloads"));
         expect(userHome.documents).toBe(path.join(usersDir, "usr_123", "home", "documents"));
         expect(userHome.developer).toBe(path.join(usersDir, "usr_123", "home", "developer"));
         expect(userHome.knowledge).toBe(path.join(usersDir, "usr_123", "home", "knowledge"));
@@ -25,8 +26,7 @@ describe("UserHome", () => {
             soulPath: path.join(userHome.knowledge, "SOUL.md"),
             userPath: path.join(userHome.knowledge, "USER.md"),
             agentsPath: path.join(userHome.knowledge, "AGENTS.md"),
-            toolsPath: path.join(userHome.knowledge, "TOOLS.md"),
-            memoryPath: path.join(userHome.knowledge, "MEMORY.md")
+            toolsPath: path.join(userHome.knowledge, "TOOLS.md")
         });
     });
 });

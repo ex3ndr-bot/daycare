@@ -1,4 +1,4 @@
-import type { Context } from "@/types";
+import type { Context, SessionPermissions } from "@/types";
 import { getLogger } from "../../../log.js";
 import { stringSlugify } from "../../../utils/stringSlugify.js";
 import { taskIdIsSafe } from "../../../utils/taskIdIsSafe.js";
@@ -23,7 +23,7 @@ export class HeartbeatScheduler {
     private onError?: HeartbeatSchedulerOptions["onError"];
     private onGatePermissionRequest?: HeartbeatSchedulerOptions["onGatePermissionRequest"];
     private onTaskComplete?: HeartbeatSchedulerOptions["onTaskComplete"];
-    private defaultPermissions: HeartbeatSchedulerOptions["defaultPermissions"];
+    private resolveDefaultPermissions: HeartbeatSchedulerOptions["resolveDefaultPermissions"];
     private resolvePermissions?: HeartbeatSchedulerOptions["resolvePermissions"];
     private gateCheck: HeartbeatSchedulerOptions["gateCheck"];
     private timer: NodeJS.Timeout | null = null;
@@ -40,7 +40,7 @@ export class HeartbeatScheduler {
         this.onError = options.onError;
         this.onGatePermissionRequest = options.onGatePermissionRequest;
         this.onTaskComplete = options.onTaskComplete;
-        this.defaultPermissions = options.defaultPermissions;
+        this.resolveDefaultPermissions = options.resolveDefaultPermissions;
         this.resolvePermissions = options.resolvePermissions;
         this.gateCheck = options.gateCheck ?? execGateCheck;
         logger.debug("init: HeartbeatScheduler initialized");
@@ -210,7 +210,7 @@ export class HeartbeatScheduler {
             if (filtered.length === 0) {
                 return { ran: 0, taskIds: [] };
             }
-            const basePermissions = (await this.resolvePermissions?.()) ?? this.defaultPermissions;
+            const basePermissions = (await this.resolvePermissions?.()) ?? (await this.resolveDefaultPermissions());
             const gated = await this.filterByGate(filtered, basePermissions);
             if (gated.length === 0) {
                 return { ran: 0, taskIds: [] };
@@ -257,7 +257,7 @@ export class HeartbeatScheduler {
 
     private async filterByGate(
         tasks: HeartbeatDefinition[],
-        basePermissions: HeartbeatSchedulerOptions["defaultPermissions"]
+        basePermissions: SessionPermissions
     ): Promise<HeartbeatDefinition[]> {
         const eligible: HeartbeatDefinition[] = [];
         for (const task of tasks) {
@@ -288,7 +288,8 @@ export class HeartbeatScheduler {
                     continue;
                 }
 
-                const refreshedBasePermissions = (await this.resolvePermissions?.()) ?? this.defaultPermissions;
+                const refreshedBasePermissions =
+                    (await this.resolvePermissions?.()) ?? (await this.resolveDefaultPermissions());
                 permissions = permissionClone(refreshedBasePermissions);
                 permissionCheck = await gatePermissionsCheck(permissions, task.gate.permissions);
                 if (!permissionCheck.allowed) {

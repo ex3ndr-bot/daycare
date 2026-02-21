@@ -82,8 +82,7 @@ export function buildMermaidPngTool(): ToolDefinition<typeof schema> {
             const stored = await context.fileStore.saveBuffer({
                 name: mermaidPngNameResolve(payload.name),
                 mimeType: "image/png",
-                data: png,
-                source: "generate_mermaid_png"
+                data: png
             });
 
             const summary = `Generated Mermaid PNG: ${stored.path}`;

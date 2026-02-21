@@ -40,7 +40,7 @@ describe("CronScheduler", () => {
             config: configModule(tempDir),
             repository: storage.cronTasks,
             onTask,
-            defaultPermissions: defaultPermissions(tempDir)
+            resolveDefaultPermissions: () => defaultPermissions(tempDir)
         });
 
         await scheduler.start();
@@ -68,7 +68,7 @@ describe("CronScheduler", () => {
             config: configModule(tempDir),
             repository: storage.cronTasks,
             onTask,
-            defaultPermissions: defaultPermissions(tempDir)
+            resolveDefaultPermissions: () => defaultPermissions(tempDir)
         });
 
         await scheduler.start();
@@ -104,7 +104,7 @@ describe("CronScheduler", () => {
             config,
             repository: storage.cronTasks,
             onTask: vi.fn(),
-            defaultPermissions: defaultPermissions(tempDir)
+            resolveDefaultPermissions: () => defaultPermissions(tempDir)
         });
 
         await scheduler.start();
@@ -128,7 +128,7 @@ describe("CronScheduler", () => {
             config: configModule(tempDir),
             repository: storage.cronTasks,
             onTask,
-            defaultPermissions: defaultPermissions(tempDir)
+            resolveDefaultPermissions: () => defaultPermissions(tempDir)
         });
 
         await scheduler.start();
@@ -145,7 +145,7 @@ describe("CronScheduler", () => {
             config: configModule(tempDir),
             repository: storage.cronTasks,
             onTask,
-            defaultPermissions: defaultPermissions(tempDir)
+            resolveDefaultPermissions: () => defaultPermissions(tempDir)
         });
 
         await scheduler.start();
@@ -178,7 +178,7 @@ describe("CronScheduler", () => {
             config: configModule(tempDir),
             repository: storage.cronTasks,
             onTask,
-            defaultPermissions: defaultPermissions(tempDir)
+            resolveDefaultPermissions: () => defaultPermissions(tempDir)
         });
 
         await scheduler.start();
@@ -212,7 +212,7 @@ describe("CronScheduler", () => {
                 throw new Error("Task failed");
             },
             onError,
-            defaultPermissions: defaultPermissions(tempDir)
+            resolveDefaultPermissions: () => defaultPermissions(tempDir)
         });
 
         await scheduler.start();
@@ -246,7 +246,7 @@ describe("CronScheduler", () => {
             repository: storage.cronTasks,
             onTask,
             gateCheck,
-            defaultPermissions: defaultPermissions(tempDir)
+            resolveDefaultPermissions: () => defaultPermissions(tempDir)
         });
 
         await scheduler.start();
@@ -281,7 +281,7 @@ describe("CronScheduler", () => {
             repository: storage.cronTasks,
             onTask,
             gateCheck,
-            defaultPermissions: defaultPermissions(tempDir)
+            resolveDefaultPermissions: () => defaultPermissions(tempDir)
         });
 
         await scheduler.start();
@@ -329,7 +329,7 @@ describe("CronScheduler", () => {
             resolvePermissions,
             onGatePermissionRequest,
             gateCheck,
-            defaultPermissions: defaultPermissions(tempDir)
+            resolveDefaultPermissions: () => defaultPermissions(tempDir)
         });
 
         await scheduler.start();
@@ -370,7 +370,7 @@ describe("CronScheduler", () => {
             onTask,
             onGatePermissionRequest: vi.fn(async () => false),
             gateCheck,
-            defaultPermissions: defaultPermissions(tempDir)
+            resolveDefaultPermissions: () => defaultPermissions(tempDir)
         });
 
         await scheduler.start();

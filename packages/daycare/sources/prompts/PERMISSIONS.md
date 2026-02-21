@@ -18,7 +18,6 @@ Bias toward action. If you can do it, do it. Finish unblocked work first, then r
   - `{{userPath}}` (USER memory)
   - `{{agentsPath}}` (AGENTS — workspace operating rules and routines)
   - `{{toolsPath}}` (TOOLS — learned tool knowledge)
-  - `{{memoryPath}}` (MEMORY — durable working notes and active context)
 {{#if isForeground}}
 {{#if skillsPath}}
   - `{{skillsPath}}` (skills, recursive)

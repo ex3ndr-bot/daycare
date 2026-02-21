@@ -1,3 +1,5 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import type { AssistantMessage, Context, Tool, ToolCall } from "@mariozechner/pi-ai";
 import { describe, expect, it, vi } from "vitest";
 import type { AgentSkill, Connector, ToolExecutionResult } from "@/types";
@@ -1020,6 +1022,9 @@ describe("agentLoopRun say tag", () => {
     });
 
     it("attaches <file> tags to the final <say> block", async () => {
+        const tmpDir = await fs.mkdtemp("/tmp/daycare-file-tag-");
+        const reportPath = path.join(tmpDir, "file-1__report.pdf");
+        await fs.writeFile(reportPath, "report");
         const connectorSend = vi.fn(async () => undefined);
         const connector = connectorBuild(connectorSend);
         const entry = entryBuild();
@@ -1028,11 +1033,7 @@ describe("agentLoopRun say tag", () => {
             assistantMessageBuild([
                 {
                     type: "text",
-                    text: [
-                        "<say>first</say>",
-                        "<say>second</say>",
-                        '<file mode="doc">/tmp/file-1__report.pdf</file>'
-                    ].join("")
+                    text: ["<say>first</say>", "<say>second</say>", `<file mode="doc">${reportPath}</file>`].join("")
                 }
             ])
         ]);
@@ -1040,41 +1041,50 @@ describe("agentLoopRun say tag", () => {
             throw new Error("unexpected");
         });
 
-        await agentLoopRun(
-            optionsBuild({
-                entry,
-                context,
-                connector,
-                inferenceRouter,
-                toolResolver,
-                say: true,
-                fileStore: fileStoreBuild()
-            })
-        );
+        try {
+            await agentLoopRun(
+                optionsBuild({
+                    entry,
+                    context,
+                    connector,
+                    inferenceRouter,
+                    toolResolver,
+                    say: true,
+                    fileStore: fileStoreBuild()
+                })
+            );
 
-        expect(connectorSend).toHaveBeenCalledTimes(2);
-        expect(connectorSend).toHaveBeenNthCalledWith(1, "channel-1", {
-            text: "first",
-            files: undefined,
-            replyToMessageId: undefined
-        });
-        expect(connectorSend).toHaveBeenNthCalledWith(2, "channel-1", {
-            text: "second",
-            files: [
-                {
-                    id: "file-1",
-                    name: "report.pdf",
-                    mimeType: "application/pdf",
-                    size: 10,
-                    path: "/tmp/file-1__report.pdf",
-                    sendAs: "document"
-                }
-            ],
-            replyToMessageId: undefined
-        });
+            expect(connectorSend).toHaveBeenCalledTimes(2);
+            expect(connectorSend).toHaveBeenNthCalledWith(1, "channel-1", {
+                text: "first",
+                files: undefined,
+                replyToMessageId: undefined
+            });
+            expect(connectorSend).toHaveBeenNthCalledWith(2, "channel-1", {
+                text: "second",
+                files: [
+                    {
+                        id: "file-1",
+                        name: "file-1__report.pdf",
+                        mimeType: "application/pdf",
+                        size: 10,
+                        path: expect.stringMatching(
+                            /(?:\/private)?\/tmp\/daycare-file-tag-[^/]+\/file-1__report\.pdf$/
+                        ),
+                        sendAs: "document"
+                    }
+                ],
+                replyToMessageId: undefined
+            });
+        } finally {
+            await fs.rm(tmpDir, { recursive: true, force: true });
+        }
     });
 
     it("sends files with null text when only <file> tags exist in say mode", async () => {
+        const tmpDir = await fs.mkdtemp("/tmp/daycare-file-tag-");
+        const reportPath = path.join(tmpDir, "file-1__report.pdf");
+        await fs.writeFile(reportPath, "report");
         const connectorSend = vi.fn(async () => undefined);
         const connector = connectorBuild(connectorSend);
         const entry = entryBuild();
@@ -1083,7 +1093,7 @@ describe("agentLoopRun say tag", () => {
             assistantMessageBuild([
                 {
                     type: "text",
-                    text: "thinking... <file>/tmp/file-1__report.pdf</file>"
+                    text: `thinking... <file>${reportPath}</file>`
                 }
             ])
         ]);
@@ -1091,33 +1101,39 @@ describe("agentLoopRun say tag", () => {
             throw new Error("unexpected");
         });
 
-        await agentLoopRun(
-            optionsBuild({
-                entry,
-                context,
-                connector,
-                inferenceRouter,
-                toolResolver,
-                say: true,
-                fileStore: fileStoreBuild()
-            })
-        );
+        try {
+            await agentLoopRun(
+                optionsBuild({
+                    entry,
+                    context,
+                    connector,
+                    inferenceRouter,
+                    toolResolver,
+                    say: true,
+                    fileStore: fileStoreBuild()
+                })
+            );
 
-        expect(connectorSend).toHaveBeenCalledTimes(1);
-        expect(connectorSend).toHaveBeenCalledWith("channel-1", {
-            text: null,
-            files: [
-                {
-                    id: "file-1",
-                    name: "report.pdf",
-                    mimeType: "application/pdf",
-                    size: 10,
-                    path: "/tmp/file-1__report.pdf",
-                    sendAs: "auto"
-                }
-            ],
-            replyToMessageId: undefined
-        });
+            expect(connectorSend).toHaveBeenCalledTimes(1);
+            expect(connectorSend).toHaveBeenCalledWith("channel-1", {
+                text: null,
+                files: [
+                    {
+                        id: "file-1",
+                        name: "file-1__report.pdf",
+                        mimeType: "application/pdf",
+                        size: 10,
+                        path: expect.stringMatching(
+                            /(?:\/private)?\/tmp\/daycare-file-tag-[^/]+\/file-1__report\.pdf$/
+                        ),
+                        sendAs: "auto"
+                    }
+                ],
+                replyToMessageId: undefined
+            });
+        } finally {
+            await fs.rm(tmpDir, { recursive: true, force: true });
+        }
     });
 });
 
@@ -1167,9 +1183,9 @@ function optionsBuild(params: {
             state: {
                 inferenceSessionId: params.inferenceSessionId ?? "session-agent-1",
                 permissions: {
-                    workingDir: "/workspace",
-                    writeDirs: ["/workspace"],
-                    readDirs: ["/workspace"],
+                    workingDir: "/tmp",
+                    writeDirs: ["/tmp"],
+                    readDirs: ["/tmp"],
                     network: false,
                     events: false
                 }
@@ -1345,18 +1361,13 @@ function toolResultTextBuild(toolCallId: string, toolName: string, text: string)
 
 function fileStoreBuild(): FileStore {
     return {
-        get: async (id: string) => {
-            if (id !== "file-1") {
-                return null;
-            }
+        saveFromPath: async (options: { name: string; mimeType: string; path: string }) => {
             return {
                 id: "file-1",
-                name: "report.pdf",
-                path: "/tmp/file-1__report.pdf",
-                mimeType: "application/pdf",
-                size: 10,
-                source: "test",
-                createdAt: "2026-01-01T00:00:00.000Z"
+                name: options.name,
+                path: options.path,
+                mimeType: options.mimeType,
+                size: 10
             };
         }
     } as unknown as FileStore;

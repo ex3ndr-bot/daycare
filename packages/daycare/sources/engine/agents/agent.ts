@@ -26,9 +26,6 @@ import { rlmToolResultBuild } from "../modules/rlm/rlmToolResultBuild.js";
 import type { ToolResolverApi } from "../modules/toolResolver.js";
 import { toolListContextBuild } from "../modules/tools/toolListContextBuild.js";
 import { permissionBuildUser } from "../permissions/permissionBuildUser.js";
-import { permissionClone } from "../permissions/permissionClone.js";
-import { permissionEnsureDefaultFile } from "../permissions/permissionEnsureDefaultFile.js";
-import { permissionMergeDefault } from "../permissions/permissionMergeDefault.js";
 import { permissionTagsApply } from "../permissions/permissionTagsApply.js";
 import { signalMessageBuild } from "../signals/signalMessageBuild.js";
 import { Skills } from "../skills/skills.js";
@@ -84,7 +81,7 @@ export class Agent {
     private processing = false;
     private started = false;
     private inferenceAbortController: AbortController | null = null;
-    private readonly userHome: UserHome | null;
+    private readonly userHome: UserHome;
     private readonly fileStore: FileStore;
 
     private constructor(
@@ -94,16 +91,19 @@ export class Agent {
         state: AgentState,
         inbox: AgentInbox,
         agentSystem: AgentSystem,
-        userHome?: UserHome | null
+        userHome: UserHome
     ) {
+        if (!userHome) {
+            throw new Error("Agent user home is required.");
+        }
         this.id = id;
         this.userId = userId;
         this.descriptor = descriptor;
         this.state = state;
         this.inbox = inbox;
         this.agentSystem = agentSystem;
-        this.userHome = userHome ?? null;
-        this.fileStore = this.userHome ? new FileStore(this.userHome.desktop) : this.agentSystem.fileStore;
+        this.userHome = userHome;
+        this.fileStore = new FileStore(this.userHome.downloads);
     }
 
     /**
@@ -116,22 +116,19 @@ export class Agent {
         userId: string,
         inbox: AgentInbox,
         agentSystem: AgentSystem,
-        userHome?: UserHome | null
+        userHome: UserHome
     ): Promise<Agent> {
         if (!cuid2Is(agentId)) {
             throw new Error("Agent id must be a cuid2 value.");
         }
-        if (userHome) {
-            await userHomeEnsure(userHome);
-        }
+        await userHomeEnsure(userHome);
         const now = Date.now();
+        const basePermissions = permissionBuildUser(userHome);
         const state: AgentState = {
             context: { messages: [] },
             activeSessionId: null,
             inferenceSessionId: createId(),
-            permissions: userHome
-                ? permissionBuildUser(userHome)
-                : permissionClone(agentSystem.config.current.defaultPermissions),
+            permissions: basePermissions,
             tokens: null,
             stats: {},
             createdAt: now,
@@ -140,13 +137,7 @@ export class Agent {
         };
 
         const agent = new Agent(agentId, userId, descriptor, state, inbox, agentSystem, userHome);
-        await agentDescriptorWrite(
-            agentSystem.storage,
-            agentId,
-            descriptor,
-            userId,
-            agentSystem.config.current.defaultPermissions
-        );
+        await agentDescriptorWrite(agentSystem.storage, agentId, descriptor, userId, basePermissions);
         await agentStateWrite(agentSystem.storage, agentId, state);
         state.activeSessionId = await agentSystem.storage.sessions.create({
             agentId,
@@ -174,7 +165,7 @@ export class Agent {
         state: AgentState,
         inbox: AgentInbox,
         agentSystem: AgentSystem,
-        userHome?: UserHome | null
+        userHome: UserHome
     ): Agent {
         return new Agent(agentId, userId, descriptor, state, inbox, agentSystem, userHome);
     }
@@ -364,15 +355,13 @@ export class Agent {
         const skills = new Skills({
             configRoot: configSkillsRoot,
             pluginManager,
-            userRoot: this.userHome?.skills
+            userRoot: this.userHome.skills
         });
         const agentKind = this.resolveAgentKind();
         const allowCronTools = agentDescriptorIsCron(this.descriptor);
 
-        const defaultPermissions = this.agentSystem.config.current.defaultPermissions;
         if (agentDescriptorIsHeartbeat(this.descriptor)) {
-            this.state.permissions = permissionMergeDefault(this.state.permissions, defaultPermissions);
-            permissionEnsureDefaultFile(this.state.permissions, defaultPermissions);
+            this.state.permissions = permissionBuildUser(this.userHome);
         }
         const permissionTags = [...(entry.context.permissionTags ?? [])];
         if (permissionTags.length > 0) {
@@ -392,7 +381,7 @@ export class Agent {
                 ? await rlmToolDescriptionBuild(availableTools)
                 : undefined;
 
-        await agentPromptFilesEnsure(agentPromptPathsResolve(this.agentSystem.config.current.dataDir, this.userHome));
+        await agentPromptFilesEnsure(agentPromptPathsResolve(this.userHome));
         logger.debug(`event: handleMessage building system prompt agentId=${this.id}`);
         const systemPrompt = await agentSystemPrompt({
             provider: providerSettings?.id,
@@ -400,7 +389,7 @@ export class Agent {
             permissions: this.state.permissions,
             descriptor: this.descriptor,
             agentSystem: this.agentSystem,
-            userHome: this.userHome ?? undefined
+            userHome: this.userHome
         });
 
         try {
@@ -1067,13 +1056,13 @@ export class Agent {
         files: Array<{ id: string; name: string; path: string; mimeType: string; size: number }>
     ): Promise<Array<{ id: string; name: string; path: string; mimeType: string; size: number }>> {
         const copied = toFileReferences(files);
-        if (!this.userHome || copied.length === 0) {
+        if (copied.length === 0) {
             return copied;
         }
         const relocated: Array<{ id: string; name: string; path: string; mimeType: string; size: number }> = [];
         for (const file of copied) {
             try {
-                relocated.push(await fileStoreCopyIfNeeded(this.fileStore, this.userHome.desktop, file));
+                relocated.push(await fileStoreCopyIfNeeded(this.fileStore, this.userHome.downloads, file));
             } catch (error) {
                 logger.warn(
                     { agentId: this.id, filePath: file.path, error },
@@ -1206,7 +1195,6 @@ async function fileStoreCopyIfNeeded(
     const stored = await fileStore.saveFromPath({
         name: file.name,
         mimeType: file.mimeType,
-        source: "connector",
         path: resolvedPath
     });
     return {

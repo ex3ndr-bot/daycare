@@ -31,7 +31,7 @@ export async function doctorCommand(options: DoctorOptions): Promise<void> {
     }
 
     const auth = new AuthStore(config);
-    const fileStore = new FileStore(config);
+    const fileStore = new FileStore(path.join(config.dataDir, "validate"));
 
     let failed = 0;
     let skipped = 0;

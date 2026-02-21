@@ -6,6 +6,8 @@ import { createId } from "@paralleldrive/cuid2";
 import { describe, expect, it } from "vitest";
 
 import { configResolve } from "../config/configResolve.js";
+import { permissionBuildUser } from "../engine/permissions/permissionBuildUser.js";
+import { UserHome } from "../engine/users/userHome.js";
 import { Storage } from "./storage.js";
 
 describe("Storage", () => {
@@ -43,15 +45,13 @@ describe("Storage", () => {
     it("creates agent and session atomically", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-storage-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const storage = Storage.open(config.dbPath);
             try {
                 const user = await storage.createUser({});
                 const agentId = createId();
                 const createdAt = Date.now();
+                const permissions = permissionBuildUser(new UserHome(config.usersDir, user.id));
                 const result = await storage.createAgentWithSession({
                     record: {
                         id: agentId,
@@ -59,7 +59,7 @@ describe("Storage", () => {
                         type: "cron",
                         descriptor: { type: "cron", id: agentId, name: "sync" },
                         activeSessionId: null,
-                        permissions: config.defaultPermissions,
+                        permissions,
                         tokens: null,
                         stats: {},
                         lifecycle: "active",
@@ -89,21 +89,19 @@ describe("Storage", () => {
     it("appendHistory creates session when missing and throws for unknown agent", async () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-storage-"));
         try {
-            const config = configResolve(
-                { engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
-                path.join(dir, "settings.json")
-            );
+            const config = configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"));
             const storage = Storage.open(config.dbPath);
             try {
                 const user = await storage.createUser({});
                 const agentId = createId();
+                const permissions = permissionBuildUser(new UserHome(config.usersDir, user.id));
                 await storage.agents.create({
                     id: agentId,
                     userId: user.id,
                     type: "cron",
                     descriptor: { type: "cron", id: agentId, name: "sync" },
                     activeSessionId: null,
-                    permissions: config.defaultPermissions,
+                    permissions,
                     tokens: null,
                     stats: {},
                     lifecycle: "active",

@@ -5,13 +5,10 @@ import { describe, expect, it } from "vitest";
 import { configResolve } from "./configResolve.js";
 
 describe("configResolve", () => {
-    it("resolves filesDir under workspace/files", () => {
+    it("resolves runtime directories under dataDir", () => {
         const configPath = path.join("/tmp/daycare", "settings.json");
         const config = configResolve(
             {
-                assistant: {
-                    workspaceDir: "/tmp/daycare/workspace"
-                },
                 engine: {
                     dataDir: "/tmp/daycare/.daycare"
                 }
@@ -19,8 +16,8 @@ describe("configResolve", () => {
             configPath
         );
 
-        expect(config.workspaceDir).toBe(path.resolve("/tmp/daycare/workspace"));
-        expect(config.filesDir).toBe(path.resolve("/tmp/daycare/workspace/files"));
+        expect(config.dataDir).toBe(path.resolve("/tmp/daycare/.daycare"));
+        expect(config.agentsDir).toBe(path.resolve("/tmp/daycare/.daycare/agents"));
         expect(config.usersDir).toBe(path.resolve("/tmp/daycare/.daycare/users"));
         expect(config.dbPath).toBe(path.resolve("/tmp/daycare/.daycare/daycare.db"));
     });

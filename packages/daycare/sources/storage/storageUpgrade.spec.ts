@@ -13,8 +13,7 @@ describe("storageUpgrade", () => {
         try {
             const config = configResolve(
                 {
-                    engine: { dataDir: dir },
-                    assistant: { workspaceDir: dir }
+                    engine: { dataDir: dir }
                 },
                 path.join(dir, "settings.json")
             );

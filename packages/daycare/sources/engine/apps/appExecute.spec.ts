@@ -24,7 +24,7 @@ describe("appExecute", () => {
 
     it("configures app-agent permissions and passes a reviewed tool executor override", async () => {
         const config = configResolve(
-            { engine: { dataDir: path.join(rootDir, "data") }, assistant: { workspaceDir: rootDir } },
+            { engine: { dataDir: path.join(rootDir, "data") } },
             path.join(rootDir, "settings.json")
         );
         const storage = Storage.open(config.dbPath);
@@ -184,7 +184,7 @@ describe("appExecute", () => {
 
     it("posts app task asynchronously by default", async () => {
         const config = configResolve(
-            { engine: { dataDir: path.join(rootDir, "data") }, assistant: { workspaceDir: rootDir } },
+            { engine: { dataDir: path.join(rootDir, "data") } },
             path.join(rootDir, "settings.json")
         );
         const storage = Storage.open(config.dbPath);

@@ -384,13 +384,13 @@ describe("AgentSystem", () => {
             expect(state.permissions.writeDirs).toEqual(
                 expect.arrayContaining([
                     expectedDesktop,
+                    path.join(expectedHome, "downloads"),
                     path.join(expectedHome, "documents"),
                     path.join(expectedHome, "developer"),
                     path.join(expectedKnowledge, "SOUL.md"),
                     path.join(expectedKnowledge, "USER.md"),
                     path.join(expectedKnowledge, "AGENTS.md"),
-                    path.join(expectedKnowledge, "TOOLS.md"),
-                    path.join(expectedKnowledge, "MEMORY.md")
+                    path.join(expectedKnowledge, "TOOLS.md")
                 ])
             );
             expect(state.permissions.readDirs).toContain(expectedSkills);
@@ -491,7 +491,6 @@ async function harnessCreate(
     const config = configResolve(
         {
             engine: { dataDir: dir },
-            assistant: { workspaceDir: dir },
             providers: [{ id: "openai", model: "gpt-4.1" }]
         },
         path.join(dir, "settings.json")
@@ -526,7 +525,7 @@ async function harnessCreate(
         toolResolver: new ToolResolver(),
         pluginManager,
         inferenceRouter,
-        fileStore: new FileStore(config),
+        fileStore: new FileStore(path.join(config.dataDir, "files")),
         authStore: new AuthStore(config),
         delayedSignals
     });

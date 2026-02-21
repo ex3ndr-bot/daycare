@@ -32,7 +32,7 @@ describe("rlmToolDescriptionBuild", () => {
         let engine: Engine | null = null;
         try {
             const config = configResolve(
-                { features: { rlm: true }, engine: { dataDir: dir }, assistant: { workspaceDir: dir } },
+                { features: { rlm: true }, engine: { dataDir: dir } },
                 path.join(dir, "settings.json")
             );
             engine = new Engine({ config, eventBus: new EngineEventBus() });

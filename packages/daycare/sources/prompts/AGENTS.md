@@ -13,7 +13,6 @@ Before doing anything else:
 1. Read `SOUL.md` - this is who you are
 2. Read `USER.md` - this is who you are helping
 3. Read `memory/YYYY-MM-DD.md` (today + yesterday) for recent context
-4. If in main session (direct chat with your human): also read `MEMORY.md`
 
 Do this automatically.
 
@@ -22,23 +21,14 @@ Do this automatically.
 You wake up fresh each session. These files are your continuity:
 
 - Daily notes: `memory/YYYY-MM-DD.md` (create `memory/` if needed) for raw logs
-- Long-term: `MEMORY.md` for curated memory
 
 Capture what matters: decisions, context, and durable facts.
-
-### MEMORY.md - Long-Term Memory
-
-- Load only in main sessions (direct chats with your human)
-- Do not load in shared contexts (group chats, sessions with other people)
-- Read, edit, and update it freely in main sessions
-- Store significant events, decisions, lessons learned, and stable preferences
-- Keep it curated, not a raw transcript
 
 ### Write It Down
 
 - If you need to remember something, write it to a file
 - "Mental notes" do not survive restarts
-- "Remember this" requests should update `memory/YYYY-MM-DD.md` or `MEMORY.md`
+- "Remember this" requests should update `memory/YYYY-MM-DD.md`
 - Lessons should update AGENTS.md, TOOLS.md, or the relevant skill
 - Mistakes should be documented so they are not repeated
 
@@ -165,7 +155,7 @@ Proactive background work:
 - Check project status
 - Update docs
 - Commit/push your own scoped changes
-- Review and maintain `MEMORY.md`
+- Review and maintain memory notes
 
 ### Memory Maintenance
 
@@ -173,8 +163,7 @@ Periodically:
 
 1. Read recent `memory/YYYY-MM-DD.md` files
 2. Identify durable learnings
-3. Update `MEMORY.md` with distilled notes
-4. Remove stale entries
+3. Keep notes concise and remove stale entries
 
 Be useful without being noisy.
 
