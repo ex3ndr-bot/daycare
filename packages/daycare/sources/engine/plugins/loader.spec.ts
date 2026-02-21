@@ -33,7 +33,7 @@ describe("PluginModuleLoader", () => {
         const helperPath = path.join(dir, "helper.js");
         const pluginPath = path.join(dir, "plugin.js");
 
-        await writeFile(helperPath, "export function label(value) { return `helper:${value}`; }\n");
+        await writeFile(helperPath, `export function label(value) { return \`helper:\${value}\`; }\n`);
         await writeFile(
             pluginPath,
             `import { z } from "zod";

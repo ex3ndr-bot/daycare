@@ -35,9 +35,6 @@ export function toolListContextBuild(options: ToolListOptions): Tool[] {
 
     const source = options.source;
     let tools = options.tools;
-    if (source && source !== "cron" && !options.allowCronTools) {
-        tools = tools.filter((tool) => tool.name !== "cron_read_memory" && tool.name !== "cron_write_memory");
-    }
     if (options.agentKind === "background") {
         tools = tools.filter((tool) => !BACKGROUND_TOOL_DENYLIST.has(tool.name));
     }

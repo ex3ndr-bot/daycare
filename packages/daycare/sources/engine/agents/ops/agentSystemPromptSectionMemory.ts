@@ -52,8 +52,8 @@ export async function agentSystemPromptSectionMemory(context: AgentSystemPromptC
             return {
                 cronTaskId: task?.id ?? "",
                 cronTaskName: task?.name ?? "",
-                cronMemoryPath: task?.memoryPath ?? "",
-                cronFilesPath: task?.filesPath ?? ""
+                cronMemoryPath: "",
+                cronFilesPath: ""
             };
         })()
     ]);

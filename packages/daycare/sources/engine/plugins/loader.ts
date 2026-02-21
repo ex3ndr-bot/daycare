@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 
 import type { PluginModule } from "./types.js";
 
@@ -16,13 +16,16 @@ export type PluginSandbox = {
 
 export class PluginModuleLoader {
     private moduleCache = new Map<string, Promise<PluginModule>>();
+    private readonly contextName: string;
 
-    constructor(_contextName: string) {}
+    constructor(contextName: string) {
+        this.contextName = contextName;
+    }
 
     async load(entryPath: string): Promise<PluginSandbox> {
         const resolved = await resolveFile(entryPath, process.cwd());
         if (!resolved) {
-            throw new Error(`Plugin entry not found: ${entryPath}`);
+            throw new Error(`Plugin entry not found (${this.contextName}): ${entryPath}`);
         }
         const module = await this.loadResolved(resolved);
         return { context: null, module };

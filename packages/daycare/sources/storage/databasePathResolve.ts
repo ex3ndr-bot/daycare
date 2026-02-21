@@ -1,0 +1,12 @@
+import type { DatabaseSync } from "node:sqlite";
+
+/**
+ * Resolves the absolute database file path for the main SQLite schema.
+ * Expects: db is an open sqlite connection.
+ */
+export function databasePathResolve(db: Pick<DatabaseSync, "prepare">): string | null {
+    const rows = db.prepare("PRAGMA database_list").all() as Array<{ name?: string; file?: string }>;
+    const main = rows.find((row) => row.name === "main") ?? rows[0];
+    const file = main?.file?.trim() ?? "";
+    return file.length > 0 ? file : null;
+}

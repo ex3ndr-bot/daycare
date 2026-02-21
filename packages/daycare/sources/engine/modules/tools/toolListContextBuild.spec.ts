@@ -5,8 +5,7 @@ import { toolListContextBuild } from "./toolListContextBuild.js";
 
 const baseTools = [
     { name: "run_python", description: "", parameters: {} },
-    { name: "cron_read_memory", description: "", parameters: {} },
-    { name: "cron_write_memory", description: "", parameters: {} },
+    { name: "cron_add", description: "", parameters: {} },
     { name: "send_file", description: "", parameters: {} },
     { name: "set_reaction", description: "", parameters: {} },
     { name: "generate_image", description: "", parameters: {} },
@@ -17,7 +16,7 @@ const baseTools = [
 ] as unknown as Tool[];
 
 describe("toolListContextBuild", () => {
-    it("filters cron tools for non-cron sources", () => {
+    it("does not filter cron tools by source", () => {
         const result = toolListContextBuild({
             tools: baseTools,
             source: "slack",
@@ -29,8 +28,7 @@ describe("toolListContextBuild", () => {
         });
 
         const names = result.map((tool) => tool.name);
-        expect(names).not.toContain("cron_read_memory");
-        expect(names).not.toContain("cron_write_memory");
+        expect(names).toContain("cron_add");
     });
 
     it("removes background denylist tools", () => {

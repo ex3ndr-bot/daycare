@@ -6,11 +6,11 @@ import { describe, expect, it } from "vitest";
 
 import type { AgentState, ToolExecutionContext } from "@/types";
 import { configResolve } from "../../../config/configResolve.js";
+import type { CronTaskDbRecord } from "../../../storage/databaseTypes.js";
 import { storageResolve } from "../../../storage/storageResolve.js";
 import { agentDescriptorWrite } from "../../agents/ops/agentDescriptorWrite.js";
 import { agentStateWrite } from "../../agents/ops/agentStateWrite.js";
 import type { Crons } from "../../cron/crons.js";
-import type { CronTaskWithPaths } from "../../cron/cronTypes.js";
 import type { HeartbeatDefinition } from "../../heartbeat/heartbeatTypes.js";
 import type { Signals } from "../../signals/signals.js";
 import type { SignalSubscription } from "../../signals/signalTypes.js";
@@ -178,8 +178,10 @@ describe("topologyTool", () => {
                             id: "check-health",
                             title: "Health Check",
                             prompt: "Check status",
-                            filePath: "/tmp/heartbeat/check-health.md",
-                            lastRunAt: "2025-01-15T10:00:00Z"
+                            gate: null,
+                            lastRunAt: Date.parse("2025-01-15T10:00:00Z"),
+                            createdAt: 1,
+                            updatedAt: 1
                         }
                     ]
                 }),
@@ -192,7 +194,7 @@ describe("topologyTool", () => {
             expect(text).toContain("## Cron Tasks (2)");
             expect(text).toContain('daily-report: Daily Report schedule="0 9 * * *" enabled=true');
             expect(text).toContain("## Heartbeat Tasks (1)");
-            expect(text).toContain("check-health: Health Check lastRun=2025-01-15T10:00:00Z");
+            expect(text).toContain("check-health: Health Check lastRun=2025-01-15T10:00:00.000Z");
             expect(text).toContain("## Signal Subscriptions (2)");
             expect(text).toContain("user=user-1 agent=agent-other pattern=deploy:done silent=false");
             expect(text).not.toContain("user=user-2 agent=agent-secret pattern=secret:* silent=false");
@@ -281,7 +283,10 @@ describe("topologyTool", () => {
                             id: "check-health",
                             title: "Health Check",
                             prompt: "Check status",
-                            filePath: "/tmp/heartbeat/check-health.md"
+                            gate: null,
+                            lastRunAt: null,
+                            createdAt: 1,
+                            updatedAt: 1
                         }
                     ]
                 }),
@@ -361,18 +366,22 @@ function cronTaskBuild(input: {
     schedule: string;
     enabled: boolean;
     agentId?: string;
-}): CronTaskWithPaths {
+}): CronTaskDbRecord {
     return {
         id: input.id,
         taskUid: `${input.id}-uid`,
+        userId: null,
         name: input.name,
+        description: null,
         schedule: input.schedule,
         prompt: "prompt",
+        gate: null,
         enabled: input.enabled,
-        agentId: input.agentId,
-        taskPath: `/tmp/cron/${input.id}.md`,
-        memoryPath: `/tmp/cron/${input.id}.memory.md`,
-        filesPath: `/tmp/cron/${input.id}`
+        deleteAfterRun: false,
+        lastRunAt: null,
+        agentId: input.agentId ?? null,
+        createdAt: 1,
+        updatedAt: 1
     };
 }
 

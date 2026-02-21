@@ -1,23 +1,21 @@
-import path from "node:path";
-
 import { createId } from "@paralleldrive/cuid2";
 import type { SessionPermissions } from "@/types";
 import { getLogger } from "../../log.js";
+import type { Storage } from "../../storage/storage.js";
 import type { AgentSystem } from "../agents/agentSystem.js";
 import type { ConfigModule } from "../config/configModule.js";
 import type { EngineEventBus } from "../ipc/events.js";
 import type { ConnectorRegistry } from "../modules/connectorRegistry.js";
 import type { PermissionRequestRegistry } from "../modules/tools/permissionRequestRegistry.js";
-import { permissionBuildCron } from "../permissions/permissionBuildCron.js";
 import { gatePermissionRequest } from "../scheduling/gatePermissionRequest.js";
-import type { CronTaskDefinition, CronTaskWithPaths } from "./cronTypes.js";
+import type { CronTaskDefinition } from "./cronTypes.js";
 import { CronScheduler } from "./ops/cronScheduler.js";
-import { CronStore } from "./ops/cronStore.js";
 
 const logger = getLogger("cron.facade");
 
 export type CronsOptions = {
     config: ConfigModule;
+    storage: Storage;
     eventBus: EngineEventBus;
     agentSystem: AgentSystem;
     connectorRegistry: ConnectorRegistry;
@@ -25,30 +23,29 @@ export type CronsOptions = {
 };
 
 /**
- * Coordinates cron storage + scheduling for engine runtime.
+ * Coordinates cron scheduling for engine runtime.
  * Posts cron task prompts directly to the agent system.
  */
 export class Crons {
     private readonly eventBus: EngineEventBus;
     private readonly agentSystem: AgentSystem;
     private readonly scheduler: CronScheduler;
-    private readonly store: CronStore;
+    private readonly storage: Storage;
 
     constructor(options: CronsOptions) {
         this.eventBus = options.eventBus;
         this.agentSystem = options.agentSystem;
+        this.storage = options.storage;
         const currentConfig = options.config.current;
-        const basePath = path.join(currentConfig.configDir, "cron");
-        this.store = new CronStore(basePath);
         this.scheduler = new CronScheduler({
             config: options.config,
-            store: this.store,
+            repository: this.storage.cronTasks,
             defaultPermissions: currentConfig.defaultPermissions,
             resolvePermissions: async (task) => {
                 if (task.agentId) {
                     return this.agentSystem.permissionsForTarget({ agentId: task.agentId });
                 }
-                const base = permissionBuildCron(options.config.current.defaultPermissions, task.filesPath);
+                const base = currentConfig.defaultPermissions;
                 const current = await this.agentSystem.permissionsForTarget({
                     descriptor: { type: "cron", id: task.taskUid, name: task.name }
                 });
@@ -65,7 +62,7 @@ export class Crons {
                 const permissions = task.agentId
                     ? await this.agentSystem.permissionsForTarget({ agentId: task.agentId })
                     : mergeCronPermissions(
-                          permissionBuildCron(options.config.current.defaultPermissions, task.filesPath),
+                          currentConfig.defaultPermissions,
                           await this.agentSystem.permissionsForTarget({ descriptor: { type: "system", tag: "cron" } })
                       );
                 const targetAgentId = await this.agentSystem.agentIdForTarget(target);
@@ -96,8 +93,6 @@ export class Crons {
                             taskId: task.taskId,
                             taskUid: task.taskUid,
                             taskName: task.taskName,
-                            filesPath: task.filesPath,
-                            memoryPath: task.memoryPath,
                             userId: resolvedUserId,
                             messageContext
                         }
@@ -129,10 +124,6 @@ export class Crons {
         });
     }
 
-    async ensureDir(): Promise<void> {
-        await this.store.ensureDir();
-    }
-
     async start(): Promise<void> {
         await this.scheduler.start();
         this.eventBus.emit("cron.started", { tasks: this.scheduler.listTasks() });
@@ -142,15 +133,15 @@ export class Crons {
         this.scheduler.stop();
     }
 
-    listScheduledTasks(): CronTaskWithPaths[] {
+    listScheduledTasks() {
         return this.scheduler.listTasks();
     }
 
-    async listTasks(): Promise<CronTaskWithPaths[]> {
-        return this.store.listTasks();
+    async listTasks() {
+        return this.storage.cronTasks.findMany({ includeDisabled: true });
     }
 
-    async addTask(definition: Omit<CronTaskDefinition, "id"> & { id?: string }): Promise<CronTaskWithPaths> {
+    async addTask(definition: Omit<CronTaskDefinition, "id"> & { id?: string }) {
         const task = await this.scheduler.addTask(definition);
         this.eventBus.emit("cron.task.added", { task });
         return task;
@@ -160,16 +151,8 @@ export class Crons {
         return this.scheduler.deleteTask(taskId);
     }
 
-    async loadTask(taskId: string): Promise<CronTaskWithPaths | null> {
-        return this.store.loadTask(taskId);
-    }
-
-    async readMemory(taskId: string): Promise<string> {
-        return this.store.readMemory(taskId);
-    }
-
-    async writeMemory(taskId: string, content: string): Promise<void> {
-        await this.store.writeMemory(taskId, content);
+    async loadTask(taskId: string) {
+        return this.scheduler.loadTask(taskId);
     }
 }
 
@@ -177,7 +160,7 @@ function mergeCronPermissions(base: SessionPermissions, current: SessionPermissi
     const writeDirs = new Set([...base.writeDirs, ...current.writeDirs]);
     const readDirs = new Set([...base.readDirs, ...current.readDirs]);
     return {
-        workingDir: base.workingDir,
+        workingDir: current.workingDir,
         writeDirs: Array.from(writeDirs.values()),
         readDirs: Array.from(readDirs.values()),
         network: base.network || current.network,

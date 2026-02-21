@@ -1,32 +1,35 @@
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createId } from "@paralleldrive/cuid2";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SessionPermissions } from "@/types";
 import { configResolve } from "../../../config/configResolve.js";
+import { Storage } from "../../../storage/storage.js";
 import { ConfigModule } from "../../config/configModule.js";
 import { CronScheduler } from "./cronScheduler.js";
-import { CronStore } from "./cronStore.js";
 
 describe("CronScheduler", () => {
     let tempDir: string;
-    let store: CronStore;
+    let storage: Storage;
     const configModule = (workingDir: string): ConfigModule =>
         new ConfigModule(configResolve({ engine: { dataDir: workingDir } }, path.join(workingDir, "settings.json")));
 
     beforeEach(async () => {
         vi.useFakeTimers();
         tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "cron-scheduler-test-"));
-        store = new CronStore(tempDir);
+        storage = Storage.open(":memory:");
     });
 
     afterEach(async () => {
         vi.useRealTimers();
+        storage.close();
         await fs.rm(tempDir, { recursive: true, force: true });
     });
 
-    it("loads and schedules tasks from store", async () => {
-        await store.createTask("test-task", {
+    it("loads and schedules tasks from repository", async () => {
+        await cronTaskInsert(storage, {
+            id: "test-task",
             name: "Test Task",
             schedule: "* * * * *",
             prompt: "Do something"
@@ -35,7 +38,7 @@ describe("CronScheduler", () => {
         const onTask = vi.fn();
         const scheduler = new CronScheduler({
             config: configModule(tempDir),
-            store,
+            repository: storage.cronTasks,
             onTask,
             defaultPermissions: defaultPermissions(tempDir)
         });
@@ -44,17 +47,17 @@ describe("CronScheduler", () => {
 
         const tasks = scheduler.listTasks();
         expect(tasks.length).toBe(1);
-        expect(tasks[0]!.id).toBe("test-task");
+        expect(tasks[0]?.id).toBe("test-task");
 
         scheduler.stop();
     });
 
     it("executes task when scheduled time arrives", async () => {
-        // Set current time
         const now = new Date("2024-01-15T10:30:00Z");
         vi.setSystemTime(now);
 
-        const created = await store.createTask("exec-test", {
+        const created = await cronTaskInsert(storage, {
+            id: "exec-test",
             name: "Exec Test",
             schedule: "* * * * *",
             prompt: "Execute me"
@@ -63,14 +66,12 @@ describe("CronScheduler", () => {
         const onTask = vi.fn();
         const scheduler = new CronScheduler({
             config: configModule(tempDir),
-            store,
+            repository: storage.cronTasks,
             onTask,
             defaultPermissions: defaultPermissions(tempDir)
         });
 
         await scheduler.start();
-
-        // Advance time to next minute
         await vi.advanceTimersByTimeAsync(60 * 1000);
 
         expect(onTask).toHaveBeenCalledTimes(1);
@@ -90,7 +91,8 @@ describe("CronScheduler", () => {
     it("acquires read lock only for task execution", async () => {
         vi.setSystemTime(new Date("2024-01-15T10:30:00Z"));
 
-        await store.createTask("lock-scope-test", {
+        await cronTaskInsert(storage, {
+            id: "lock-scope-test",
             name: "Lock Scope Test",
             schedule: "* * * * *",
             prompt: "Run me"
@@ -100,7 +102,7 @@ describe("CronScheduler", () => {
         const inReadLock = vi.spyOn(config, "inReadLock");
         const scheduler = new CronScheduler({
             config,
-            store,
+            repository: storage.cronTasks,
             onTask: vi.fn(),
             defaultPermissions: defaultPermissions(tempDir)
         });
@@ -113,7 +115,8 @@ describe("CronScheduler", () => {
     });
 
     it("skips disabled tasks", async () => {
-        await store.createTask("disabled-task", {
+        await cronTaskInsert(storage, {
+            id: "disabled-task",
             name: "Disabled Task",
             schedule: "* * * * *",
             prompt: "Should not run",
@@ -123,7 +126,7 @@ describe("CronScheduler", () => {
         const onTask = vi.fn();
         const scheduler = new CronScheduler({
             config: configModule(tempDir),
-            store,
+            repository: storage.cronTasks,
             onTask,
             defaultPermissions: defaultPermissions(tempDir)
         });
@@ -136,11 +139,11 @@ describe("CronScheduler", () => {
         scheduler.stop();
     });
 
-    it("reloads tasks from disk", async () => {
+    it("reloads tasks from repository", async () => {
         const onTask = vi.fn();
         const scheduler = new CronScheduler({
             config: configModule(tempDir),
-            store,
+            repository: storage.cronTasks,
             onTask,
             defaultPermissions: defaultPermissions(tempDir)
         });
@@ -148,8 +151,8 @@ describe("CronScheduler", () => {
         await scheduler.start();
         expect(scheduler.listTasks().length).toBe(0);
 
-        // Add a task to disk
-        await store.createTask("new-task", {
+        await cronTaskInsert(storage, {
+            id: "new-task",
             name: "New Task",
             schedule: "* * * * *",
             prompt: "New prompt"
@@ -162,7 +165,8 @@ describe("CronScheduler", () => {
     });
 
     it("provides task context", async () => {
-        const created = await store.createTask("context-test", {
+        const created = await cronTaskInsert(storage, {
+            id: "context-test",
             name: "Context Test",
             schedule: "0 9 * * *",
             prompt: "Test prompt",
@@ -172,7 +176,7 @@ describe("CronScheduler", () => {
         const onTask = vi.fn();
         const scheduler = new CronScheduler({
             config: configModule(tempDir),
-            store,
+            repository: storage.cronTasks,
             onTask,
             defaultPermissions: defaultPermissions(tempDir)
         });
@@ -181,13 +185,11 @@ describe("CronScheduler", () => {
 
         const context = scheduler.getTaskContext("context-test");
         expect(context).not.toBeNull();
-        expect(context!.taskId).toBe("context-test");
-        expect(context!.taskUid).toBe(created.taskUid);
-        expect(context!.taskName).toBe("Context Test");
-        expect(context!.prompt).toBe("Test prompt");
-        expect(context!.memoryPath).toContain("MEMORY.md");
-        expect(context!.filesPath).toContain("files");
-        expect(context!.userId).toBe("user-1");
+        expect(context?.taskId).toBe("context-test");
+        expect(context?.taskUid).toBe(created.taskUid);
+        expect(context?.taskName).toBe("Context Test");
+        expect(context?.prompt).toBe("Test prompt");
+        expect(context?.userId).toBe("user-1");
 
         scheduler.stop();
     });
@@ -195,7 +197,8 @@ describe("CronScheduler", () => {
     it("handles task execution errors", async () => {
         vi.setSystemTime(new Date("2024-01-15T10:30:00Z"));
 
-        await store.createTask("error-task", {
+        await cronTaskInsert(storage, {
+            id: "error-task",
             name: "Error Task",
             schedule: "* * * * *",
             prompt: "Will fail"
@@ -204,7 +207,7 @@ describe("CronScheduler", () => {
         const onError = vi.fn();
         const scheduler = new CronScheduler({
             config: configModule(tempDir),
-            store,
+            repository: storage.cronTasks,
             onTask: () => {
                 throw new Error("Task failed");
             },
@@ -223,7 +226,8 @@ describe("CronScheduler", () => {
     it("skips gated tasks when gate check denies", async () => {
         vi.setSystemTime(new Date("2024-01-15T10:30:00Z"));
 
-        await store.createTask("gate-task", {
+        await cronTaskInsert(storage, {
+            id: "gate-task",
             name: "Gate Task",
             schedule: "* * * * *",
             prompt: "Should be gated",
@@ -239,7 +243,7 @@ describe("CronScheduler", () => {
         });
         const scheduler = new CronScheduler({
             config: configModule(tempDir),
-            store,
+            repository: storage.cronTasks,
             onTask,
             gateCheck,
             defaultPermissions: defaultPermissions(tempDir)
@@ -257,7 +261,8 @@ describe("CronScheduler", () => {
     it("appends gate output to the prompt", async () => {
         vi.setSystemTime(new Date("2024-01-15T10:30:00Z"));
 
-        await store.createTask("gate-output", {
+        await cronTaskInsert(storage, {
+            id: "gate-output",
             name: "Gate Output",
             schedule: "* * * * *",
             prompt: "Base prompt",
@@ -273,7 +278,7 @@ describe("CronScheduler", () => {
         });
         const scheduler = new CronScheduler({
             config: configModule(tempDir),
-            store,
+            repository: storage.cronTasks,
             onTask,
             gateCheck,
             defaultPermissions: defaultPermissions(tempDir)
@@ -296,7 +301,8 @@ describe("CronScheduler", () => {
     it("requests missing gate permissions and runs task after approval", async () => {
         vi.setSystemTime(new Date("2024-01-15T10:30:00Z"));
 
-        await store.createTask("gate-permission-approved", {
+        await cronTaskInsert(storage, {
+            id: "gate-permission-approved",
             name: "Gate Permission Approved",
             schedule: "* * * * *",
             prompt: "Needs network",
@@ -318,7 +324,7 @@ describe("CronScheduler", () => {
         const onTask = vi.fn();
         const scheduler = new CronScheduler({
             config: configModule(tempDir),
-            store,
+            repository: storage.cronTasks,
             onTask,
             resolvePermissions,
             onGatePermissionRequest,
@@ -343,7 +349,8 @@ describe("CronScheduler", () => {
     it("skips task when missing gate permissions are denied", async () => {
         vi.setSystemTime(new Date("2024-01-15T10:30:00Z"));
 
-        await store.createTask("gate-permission-denied", {
+        await cronTaskInsert(storage, {
+            id: "gate-permission-denied",
             name: "Gate Permission Denied",
             schedule: "* * * * *",
             prompt: "Needs network",
@@ -359,7 +366,7 @@ describe("CronScheduler", () => {
         const onTask = vi.fn();
         const scheduler = new CronScheduler({
             config: configModule(tempDir),
-            store,
+            repository: storage.cronTasks,
             onTask,
             onGatePermissionRequest: vi.fn(async () => false),
             gateCheck,
@@ -385,4 +392,37 @@ function defaultPermissions(workingDir: string, overrides: Partial<SessionPermis
         events: false,
         ...overrides
     };
+}
+
+async function cronTaskInsert(
+    storage: Storage,
+    input: {
+        id: string;
+        name: string;
+        schedule: string;
+        prompt: string;
+        userId?: string;
+        gate?: { command: string; permissions?: string[] };
+        enabled?: boolean;
+    }
+) {
+    const now = Date.now();
+    const task = {
+        id: input.id,
+        taskUid: createId(),
+        userId: input.userId ?? null,
+        name: input.name,
+        description: null,
+        schedule: input.schedule,
+        prompt: input.prompt,
+        agentId: null,
+        gate: input.gate ?? null,
+        enabled: input.enabled !== false,
+        deleteAfterRun: false,
+        lastRunAt: null,
+        createdAt: now,
+        updatedAt: now
+    };
+    await storage.cronTasks.create(task);
+    return task;
 }

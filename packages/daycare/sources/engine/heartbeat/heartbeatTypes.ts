@@ -2,26 +2,17 @@
  * Central type definitions for the heartbeat module.
  */
 
-import type { ExecGateDefinition, SessionPermissions } from "@/types";
+import type { SessionPermissions } from "@/types";
+import type { HeartbeatTaskDbRecord } from "../../storage/databaseTypes.js";
+import type { HeartbeatTasksRepository } from "../../storage/heartbeatTasksRepository.js";
 import type { ConfigModule } from "../config/configModule.js";
 import type { ExecGateCheckInput, ExecGateCheckResult } from "../scheduling/execGateCheck.js";
 
-export type HeartbeatDefinition = {
-    id: string;
-    title: string;
-    prompt: string;
-    filePath: string;
-    gate?: ExecGateDefinition;
-    lastRunAt?: string;
-};
-
-export type HeartbeatState = {
-    lastRunAt?: string;
-};
+export type HeartbeatDefinition = HeartbeatTaskDbRecord;
 
 export type HeartbeatSchedulerOptions = {
     config: ConfigModule;
-    store: HeartbeatStoreInterface;
+    repository: HeartbeatTasksRepository;
     intervalMs?: number;
     defaultPermissions: SessionPermissions;
     resolvePermissions?: () => Promise<SessionPermissions> | SessionPermissions;
@@ -36,18 +27,6 @@ export type HeartbeatCreateTaskArgs = {
     id?: string;
     title: string;
     prompt: string;
-    gate?: ExecGateDefinition;
+    gate?: HeartbeatDefinition["gate"];
     overwrite?: boolean;
 };
-
-/**
- * Interface for HeartbeatStore to allow dependency injection.
- */
-export interface HeartbeatStoreInterface {
-    ensureDir(): Promise<void>;
-    listTasks(): Promise<HeartbeatDefinition[]>;
-    createTask(definition: HeartbeatCreateTaskArgs): Promise<HeartbeatDefinition>;
-    deleteTask(taskId: string): Promise<boolean>;
-    loadTask(filePath: string, state?: HeartbeatState): Promise<HeartbeatDefinition | null>;
-    recordRun(runAt: Date): Promise<void>;
-}

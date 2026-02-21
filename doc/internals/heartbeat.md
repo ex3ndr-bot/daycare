@@ -1,83 +1,38 @@
 # Heartbeats
 
-Heartbeat prompts are stored on disk and executed as a single batch on a fixed interval.
+Heartbeat tasks are stored in SQLite and executed in a single batch on a fixed interval.
 
 ## Storage
 
-Heartbeat prompts live under `<config>/heartbeat/`:
-- `<task-id>.md` - frontmatter + prompt body
-- `.heartbeat-state.json` - shared state for last run timestamp
-
-Example heartbeat file:
-```markdown
----
-title: Check internet
-gate:
-  command: "curl -fsS https://api.example.com/healthz >/dev/null"
-  packageManagers:
-    - python
-  allowedDomains:
-    - api.example.com
----
-
-If the gate command fails, notify that the internet is down.
-```
-
-Frontmatter fields:
-- `title` (required) - task title
-- `gate` (optional) - exec gate config (command + permissions + allowlist) that must succeed to run
+Rows live in `tasks_heartbeat`:
+- `id`, `title`, `prompt`
+- `gate` (JSON)
+- `last_run_at` (unix ms)
+- `created_at`, `updated_at`
 
 ## Execution model
 
-- `Heartbeats` owns storage + scheduling (`HeartbeatStore` + `HeartbeatScheduler`).
-- All heartbeat prompts are run together as a single background agent batch.
-- The batch is re-run at a fixed interval or when invoked manually.
-- If a task has a `gate`, it must exit `0` to be included in the batch.
+- `Heartbeats` wires `HeartbeatScheduler` with `HeartbeatTasksRepository`.
+- On each interval (or `heartbeat_run`), scheduler loads tasks.
+- Each task gate is evaluated independently.
+- Eligible tasks are merged into one batch prompt.
+- After run, `recordRun()` updates `last_run_at` for all heartbeat rows.
 
 ```mermaid
 flowchart TD
-  Engine[engine.ts] --> Heartbeats[heartbeat/heartbeats.ts]
-  Heartbeats --> Store[heartbeat/ops/heartbeatStore.ts]
+  Engine[engine.ts] --> Storage[Storage.open]
+  Storage --> Repo[HeartbeatTasksRepository]
+  Engine --> Heartbeats[heartbeat/heartbeats.ts]
   Heartbeats --> Scheduler[heartbeat/ops/heartbeatScheduler.ts]
-  Scheduler --> Gate[execGateCheck]
-  Gate -->|allow| AgentSystem[agents/agentSystem.ts]
-  Gate -->|deny (exit != 0)| Skip[Skip task]
-  Gate -->|permissions missing| Notify[Notify agent + continue]
-```
-
-## Exec Gate
-
-Use `gate` to run a shell command before the LLM and skip work when the check
-fails. Exit code `0` means "run"; non-zero means "skip." Trimmed gate output is
-appended to the prompt under `[Gate output]`. Gates run with the heartbeat agent
-permissions. `gate.permissions` may declare required permission tags. If they are
-not already allowed by the heartbeat agent, a system message is posted and the gate
-is treated as allowed (the task still runs). Network access requires `@network` plus
-`gate.allowedDomains` to allowlist hosts. You can also use
-`gate.packageManagers` (`dart`, `dotnet`, `go`, `java`, `node`, `php`, `python`, `ruby`, `rust`) to auto-allow language ecosystem hosts.
-Set `gate.home` (absolute path in writable dirs) to remap HOME-related environment
-variables for the gate command.
-
-## Permissions
-
-Heartbeat tasks do not carry permission tags. Prompts run with the
-heartbeat agent's existing permissions only. Any `permissions` entries
-in heartbeat files are ignored. `gate.permissions` are validated against
-the heartbeat agent's permissions. If they are not already allowed, a system message
-is posted and the task runs anyway (the gate is treated as successful).
-
-```mermaid
-flowchart TD
-  Task[heartbeat.md] --> Scheduler[HeartbeatScheduler]
-  Scheduler --> Gate[execGateCheck]
-  Scheduler --> Agent[Heartbeat agent]
-  Task -. permission tags ignored .-> Ignore[No task permission grants]
-  Gate -->|permissions missing| Notify[Notify agent + continue]
+  Scheduler --> Load[repo.findMany]
+  Load --> Gate[execGateCheck per task]
+  Gate --> Batch[heartbeatPromptBuildBatch]
+  Batch --> AgentSystem[agents/agentSystem.ts]
+  AgentSystem --> Persist[repo.recordRun]
 ```
 
 ## Tools
 
-- `heartbeat_add` creates or updates a heartbeat prompt.
-- `heartbeat_run` runs the batch immediately.
-- `heartbeat_remove` deletes a heartbeat prompt.
-- `topology` lists heartbeat tasks alongside agents, cron tasks, and signal subscriptions.
+- `heartbeat_add` creates/updates a task row
+- `heartbeat_run` forces immediate run
+- `heartbeat_remove` deletes a task row

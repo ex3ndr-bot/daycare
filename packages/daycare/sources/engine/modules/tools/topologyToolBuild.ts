@@ -99,7 +99,7 @@ export function topologyTool(
                 .map((task) => ({
                     id: task.id,
                     title: task.title,
-                    lastRunAt: task.lastRunAt ?? null
+                    lastRunAt: typeof task.lastRunAt === "number" ? new Date(task.lastRunAt).toISOString() : null
                 }));
 
             const signalSubscriptionsSummary = signalSubscriptions

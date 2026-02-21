@@ -1,7 +1,6 @@
-import path from "node:path";
-
 import { createId } from "@paralleldrive/cuid2";
 import { getLogger } from "../../log.js";
+import type { Storage } from "../../storage/storage.js";
 import type { AgentSystem } from "../agents/agentSystem.js";
 import type { ConfigModule } from "../config/configModule.js";
 import type { EngineEventBus } from "../ipc/events.js";
@@ -11,12 +10,12 @@ import { gatePermissionRequest } from "../scheduling/gatePermissionRequest.js";
 import type { HeartbeatCreateTaskArgs, HeartbeatDefinition } from "./heartbeatTypes.js";
 import { heartbeatPromptBuildBatch } from "./ops/heartbeatPromptBuildBatch.js";
 import { HeartbeatScheduler } from "./ops/heartbeatScheduler.js";
-import { HeartbeatStore } from "./ops/heartbeatStore.js";
 
 const logger = getLogger("heartbeat.facade");
 
 export type HeartbeatsOptions = {
     config: ConfigModule;
+    storage: Storage;
     eventBus: EngineEventBus;
     agentSystem: AgentSystem;
     connectorRegistry: ConnectorRegistry;
@@ -25,24 +24,21 @@ export type HeartbeatsOptions = {
 };
 
 /**
- * Coordinates heartbeat storage + scheduling for engine runtime.
+ * Coordinates heartbeat scheduling for engine runtime.
  * Posts heartbeat prompts directly to the agent system.
  */
 export class Heartbeats {
     private readonly eventBus: EngineEventBus;
     private readonly agentSystem: AgentSystem;
     private readonly scheduler: HeartbeatScheduler;
-    private readonly store: HeartbeatStore;
 
     constructor(options: HeartbeatsOptions) {
         this.eventBus = options.eventBus;
         this.agentSystem = options.agentSystem;
         const currentConfig = options.config.current;
-        const basePath = path.join(currentConfig.configDir, "heartbeat");
-        this.store = new HeartbeatStore(basePath);
         this.scheduler = new HeartbeatScheduler({
             config: options.config,
-            store: this.store,
+            repository: options.storage.heartbeatTasks,
             intervalMs: options.intervalMs,
             defaultPermissions: currentConfig.defaultPermissions,
             resolvePermissions: async () =>
@@ -107,10 +103,6 @@ export class Heartbeats {
         });
     }
 
-    async ensureDir(): Promise<void> {
-        await this.store.ensureDir();
-    }
-
     async start(): Promise<void> {
         await this.scheduler.start();
         const tasks = await this.listTasks();
@@ -119,17 +111,14 @@ export class Heartbeats {
             logger.info("event: No heartbeat tasks found on boot.");
             return;
         }
-        const withLastRun = tasks.filter((task) => !!task.lastRunAt);
-        const missingLastRun = tasks.filter((task) => !task.lastRunAt);
+        const withLastRun = tasks.filter((task) => typeof task.lastRunAt === "number");
+        const missingLastRun = tasks.filter((task) => typeof task.lastRunAt !== "number");
         if (withLastRun.length > 0) {
-            const mostRecent = withLastRun
-                .map((task) => task.lastRunAt as string)
-                .sort()
-                .at(-1);
+            const mostRecent = Math.max(...withLastRun.map((task) => task.lastRunAt ?? 0));
             logger.info(
                 {
                     taskCount: tasks.length,
-                    mostRecentRunAt: mostRecent
+                    mostRecentRunAt: new Date(mostRecent).toISOString()
                 },
                 "load: Heartbeat last run loaded on boot"
             );
@@ -153,7 +142,7 @@ export class Heartbeats {
     }
 
     async listTasks(): Promise<HeartbeatDefinition[]> {
-        return this.store.listTasks();
+        return this.scheduler.listTasks();
     }
 
     async runNow(args?: { ids?: string[] }): Promise<{ ran: number; taskIds: string[] }> {
@@ -161,10 +150,10 @@ export class Heartbeats {
     }
 
     async addTask(args: HeartbeatCreateTaskArgs): Promise<HeartbeatDefinition> {
-        return this.store.createTask(args);
+        return this.scheduler.createTask(args);
     }
 
     async removeTask(taskId: string): Promise<boolean> {
-        return this.store.deleteTask(taskId);
+        return this.scheduler.deleteTask(taskId);
     }
 }

@@ -1,81 +1,51 @@
 # Cron Module
 
-Manages scheduled task execution using cron expressions.
+Cron tasks are persisted in SQLite (`tasks_cron`) and scheduled in-memory by `CronScheduler`.
 
 ## Structure
 
 ```
 cron/
-├── cronTypes.ts                 # Type definitions
+├── cronTypes.ts
 ├── ops/
-│   ├── cronTaskUidResolve.ts        # Extract taskId from frontmatter
-│   ├── cronFrontmatterParse.ts      # Parse markdown frontmatter
-│   ├── cronFrontmatterSerialize.ts  # Serialize to markdown frontmatter
-│   ├── cronFieldParse.ts            # Parse single cron field
-│   ├── cronFieldMatch.ts            # Match value against cron field
-│   ├── cronExpressionParse.ts       # Parse 5-field cron expression
-│   ├── cronTimeGetNext.ts           # Calculate next run time
-│   ├── cronStore.ts                 # CronStore class (file persistence)
-│   └── cronScheduler.ts             # CronScheduler class (task execution)
-├── crons.ts                     # Cron facade (storage + scheduling)
+│   ├── cronExpressionParse.ts
+│   ├── cronFieldMatch.ts
+│   ├── cronFieldParse.ts
+│   ├── cronTimeGetNext.ts
+│   └── cronScheduler.ts
+├── crons.ts
 └── README.md
 ```
 
-## Pure Functions
+## Storage
 
-All parsing and validation logic lives in `ops/` as pure functions:
+Tasks are stored in `tasks_cron` with key fields:
+- `id`: human task id (`daily-report`)
+- `task_uid`: cron descriptor id (cuid2)
+- `name`, `schedule`, `prompt`
+- `gate` (JSON)
+- `enabled`, `delete_after_run`
+- `last_run_at` (unix ms)
 
-- `cronTaskUidResolve(frontmatter)` - Extract taskId from frontmatter
-- `cronFrontmatterParse(content)` - Parse YAML frontmatter from markdown
-- `cronFrontmatterSerialize(frontmatter, body)` - Serialize to markdown
-- `cronFieldParse(field, min, max)` - Parse single cron field
-- `cronFieldMatch(field, value)` - Check if value matches cron field
-- `cronExpressionParse(expression)` - Parse 5-field cron expression
-- `cronTimeGetNext(expression, from?)` - Calculate next run time
+The runtime uses `CronTasksRepository` for CRUD and cached reads.
 
-Shared utilities from `utils/`:
-- `cuid2Is` - CUID2 validation
-- `stringSlugify` - URL-safe slug generation
+## Execution Flow
 
-## Classes
-
-### CronStore
-
-Manages cron tasks stored as markdown files on disk.
-
-```
-/cron/<task-id>/
-├── TASK.md     # Frontmatter (name, schedule, enabled) + prompt body
-├── MEMORY.md   # Task memory
-├── STATE.json  # Runtime state (lastRunAt)
-└── files/      # Workspace for task files
+```mermaid
+flowchart TD
+  Engine[Engine.start] --> Storage[Storage.open + migrations]
+  Storage --> Crons[cron/crons.ts]
+  Crons --> Scheduler[cronScheduler.start]
+  Scheduler --> Repo[cronTasksRepository.findMany]
+  Scheduler --> Tick[Compute next runs]
+  Tick --> Gate[execGateCheck]
+  Gate -->|allow| AgentSystem[post internal.cron.task]
+  Gate -->|deny| Skip[Skip run]
+  AgentSystem --> Record[repo.update last_run_at]
 ```
 
-### CronScheduler
+## Tools
 
-Schedules and executes cron tasks based on their cron expressions.
-
-## Usage
-
-```typescript
-import { CronStore } from "./cron/ops/cronStore.js";
-import { CronScheduler } from "./cron/ops/cronScheduler.js";
-
-const store = new CronStore("/path/to/cron");
-const defaultPermissions = {
-  workingDir: "/path/to/workspace",
-  writeDirs: [],
-  readDirs: [],
-  network: false,
-  events: false
-};
-const scheduler = new CronScheduler({
-  store,
-  defaultPermissions,
-  onTask: async (context, messageContext) => {
-    // Handle task execution
-  }
-});
-
-await scheduler.start();
-```
+- `cron_add` creates/updates a cron task in SQLite
+- `cron_read_task` reads task definition and prompt
+- `cron_delete_task` removes a task from scheduler + SQLite

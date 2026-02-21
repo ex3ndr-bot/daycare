@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { configResolve } from "../../config/configResolve.js";
+import { Storage } from "../../storage/storage.js";
 import { ConfigModule } from "../config/configModule.js";
 import { Heartbeats, type HeartbeatsOptions } from "./heartbeats.js";
 
@@ -45,40 +46,49 @@ describe("Heartbeats", () => {
             post: vi.fn(async () => undefined)
         };
         const agentSystem = agentSystemMock as unknown as HeartbeatsOptions["agentSystem"];
-        const heartbeats = new Heartbeats({
-            config: new ConfigModule(configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"))),
-            eventBus: { emit: vi.fn() } as unknown as HeartbeatsOptions["eventBus"],
-            agentSystem,
-            connectorRegistry,
-            permissionRequestRegistry
-        });
-
-        const callback = (
-            heartbeats as unknown as {
-                scheduler: { onGatePermissionRequest?: (task: unknown, missing: string[]) => Promise<boolean> };
-            }
-        ).scheduler.onGatePermissionRequest;
-        expect(callback).toBeTypeOf("function");
-
-        const granted = await callback?.(
-            {
-                id: "heartbeat-task-1",
-                title: "Morning check",
-                prompt: "Run checks",
-                filePath: "/tmp/task.md"
-            },
-            ["@network"]
-        );
-
-        expect(granted).toBe(true);
-        expect(gatePermissionRequestMock).toHaveBeenCalledWith(
-            expect.objectContaining({
-                missing: ["@network"],
-                taskLabel: 'heartbeat task "Morning check" (heartbeat-task-1)',
-                agentId: "heartbeat-agent",
+        const storage = Storage.open(":memory:");
+        try {
+            const heartbeats = new Heartbeats({
+                config: new ConfigModule(configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"))),
+                storage,
+                eventBus: { emit: vi.fn() } as unknown as HeartbeatsOptions["eventBus"],
+                agentSystem,
                 connectorRegistry,
                 permissionRequestRegistry
-            })
-        );
+            });
+
+            const callback = (
+                heartbeats as unknown as {
+                    scheduler: { onGatePermissionRequest?: (task: unknown, missing: string[]) => Promise<boolean> };
+                }
+            ).scheduler.onGatePermissionRequest;
+            expect(callback).toBeTypeOf("function");
+
+            const granted = await callback?.(
+                {
+                    id: "heartbeat-task-1",
+                    title: "Morning check",
+                    prompt: "Run checks",
+                    gate: null,
+                    lastRunAt: null,
+                    createdAt: 1,
+                    updatedAt: 1
+                },
+                ["@network"]
+            );
+
+            expect(granted).toBe(true);
+            expect(gatePermissionRequestMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    missing: ["@network"],
+                    taskLabel: 'heartbeat task "Morning check" (heartbeat-task-1)',
+                    agentId: "heartbeat-agent",
+                    connectorRegistry,
+                    permissionRequestRegistry
+                })
+            );
+        } finally {
+            storage.close();
+        }
     });
 });

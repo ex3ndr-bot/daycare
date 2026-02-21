@@ -4,6 +4,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { configResolve } from "../../config/configResolve.js";
+import { Storage } from "../../storage/storage.js";
 import { ConfigModule } from "../config/configModule.js";
 import { Crons, type CronsOptions } from "./crons.js";
 
@@ -45,49 +46,60 @@ describe("Crons", () => {
             post: vi.fn(async () => undefined)
         };
         const agentSystem = agentSystemMock as unknown as CronsOptions["agentSystem"];
-        const crons = new Crons({
-            config: new ConfigModule(configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"))),
-            eventBus: { emit: vi.fn() } as unknown as CronsOptions["eventBus"],
-            agentSystem,
-            connectorRegistry,
-            permissionRequestRegistry
-        });
-
-        const callback = (
-            crons as unknown as {
-                scheduler: {
-                    onGatePermissionRequest?: (task: unknown, missing: string[]) => Promise<boolean>;
-                };
-            }
-        ).scheduler.onGatePermissionRequest;
-        expect(callback).toBeTypeOf("function");
-
-        const granted = await callback?.(
-            {
-                id: "cron-task-1",
-                taskUid: "uid-1",
-                name: "Nightly sync",
-                prompt: "Sync now",
-                schedule: "* * * * *",
-                taskPath: "/tmp/task.md",
-                memoryPath: "/tmp/MEMORY.md",
-                filesPath: "/tmp/files"
-            },
-            ["@network"]
-        );
-
-        expect(granted).toBe(true);
-        expect(gatePermissionRequestMock).toHaveBeenCalledWith(
-            expect.objectContaining({
-                missing: ["@network"],
-                taskLabel: 'cron task "Nightly sync" (cron-task-1)',
-                agentId: "cron-agent",
+        const storage = Storage.open(":memory:");
+        try {
+            const crons = new Crons({
+                config: new ConfigModule(configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"))),
+                storage,
+                eventBus: { emit: vi.fn() } as unknown as CronsOptions["eventBus"],
+                agentSystem,
                 connectorRegistry,
                 permissionRequestRegistry
-            })
-        );
-        expect(agentSystemMock.agentIdForTarget).toHaveBeenCalledWith({
-            descriptor: { type: "cron", id: "uid-1", name: "Nightly sync" }
-        });
+            });
+
+            const callback = (
+                crons as unknown as {
+                    scheduler: {
+                        onGatePermissionRequest?: (task: unknown, missing: string[]) => Promise<boolean>;
+                    };
+                }
+            ).scheduler.onGatePermissionRequest;
+            expect(callback).toBeTypeOf("function");
+
+            const granted = await callback?.(
+                {
+                    id: "cron-task-1",
+                    taskUid: "uid-1",
+                    name: "Nightly sync",
+                    prompt: "Sync now",
+                    schedule: "* * * * *",
+                    enabled: true,
+                    deleteAfterRun: false,
+                    userId: null,
+                    agentId: null,
+                    gate: null,
+                    lastRunAt: null,
+                    createdAt: 1,
+                    updatedAt: 1
+                },
+                ["@network"]
+            );
+
+            expect(granted).toBe(true);
+            expect(gatePermissionRequestMock).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    missing: ["@network"],
+                    taskLabel: 'cron task "Nightly sync" (cron-task-1)',
+                    agentId: "cron-agent",
+                    connectorRegistry,
+                    permissionRequestRegistry
+                })
+            );
+            expect(agentSystemMock.agentIdForTarget).toHaveBeenCalledWith({
+                descriptor: { type: "cron", id: "uid-1", name: "Nightly sync" }
+            });
+        } finally {
+            storage.close();
+        }
     });
 });

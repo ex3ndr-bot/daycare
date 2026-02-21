@@ -1,8 +1,10 @@
 import type { AgentHistoryRecord } from "@/types";
 import { AsyncLock } from "../util/lock.js";
 import { AgentsRepository } from "./agentsRepository.js";
+import { CronTasksRepository } from "./cronTasksRepository.js";
 import { databaseOpen } from "./databaseOpen.js";
 import type { CreateAgentInput, CreateUserInput, UserWithConnectorKeysDbRecord } from "./databaseTypes.js";
+import { HeartbeatTasksRepository } from "./heartbeatTasksRepository.js";
 import { HistoryRepository } from "./historyRepository.js";
 import { migrationRun } from "./migrations/migrationRun.js";
 import { SessionsRepository } from "./sessionsRepository.js";
@@ -17,6 +19,8 @@ export class Storage {
     readonly agents: AgentsRepository;
     readonly sessions: SessionsRepository;
     readonly history: HistoryRepository;
+    readonly cronTasks: CronTasksRepository;
+    readonly heartbeatTasks: HeartbeatTasksRepository;
 
     private readonly connection: ReturnType<typeof databaseOpen>;
     private readonly connectorKeyLocks = new Map<string, AsyncLock>();
@@ -27,6 +31,8 @@ export class Storage {
         this.agents = new AgentsRepository(connection);
         this.sessions = new SessionsRepository(connection);
         this.history = new HistoryRepository(connection);
+        this.cronTasks = new CronTasksRepository(connection);
+        this.heartbeatTasks = new HeartbeatTasksRepository(connection);
     }
 
     static open(dbPath: string): Storage {

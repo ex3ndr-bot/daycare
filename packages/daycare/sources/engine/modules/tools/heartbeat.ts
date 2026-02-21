@@ -158,7 +158,7 @@ export function buildHeartbeatAddTool(): ToolDefinition {
     return {
         tool: {
             name: "heartbeat_add",
-            description: "Create or update a heartbeat prompt stored in config/heartbeat (optional gate).",
+            description: "Create or update a heartbeat prompt stored in SQLite (optional gate).",
             parameters: addSchema
         },
         returns: heartbeatAddReturns,
@@ -188,7 +188,6 @@ export function buildHeartbeatAddTool(): ToolDefinition {
                 details: {
                     id: result.id,
                     title: result.title,
-                    filePath: result.filePath,
                     gate: result.gate ?? null
                 },
                 isError: false,

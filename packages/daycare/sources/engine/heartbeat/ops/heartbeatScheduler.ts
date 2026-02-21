@@ -1,9 +1,11 @@
 import { getLogger } from "../../../log.js";
+import { stringSlugify } from "../../../utils/stringSlugify.js";
+import { taskIdIsSafe } from "../../../utils/taskIdIsSafe.js";
 import { permissionClone } from "../../permissions/permissionClone.js";
 import { execGateCheck } from "../../scheduling/execGateCheck.js";
 import { execGateOutputAppend } from "../../scheduling/execGateOutputAppend.js";
 import { gatePermissionsCheck } from "../../scheduling/gatePermissionsCheck.js";
-import type { HeartbeatDefinition, HeartbeatSchedulerOptions, HeartbeatStoreInterface } from "../heartbeatTypes.js";
+import type { HeartbeatCreateTaskArgs, HeartbeatDefinition, HeartbeatSchedulerOptions } from "../heartbeatTypes.js";
 
 const logger = getLogger("heartbeat.scheduler");
 
@@ -14,7 +16,7 @@ const logger = getLogger("heartbeat.scheduler");
  */
 export class HeartbeatScheduler {
     private config: HeartbeatSchedulerOptions["config"];
-    private store: HeartbeatStoreInterface;
+    private repository: HeartbeatSchedulerOptions["repository"];
     private intervalMs: number;
     private onRun: HeartbeatSchedulerOptions["onRun"];
     private onError?: HeartbeatSchedulerOptions["onError"];
@@ -31,7 +33,7 @@ export class HeartbeatScheduler {
 
     constructor(options: HeartbeatSchedulerOptions) {
         this.config = options.config;
-        this.store = options.store;
+        this.repository = options.repository;
         this.intervalMs = options.intervalMs ?? 30 * 60 * 1000;
         this.onRun = options.onRun;
         this.onError = options.onError;
@@ -70,7 +72,61 @@ export class HeartbeatScheduler {
     }
 
     async listTasks(): Promise<HeartbeatDefinition[]> {
-        return this.store.listTasks();
+        return this.repository.findMany();
+    }
+
+    async createTask(definition: HeartbeatCreateTaskArgs): Promise<HeartbeatDefinition> {
+        const title = definition.title.trim();
+        const prompt = definition.prompt.trim();
+        if (!title) {
+            throw new Error("Heartbeat title is required.");
+        }
+        if (!prompt) {
+            throw new Error("Heartbeat prompt is required.");
+        }
+
+        const providedId = definition.id?.trim();
+        if (providedId && !taskIdIsSafe(providedId)) {
+            throw new Error("Heartbeat id contains invalid characters.");
+        }
+
+        const taskId = providedId ?? (await this.generateTaskIdFromTitle(title));
+        const existing = await this.repository.findById(taskId);
+        if (existing && !definition.overwrite) {
+            throw new Error(`Heartbeat already exists: ${taskId}`);
+        }
+
+        const now = Date.now();
+        if (existing) {
+            const updated: HeartbeatDefinition = {
+                ...existing,
+                title,
+                prompt,
+                gate: definition.gate ?? null,
+                updatedAt: now
+            };
+            await this.repository.update(taskId, updated);
+            return heartbeatTaskClone(updated);
+        }
+
+        const created: HeartbeatDefinition = {
+            id: taskId,
+            title,
+            prompt,
+            gate: definition.gate ?? null,
+            lastRunAt: null,
+            createdAt: now,
+            updatedAt: now
+        };
+        await this.repository.create(created);
+        return heartbeatTaskClone(created);
+    }
+
+    async deleteTask(taskId: string): Promise<boolean> {
+        if (!taskIdIsSafe(taskId)) {
+            throw new Error("Heartbeat id contains invalid characters.");
+        }
+        return this.repository.delete(taskId);
     }
 
     getIntervalMs(): number {
@@ -79,6 +135,20 @@ export class HeartbeatScheduler {
 
     getNextRunAt(): Date | null {
         return this.nextRunAt;
+    }
+
+    private async generateTaskIdFromTitle(title: string): Promise<string> {
+        const base = stringSlugify(title) || "heartbeat";
+        const tasks = await this.repository.findMany();
+        const existing = new Set(tasks.map((task) => task.id));
+
+        let candidate = base;
+        let suffix = 2;
+        while (existing.has(candidate)) {
+            candidate = `${base}-${suffix}`;
+            suffix += 1;
+        }
+        return candidate;
     }
 
     private scheduleNext(): void {
@@ -117,7 +187,7 @@ export class HeartbeatScheduler {
         }
         this.running = true;
         try {
-            const tasks = await this.store.listTasks();
+            const tasks = await this.repository.findMany();
             const filtered = taskIds && taskIds.length > 0 ? tasks.filter((task) => taskIds.includes(task.id)) : tasks;
             if (filtered.length === 0) {
                 return { ran: 0, taskIds: [] };
@@ -128,6 +198,7 @@ export class HeartbeatScheduler {
                 return { ran: 0, taskIds: [] };
             }
             const runAt = new Date();
+            const runAtMs = runAt.getTime();
             const ids = gated.map((task) => task.id);
             logger.info(
                 {
@@ -142,10 +213,11 @@ export class HeartbeatScheduler {
                 logger.warn({ taskIds: ids, error }, "error: Heartbeat run failed");
                 await this.onError?.(error, ids);
             } finally {
-                await this.store.recordRun(runAt);
+                await this.repository.recordRun(runAtMs);
                 for (const task of gated) {
-                    task.lastRunAt = runAt.toISOString();
-                    await this.onTaskComplete?.(task, runAt);
+                    task.lastRunAt = runAtMs;
+                    task.updatedAt = runAtMs;
+                    await this.onTaskComplete?.(heartbeatTaskClone(task), runAt);
                 }
             }
             logger.info(
@@ -233,4 +305,11 @@ export class HeartbeatScheduler {
         }
         return eligible;
     }
+}
+
+function heartbeatTaskClone(task: HeartbeatDefinition): HeartbeatDefinition {
+    return {
+        ...task,
+        gate: task.gate ? (JSON.parse(JSON.stringify(task.gate)) as HeartbeatDefinition["gate"]) : null
+    };
 }

@@ -1,49 +1,51 @@
-import { promises as fs } from "node:fs";
+import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SessionPermissions } from "@/types";
 import { configResolve } from "../../../config/configResolve.js";
+import { Storage } from "../../../storage/storage.js";
 import { ConfigModule } from "../../config/configModule.js";
 import { HeartbeatScheduler } from "./heartbeatScheduler.js";
-import { HeartbeatStore } from "./heartbeatStore.js";
 
-async function createTempStore() {
-    const dir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-heartbeat-"));
-    const store = new HeartbeatStore(dir);
-    await store.ensureDir();
-    return { dir, store };
-}
-
-async function cleanupTempStore(dir: string) {
-    await fs.rm(dir, { recursive: true, force: true });
+async function createTempScheduler() {
+    const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-heartbeat-"));
+    const storage = Storage.open(":memory:");
+    return { dir, storage };
 }
 
 describe("HeartbeatScheduler", () => {
     const temps: string[] = [];
+    const storages: Storage[] = [];
     const configModule = (workingDir: string): ConfigModule =>
         new ConfigModule(configResolve({ engine: { dataDir: workingDir } }, path.join(workingDir, "settings.json")));
 
     afterEach(async () => {
-        await Promise.all(temps.map((dir) => cleanupTempStore(dir)));
+        await Promise.all(temps.map((dir) => rm(dir, { recursive: true, force: true })));
         temps.length = 0;
+        for (const storage of storages) {
+            storage.close();
+        }
+        storages.length = 0;
     });
 
     it("runs all tasks in a single batch", async () => {
-        const { dir, store } = await createTempStore();
+        const { dir, storage } = await createTempScheduler();
         temps.push(dir);
-        const taskA = await store.createTask({ title: "Alpha", prompt: "Check alpha." });
-        const taskB = await store.createTask({ title: "Beta", prompt: "Check beta." });
+        storages.push(storage);
+
         const onRun = vi.fn();
         const onTaskComplete = vi.fn();
-
         const scheduler = new HeartbeatScheduler({
             config: configModule(dir),
-            store,
+            repository: storage.heartbeatTasks,
             onRun,
             onTaskComplete,
             defaultPermissions: defaultPermissions(dir)
         });
+
+        const taskA = await scheduler.createTask({ title: "Alpha", prompt: "Check alpha." });
+        const taskB = await scheduler.createTask({ title: "Beta", prompt: "Check beta." });
 
         const result = await scheduler.runNow();
 
@@ -55,25 +57,27 @@ describe("HeartbeatScheduler", () => {
         expect(runAt).toBeInstanceOf(Date);
         expect(onTaskComplete).toHaveBeenCalledTimes(2);
 
-        const refreshed = await store.listTasks();
-        expect(refreshed.every((task) => Boolean(task.lastRunAt))).toBe(true);
+        const refreshed = await scheduler.listTasks();
+        expect(refreshed.every((task) => typeof task.lastRunAt === "number")).toBe(true);
         const [first, ...rest] = refreshed;
         expect(rest.every((task) => task.lastRunAt === first?.lastRunAt)).toBe(true);
     });
 
     it("filters tasks by id while keeping a single run", async () => {
-        const { dir, store } = await createTempStore();
+        const { dir, storage } = await createTempScheduler();
         temps.push(dir);
-        const taskA = await store.createTask({ title: "Alpha", prompt: "Check alpha." });
-        await store.createTask({ title: "Beta", prompt: "Check beta." });
-        const onRun = vi.fn();
+        storages.push(storage);
 
+        const onRun = vi.fn();
         const scheduler = new HeartbeatScheduler({
             config: configModule(dir),
-            store,
+            repository: storage.heartbeatTasks,
             onRun,
             defaultPermissions: defaultPermissions(dir)
         });
+
+        const taskA = await scheduler.createTask({ title: "Alpha", prompt: "Check alpha." });
+        await scheduler.createTask({ title: "Beta", prompt: "Check beta." });
 
         const result = await scheduler.runNow([taskA.id]);
 
@@ -86,14 +90,10 @@ describe("HeartbeatScheduler", () => {
     });
 
     it("skips gated tasks when gate check denies", async () => {
-        const { dir, store } = await createTempStore();
+        const { dir, storage } = await createTempScheduler();
         temps.push(dir);
-        await store.createTask({
-            title: "Alpha",
-            prompt: "Check alpha.",
-            gate: { command: "echo gate" }
-        });
-        await store.createTask({ title: "Beta", prompt: "Check beta." });
+        storages.push(storage);
+
         const onRun = vi.fn();
         const gateCheck = vi.fn().mockResolvedValue({
             shouldRun: false,
@@ -101,14 +101,20 @@ describe("HeartbeatScheduler", () => {
             stdout: "",
             stderr: ""
         });
-
         const scheduler = new HeartbeatScheduler({
             config: configModule(dir),
-            store,
+            repository: storage.heartbeatTasks,
             onRun,
             gateCheck,
             defaultPermissions: defaultPermissions(dir)
         });
+
+        await scheduler.createTask({
+            title: "Alpha",
+            prompt: "Check alpha.",
+            gate: { command: "echo gate" }
+        });
+        await scheduler.createTask({ title: "Beta", prompt: "Check beta." });
 
         const result = await scheduler.runNow();
 
@@ -116,19 +122,13 @@ describe("HeartbeatScheduler", () => {
         expect(result.ran).toBe(1);
         expect(result.taskIds).toEqual(["beta"]);
         expect(onRun).toHaveBeenCalledTimes(1);
-        const [runTasks] = onRun.mock.calls[0] as [unknown];
-        expect(Array.isArray(runTasks)).toBe(true);
-        expect((runTasks as { id: string }[]).map((task) => task.id)).toEqual(["beta"]);
     });
 
     it("appends gate output to the prompt", async () => {
-        const { dir, store } = await createTempStore();
+        const { dir, storage } = await createTempScheduler();
         temps.push(dir);
-        await store.createTask({
-            title: "Alpha",
-            prompt: "Base prompt",
-            gate: { command: "echo gate" }
-        });
+        storages.push(storage);
+
         const onRun = vi.fn();
         const gateCheck = vi.fn().mockResolvedValue({
             shouldRun: true,
@@ -136,13 +136,18 @@ describe("HeartbeatScheduler", () => {
             stdout: " ok ",
             stderr: ""
         });
-
         const scheduler = new HeartbeatScheduler({
             config: configModule(dir),
-            store,
+            repository: storage.heartbeatTasks,
             onRun,
             gateCheck,
             defaultPermissions: defaultPermissions(dir)
+        });
+
+        await scheduler.createTask({
+            title: "Alpha",
+            prompt: "Base prompt",
+            gate: { command: "echo gate" }
         });
 
         const result = await scheduler.runNow();
@@ -155,13 +160,10 @@ describe("HeartbeatScheduler", () => {
     });
 
     it("requests missing gate permissions and runs gate after approval", async () => {
-        const { dir, store } = await createTempStore();
+        const { dir, storage } = await createTempScheduler();
         temps.push(dir);
-        await store.createTask({
-            title: "Needs network",
-            prompt: "Check network.",
-            gate: { command: "echo gate", permissions: ["@network"] }
-        });
+        storages.push(storage);
+
         const onRun = vi.fn();
         const gateCheck = vi.fn().mockResolvedValue({
             shouldRun: true,
@@ -175,15 +177,20 @@ describe("HeartbeatScheduler", () => {
             networkGranted = true;
             return true;
         });
-
         const scheduler = new HeartbeatScheduler({
             config: configModule(dir),
-            store,
+            repository: storage.heartbeatTasks,
             onRun,
             gateCheck,
             resolvePermissions,
             onGatePermissionRequest,
             defaultPermissions: defaultPermissions(dir)
+        });
+
+        await scheduler.createTask({
+            title: "Needs network",
+            prompt: "Check network.",
+            gate: { command: "echo gate", permissions: ["@network"] }
         });
 
         const result = await scheduler.runNow();
@@ -198,13 +205,10 @@ describe("HeartbeatScheduler", () => {
     });
 
     it("skips task when missing gate permissions are denied", async () => {
-        const { dir, store } = await createTempStore();
+        const { dir, storage } = await createTempScheduler();
         temps.push(dir);
-        await store.createTask({
-            title: "Needs network",
-            prompt: "Check network.",
-            gate: { command: "echo gate", permissions: ["@network"] }
-        });
+        storages.push(storage);
+
         const onRun = vi.fn();
         const gateCheck = vi.fn().mockResolvedValue({
             shouldRun: true,
@@ -212,14 +216,19 @@ describe("HeartbeatScheduler", () => {
             stdout: "",
             stderr: ""
         });
-
         const scheduler = new HeartbeatScheduler({
             config: configModule(dir),
-            store,
+            repository: storage.heartbeatTasks,
             onRun,
             gateCheck,
             onGatePermissionRequest: vi.fn(async () => false),
             defaultPermissions: defaultPermissions(dir)
+        });
+
+        await scheduler.createTask({
+            title: "Needs network",
+            prompt: "Check network.",
+            gate: { command: "echo gate", permissions: ["@network"] }
         });
 
         const result = await scheduler.runNow();

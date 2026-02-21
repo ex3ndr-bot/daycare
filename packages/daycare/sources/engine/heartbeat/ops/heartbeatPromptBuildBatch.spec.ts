@@ -6,7 +6,10 @@ const buildTask = (id: string, title: string, prompt: string) => ({
     id,
     title,
     prompt,
-    filePath: ""
+    gate: null,
+    lastRunAt: null,
+    createdAt: 1,
+    updatedAt: 1
 });
 
 describe("heartbeatPromptBuildBatch", () => {

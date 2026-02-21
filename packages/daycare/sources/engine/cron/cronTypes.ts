@@ -1,4 +1,5 @@
 import type { ExecGateDefinition } from "@/types";
+import type { CronTaskDbRecord } from "../../storage/databaseTypes.js";
 
 /**
  * Cron task definition as stored/provided by the user.
@@ -20,21 +21,6 @@ export type CronTaskDefinition = {
 /**
  * Cron task with computed paths for file storage.
  */
-export type CronTaskWithPaths = Omit<CronTaskDefinition, "taskUid"> & {
-    taskUid: string;
-    taskPath: string;
-    memoryPath: string;
-    filesPath: string;
-    lastRunAt?: string;
-};
-
-/**
- * Internal state persisted for each cron task.
- */
-export type CronTaskState = {
-    lastRunAt?: string;
-};
-
 /**
  * Context passed to task handlers when a cron task executes.
  */
@@ -43,23 +29,8 @@ export type CronTaskContext = {
     taskUid: string;
     taskName: string;
     prompt: string;
-    memoryPath: string;
-    filesPath: string;
     agentId?: string;
     userId?: string;
-};
-
-/**
- * Simple key-value frontmatter from markdown files.
- */
-export type Frontmatter = Record<string, unknown>;
-
-/**
- * Parsed markdown document with frontmatter and body.
- */
-export type ParsedDocument = {
-    frontmatter: Frontmatter;
-    body: string;
 };
 
 /**
@@ -85,7 +56,7 @@ export type ParsedCron = {
  * Internal tracking for a scheduled task in the scheduler.
  */
 export type ScheduledTask = {
-    task: CronTaskWithPaths;
+    task: CronTaskDbRecord;
     nextRun: Date;
     timer: NodeJS.Timeout | null;
 };

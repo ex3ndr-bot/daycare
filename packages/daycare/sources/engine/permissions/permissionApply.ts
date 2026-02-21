@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import type { PermissionDecision } from "@/types";
 import type { SessionPermissions } from "../permissions.js";
 import { permissionAccessApply } from "./permissionAccessApply.js";

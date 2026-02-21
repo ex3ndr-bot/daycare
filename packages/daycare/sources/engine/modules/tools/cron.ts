@@ -62,22 +62,6 @@ const readCronTaskSchema = Type.Object(
     { additionalProperties: false }
 );
 
-const readCronMemorySchema = Type.Object(
-    {
-        taskId: Type.Optional(Type.String({ minLength: 1 }))
-    },
-    { additionalProperties: false }
-);
-
-const writeCronMemorySchema = Type.Object(
-    {
-        taskId: Type.Optional(Type.String({ minLength: 1 })),
-        content: Type.String({ minLength: 1 }),
-        append: Type.Optional(Type.Boolean())
-    },
-    { additionalProperties: false }
-);
-
 const deleteCronTaskSchema = Type.Object(
     {
         taskId: Type.Optional(Type.String({ minLength: 1 }))
@@ -87,8 +71,6 @@ const deleteCronTaskSchema = Type.Object(
 
 type AddCronToolArgs = Static<typeof addCronSchema>;
 type CronReadTaskArgs = Static<typeof readCronTaskSchema>;
-type CronReadMemoryArgs = Static<typeof readCronMemorySchema>;
-type CronWriteMemoryArgs = Static<typeof writeCronMemorySchema>;
 type CronDeleteTaskArgs = Static<typeof deleteCronTaskSchema>;
 
 const cronResultSchema = Type.Object(
@@ -115,7 +97,7 @@ export function buildCronTool(crons: Crons): ToolDefinition {
     return {
         tool: {
             name: "cron_add",
-            description: "Create a scheduled cron task from a prompt stored in config/cron (optional agentId + gate).",
+            description: "Create a scheduled cron task from a prompt stored in SQLite (optional agentId + gate).",
             parameters: addCronSchema
         },
         returns: cronReturns,
@@ -217,8 +199,8 @@ export function buildCronReadTaskTool(crons: Crons): ToolDefinition {
                     schedule: task.schedule,
                     agentId: task.agentId ?? null,
                     gate: task.gate ?? null,
-                    enabled: task.enabled !== false,
-                    deleteAfterRun: task.deleteAfterRun === true,
+                    enabled: task.enabled,
+                    deleteAfterRun: task.deleteAfterRun,
                     prompt: task.prompt
                 },
                 isError: false,
@@ -238,95 +220,11 @@ export function buildCronReadTaskTool(crons: Crons): ToolDefinition {
     };
 }
 
-export function buildCronReadMemoryTool(crons: Crons): ToolDefinition {
-    return {
-        tool: {
-            name: "cron_read_memory",
-            description: "Read the memory for a cron task.",
-            parameters: readCronMemorySchema
-        },
-        returns: cronReturns,
-        execute: async (args, context, toolCall) => {
-            const payload = args as CronReadMemoryArgs;
-            const taskId = await resolveTaskId(payload.taskId, context);
-            const memory = await crons.readMemory(taskId);
-
-            const summary = memory;
-            const toolMessage: ToolResultMessage = {
-                role: "toolResult",
-                toolCallId: toolCall.id,
-                toolName: toolCall.name,
-                content: [
-                    {
-                        type: "text",
-                        text: summary
-                    }
-                ],
-                details: { taskId },
-                isError: false,
-                timestamp: Date.now()
-            };
-
-            return {
-                toolMessage,
-                typedResult: {
-                    summary,
-                    taskId
-                }
-            };
-        }
-    };
-}
-
-export function buildCronWriteMemoryTool(crons: Crons): ToolDefinition {
-    return {
-        tool: {
-            name: "cron_write_memory",
-            description: "Write or append memory for a cron task.",
-            parameters: writeCronMemorySchema
-        },
-        returns: cronReturns,
-        execute: async (args, context, toolCall) => {
-            const payload = args as CronWriteMemoryArgs;
-            const taskId = await resolveTaskId(payload.taskId, context);
-            const content = payload.append
-                ? appendMemory(await crons.readMemory(taskId), payload.content)
-                : payload.content;
-            await crons.writeMemory(taskId, content);
-
-            const summary = `Cron memory updated for task ${taskId}.`;
-            const toolMessage: ToolResultMessage = {
-                role: "toolResult",
-                toolCallId: toolCall.id,
-                toolName: toolCall.name,
-                content: [
-                    {
-                        type: "text",
-                        text: summary
-                    }
-                ],
-                details: { taskId, bytes: content.length },
-                isError: false,
-                timestamp: Date.now()
-            };
-
-            return {
-                toolMessage,
-                typedResult: {
-                    summary,
-                    taskId,
-                    bytes: content.length
-                }
-            };
-        }
-    };
-}
-
 export function buildCronDeleteTaskTool(crons: Crons): ToolDefinition {
     return {
         tool: {
             name: "cron_delete_task",
-            description: "Delete a cron task from disk and scheduler.",
+            description: "Delete a cron task from scheduler and SQLite.",
             parameters: deleteCronTaskSchema
         },
         returns: cronReturns,
@@ -372,12 +270,4 @@ async function resolveTaskId(provided: string | undefined, context: ToolExecutio
         throw new Error("Cron task id contains invalid characters.");
     }
     return taskId;
-}
-
-function appendMemory(existing: string, next: string): string {
-    const trimmedExisting = existing.trim();
-    if (!trimmedExisting || trimmedExisting === "No memory") {
-        return next;
-    }
-    return `${trimmedExisting}\n${next}`;
 }

@@ -3,6 +3,7 @@ import type {
     AgentLifecycleState,
     AgentTokenEntry,
     AgentTokenStats,
+    ExecGateDefinition,
     SessionPermissions
 } from "@/types";
 
@@ -46,6 +47,60 @@ export type AgentDbRecord = {
     tokens: AgentTokenEntry | null;
     stats: AgentTokenStats;
     lifecycle: AgentLifecycleState;
+    createdAt: number;
+    updatedAt: number;
+};
+
+export type DatabaseCronTaskRow = {
+    id: string;
+    task_uid: string;
+    user_id: string | null;
+    name: string;
+    description: string | null;
+    schedule: string;
+    prompt: string;
+    agent_id: string | null;
+    gate: string | null;
+    enabled: number;
+    delete_after_run: number;
+    last_run_at: number | null;
+    created_at: number;
+    updated_at: number;
+};
+
+export type CronTaskDbRecord = {
+    id: string;
+    taskUid: string;
+    userId: string | null;
+    name: string;
+    description: string | null;
+    schedule: string;
+    prompt: string;
+    agentId: string | null;
+    gate: ExecGateDefinition | null;
+    enabled: boolean;
+    deleteAfterRun: boolean;
+    lastRunAt: number | null;
+    createdAt: number;
+    updatedAt: number;
+};
+
+export type DatabaseHeartbeatTaskRow = {
+    id: string;
+    title: string;
+    prompt: string;
+    gate: string | null;
+    last_run_at: number | null;
+    created_at: number;
+    updated_at: number;
+};
+
+export type HeartbeatTaskDbRecord = {
+    id: string;
+    title: string;
+    prompt: string;
+    gate: ExecGateDefinition | null;
+    lastRunAt: number | null;
     createdAt: number;
     updatedAt: number;
 };

@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { createId } from "@paralleldrive/cuid2";
 import type { AgentDescriptor, AgentHistoryRecord, AgentState } from "@/types";
+import { databasePathResolve } from "../databasePathResolve.js";
 import type { Migration } from "./migrationTypes.js";
 
 type LegacyState = Pick<
@@ -110,13 +111,6 @@ export const migration20260219ImportFiles: Migration = {
         }
     }
 };
-
-function databasePathResolve(db: { prepare: (sql: string) => { all: () => unknown[] } }): string | null {
-    const rows = db.prepare("PRAGMA database_list").all() as Array<{ name?: string; file?: string }>;
-    const main = rows.find((row) => row.name === "main") ?? rows[0];
-    const file = main?.file?.trim() ?? "";
-    return file.length > 0 ? file : null;
-}
 
 function legacyDescriptorRead(basePath: string): AgentDescriptor | null {
     const filePath = path.join(basePath, "descriptor.json");

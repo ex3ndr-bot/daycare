@@ -1,26 +1,29 @@
+import { createId } from "@paralleldrive/cuid2";
 import type { MessageContext, SessionPermissions } from "@/types";
 import { getLogger } from "../../../log.js";
+import type { CronTasksRepository } from "../../../storage/cronTasksRepository.js";
+import type { CronTaskDbRecord } from "../../../storage/databaseTypes.js";
+import { cuid2Is } from "../../../utils/cuid2Is.js";
+import { stringSlugify } from "../../../utils/stringSlugify.js";
 import type { ConfigModule } from "../../config/configModule.js";
-import { permissionBuildCron } from "../../permissions/permissionBuildCron.js";
 import { permissionClone } from "../../permissions/permissionClone.js";
 import { type ExecGateCheckInput, type ExecGateCheckResult, execGateCheck } from "../../scheduling/execGateCheck.js";
 import { execGateOutputAppend } from "../../scheduling/execGateOutputAppend.js";
 import { gatePermissionsCheck } from "../../scheduling/gatePermissionsCheck.js";
-import type { CronTaskContext, CronTaskDefinition, CronTaskWithPaths, ScheduledTask } from "../cronTypes.js";
-import type { CronStore } from "./cronStore.js";
+import type { CronTaskContext, CronTaskDefinition, ScheduledTask } from "../cronTypes.js";
 import { cronTimeGetNext } from "./cronTimeGetNext.js";
 
 const logger = getLogger("cron.scheduler");
 
 export type CronSchedulerOptions = {
     config: ConfigModule;
-    store: CronStore;
+    repository: CronTasksRepository;
     defaultPermissions: SessionPermissions;
-    resolvePermissions?: (task: CronTaskWithPaths) => Promise<SessionPermissions> | SessionPermissions;
+    resolvePermissions?: (task: CronTaskDbRecord) => Promise<SessionPermissions> | SessionPermissions;
     onTask: (context: CronTaskContext, messageContext: MessageContext) => void | Promise<void>;
     onError?: (error: unknown, taskId: string) => void | Promise<void>;
-    onGatePermissionRequest?: (task: CronTaskWithPaths, missing: string[]) => Promise<boolean>;
-    onTaskComplete?: (task: CronTaskWithPaths, runAt: Date) => void | Promise<void>;
+    onGatePermissionRequest?: (task: CronTaskDbRecord, missing: string[]) => Promise<boolean>;
+    onTaskComplete?: (task: CronTaskDbRecord, runAt: Date) => void | Promise<void>;
     gateCheck?: (input: ExecGateCheckInput) => Promise<ExecGateCheckResult>;
 };
 
@@ -29,7 +32,7 @@ export type CronSchedulerOptions = {
  */
 export class CronScheduler {
     private config: ConfigModule;
-    private store: CronStore;
+    private repository: CronTasksRepository;
     private tasks = new Map<string, ScheduledTask>();
     private started = false;
     private stopped = false;
@@ -45,7 +48,7 @@ export class CronScheduler {
 
     constructor(options: CronSchedulerOptions) {
         this.config = options.config;
-        this.store = options.store;
+        this.repository = options.repository;
         this.onTask = options.onTask;
         this.onError = options.onError;
         this.onGatePermissionRequest = options.onGatePermissionRequest;
@@ -65,16 +68,10 @@ export class CronScheduler {
 
         this.started = true;
 
-        // Load tasks from disk
-        const tasks = await this.store.listTasks();
-        logger.debug(`load: Loaded tasks from disk taskCount=${tasks.length}`);
+        const tasks = await this.repository.findMany();
+        logger.debug(`load: Loaded tasks from db taskCount=${tasks.length}`);
 
         for (const task of tasks) {
-            if (task.enabled === false) {
-                logger.debug(`skip: Task disabled, skipping taskId=${task.id}`);
-                continue;
-            }
-
             this.scheduleTask(task);
         }
 
@@ -102,7 +99,7 @@ export class CronScheduler {
     }
 
     async reload(): Promise<void> {
-        logger.debug("reload: Reloading tasks from disk");
+        logger.debug("reload: Reloading tasks from db");
 
         this.tasks.clear();
 
@@ -110,12 +107,8 @@ export class CronScheduler {
             return;
         }
 
-        // Reload from disk
-        const tasks = await this.store.listTasks();
+        const tasks = await this.repository.findMany();
         for (const task of tasks) {
-            if (task.enabled === false) {
-                continue;
-            }
             this.scheduleTask(task);
         }
 
@@ -123,41 +116,52 @@ export class CronScheduler {
         logger.debug(`reload: Tasks reloaded taskCount=${this.tasks.size}`);
     }
 
-    listTasks(): CronTaskWithPaths[] {
-        return Array.from(this.tasks.values()).map((s) => s.task);
+    listTasks(): CronTaskDbRecord[] {
+        return Array.from(this.tasks.values()).map((scheduled) => cronTaskClone(scheduled.task));
     }
 
-    async addTask(definition: Omit<CronTaskDefinition, "id"> & { id?: string }): Promise<CronTaskWithPaths> {
-        const taskId = definition.id ?? (await this.store.generateTaskIdFromName(definition.name));
-        const task = await this.store.createTask(taskId, {
+    async addTask(definition: Omit<CronTaskDefinition, "id"> & { id?: string }): Promise<CronTaskDbRecord> {
+        const taskId = definition.id ?? (await this.generateTaskIdFromName(definition.name));
+        const now = Date.now();
+        const task: CronTaskDbRecord = {
+            id: taskId,
+            taskUid: definition.taskUid && cuid2Is(definition.taskUid) ? definition.taskUid : createId(),
+            userId: definition.userId ?? null,
             name: definition.name,
-            taskUid: definition.taskUid,
-            description: definition.description,
+            description: definition.description ?? null,
             schedule: definition.schedule,
             prompt: definition.prompt,
-            agentId: definition.agentId,
-            userId: definition.userId,
-            gate: definition.gate,
-            enabled: definition.enabled,
-            deleteAfterRun: definition.deleteAfterRun
-        });
+            agentId: definition.agentId ?? null,
+            gate: definition.gate ?? null,
+            enabled: definition.enabled !== false,
+            deleteAfterRun: definition.deleteAfterRun === true,
+            lastRunAt: null,
+            createdAt: now,
+            updatedAt: now
+        };
 
-        if (task.enabled !== false && this.started && !this.stopped) {
+        await this.repository.create(task);
+
+        if (task.enabled && this.started && !this.stopped) {
             this.scheduleTask(task);
             this.scheduleNextTick();
         }
 
-        return task;
+        return cronTaskClone(task);
     }
 
     async deleteTask(taskId: string): Promise<boolean> {
         this.tasks.delete(taskId);
         this.runningTasks.delete(taskId);
-        const deleted = await this.store.deleteTask(taskId);
+        const deleted = await this.repository.delete(taskId);
         if (this.started && !this.stopped) {
             this.scheduleNextTick();
         }
         return deleted;
+    }
+
+    async loadTask(taskId: string): Promise<CronTaskDbRecord | null> {
+        return this.repository.findById(taskId);
     }
 
     getTaskContext(taskId: string): CronTaskContext | null {
@@ -171,14 +175,26 @@ export class CronScheduler {
             taskUid: scheduled.task.taskUid,
             taskName: scheduled.task.name,
             prompt: scheduled.task.prompt,
-            memoryPath: scheduled.task.memoryPath,
-            filesPath: scheduled.task.filesPath,
-            agentId: scheduled.task.agentId,
-            userId: scheduled.task.userId
+            agentId: scheduled.task.agentId ?? undefined,
+            userId: scheduled.task.userId ?? undefined
         };
     }
 
-    private scheduleTask(task: CronTaskWithPaths): void {
+    private async generateTaskIdFromName(name: string): Promise<string> {
+        const base = stringSlugify(name) || "cron-task";
+        const tasks = await this.repository.findMany({ includeDisabled: true });
+        const existing = new Set(tasks.map((task) => task.id));
+
+        let candidate = base;
+        let suffix = 2;
+        while (existing.has(candidate)) {
+            candidate = `${base}-${suffix}`;
+            suffix += 1;
+        }
+        return candidate;
+    }
+
+    private scheduleTask(task: CronTaskDbRecord): void {
         const nextRun = cronTimeGetNext(task.schedule);
         if (!nextRun) {
             logger.warn({ taskId: task.id, schedule: task.schedule }, "schedule: Invalid cron schedule");
@@ -193,14 +209,14 @@ export class CronScheduler {
             },
             "schedule: Scheduling task"
         );
-        this.tasks.set(task.id, { task, nextRun, timer: null });
+        this.tasks.set(task.id, { task: cronTaskClone(task), nextRun, timer: null });
     }
 
-    private async executeTask(task: CronTaskWithPaths): Promise<void> {
+    private async executeTask(task: CronTaskDbRecord): Promise<void> {
         await this.config.inReadLock(async () => this.executeTaskUnlocked(task));
     }
 
-    private async executeTaskUnlocked(task: CronTaskWithPaths): Promise<void> {
+    private async executeTaskUnlocked(task: CronTaskDbRecord): Promise<void> {
         logger.debug(`event: executeTask() called taskId=${task.id}`);
 
         if (this.stopped) {
@@ -215,16 +231,15 @@ export class CronScheduler {
         const prompt = gate.result ? execGateOutputAppend(task.prompt, gate.result) : task.prompt;
 
         const runAt = new Date();
+        const runAtMs = runAt.getTime();
 
         const taskContext: CronTaskContext = {
             taskId: task.id,
             taskUid: task.taskUid,
             taskName: task.name,
             prompt,
-            memoryPath: task.memoryPath,
-            filesPath: task.filesPath,
-            agentId: task.agentId,
-            userId: task.userId
+            agentId: task.agentId ?? undefined,
+            userId: task.userId ?? undefined
         };
 
         const messageContext: MessageContext = {};
@@ -237,9 +252,13 @@ export class CronScheduler {
             logger.warn({ taskId: task.id, error }, "error: Cron task execution failed");
             await this.reportError(error, task.id);
         } finally {
-            task.lastRunAt = runAt.toISOString();
-            await this.store.recordRun(task.id, runAt);
-            await this.onTaskComplete?.(task, runAt);
+            task.lastRunAt = runAtMs;
+            task.updatedAt = runAtMs;
+            await this.repository.update(task.id, {
+                lastRunAt: runAtMs,
+                updatedAt: runAtMs
+            });
+            await this.onTaskComplete?.(cronTaskClone(task), runAt);
         }
     }
 
@@ -250,12 +269,11 @@ export class CronScheduler {
         await this.onError(error, taskId);
     }
 
-    private async checkGate(task: CronTaskWithPaths): Promise<{ allowed: boolean; result?: ExecGateCheckResult }> {
+    private async checkGate(task: CronTaskDbRecord): Promise<{ allowed: boolean; result?: ExecGateCheckResult }> {
         if (!task.gate) {
             return { allowed: true };
         }
-        let basePermissions =
-            (await this.resolvePermissions?.(task)) ?? permissionBuildCron(this.defaultPermissions, task.filesPath);
+        let basePermissions = (await this.resolvePermissions?.(task)) ?? this.defaultPermissions;
         let permissions = permissionClone(basePermissions);
         let permissionCheck = await gatePermissionsCheck(permissions, task.gate.permissions);
         if (!permissionCheck.allowed) {
@@ -279,8 +297,7 @@ export class CronScheduler {
                 return { allowed: false };
             }
 
-            basePermissions =
-                (await this.resolvePermissions?.(task)) ?? permissionBuildCron(this.defaultPermissions, task.filesPath);
+            basePermissions = (await this.resolvePermissions?.(task)) ?? this.defaultPermissions;
             permissions = permissionClone(basePermissions);
             permissionCheck = await gatePermissionsCheck(permissions, task.gate.permissions);
             if (!permissionCheck.allowed) {
@@ -314,8 +331,6 @@ export class CronScheduler {
 
     private runTick(): void {
         try {
-            // Tick only computes due work and schedules async task execution; each task
-            // independently acquires a read lock in executeTask().
             this.runTickUnlocked();
         } catch (error) {
             logger.warn({ error }, "error: Cron tick failed");
@@ -361,7 +376,7 @@ export class CronScheduler {
                         this.runningTasks.delete(scheduled.task.id);
                         if (scheduled.task.deleteAfterRun) {
                             this.tasks.delete(scheduled.task.id);
-                            void this.store.deleteTask(scheduled.task.id).catch((error) => {
+                            void this.repository.delete(scheduled.task.id).catch((error) => {
                                 logger.warn({ taskId: scheduled.task.id, error }, "error: Failed to delete cron task");
                             });
                         }
@@ -392,4 +407,11 @@ export class CronScheduler {
             this.runTick();
         }, waitMs);
     }
+}
+
+function cronTaskClone(task: CronTaskDbRecord): CronTaskDbRecord {
+    return {
+        ...task,
+        gate: task.gate ? (JSON.parse(JSON.stringify(task.gate)) as CronTaskDbRecord["gate"]) : null
+    };
 }

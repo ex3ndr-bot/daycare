@@ -35,13 +35,7 @@ import { channelCreateToolBuild } from "./modules/tools/channelCreateTool.js";
 import { channelHistoryToolBuild } from "./modules/tools/channelHistoryTool.js";
 import { channelAddMemberToolBuild, channelRemoveMemberToolBuild } from "./modules/tools/channelMemberTool.js";
 import { channelSendToolBuild } from "./modules/tools/channelSendTool.js";
-import {
-    buildCronDeleteTaskTool,
-    buildCronReadMemoryTool,
-    buildCronReadTaskTool,
-    buildCronTool,
-    buildCronWriteMemoryTool
-} from "./modules/tools/cron.js";
+import { buildCronDeleteTaskTool, buildCronReadTaskTool, buildCronTool } from "./modules/tools/cron.js";
 import { exposeCreateToolBuild } from "./modules/tools/exposeCreateToolBuild.js";
 import { exposeListToolBuild } from "./modules/tools/exposeListToolBuild.js";
 import { exposeRemoveToolBuild } from "./modules/tools/exposeRemoveToolBuild.js";
@@ -320,6 +314,7 @@ export class Engine {
 
         this.crons = new Crons({
             config: this.config,
+            storage: this.storage,
             eventBus: this.eventBus,
             agentSystem: this.agentSystem,
             connectorRegistry: this.modules.connectors,
@@ -330,6 +325,7 @@ export class Engine {
 
         const heartbeats = new Heartbeats({
             config: this.config,
+            storage: this.storage,
             eventBus: this.eventBus,
             intervalMs: 30 * 60 * 1000,
             agentSystem: this.agentSystem,
@@ -368,8 +364,6 @@ export class Engine {
         await this.pluginManager.reload();
         logger.debug("reload: Plugin reload complete");
 
-        await this.crons.ensureDir();
-        await this.heartbeats.ensureDir();
         await this.signals.ensureDir();
         await this.delayedSignals.ensureDir();
         await this.channels.ensureDir();
@@ -380,8 +374,6 @@ export class Engine {
         logger.debug("register: Registering core tools");
         this.modules.tools.register("core", buildCronTool(this.crons));
         this.modules.tools.register("core", buildCronReadTaskTool(this.crons));
-        this.modules.tools.register("core", buildCronReadMemoryTool(this.crons));
-        this.modules.tools.register("core", buildCronWriteMemoryTool(this.crons));
         this.modules.tools.register("core", buildCronDeleteTaskTool(this.crons));
         this.modules.tools.register("core", buildHeartbeatRunTool());
         this.modules.tools.register("core", buildHeartbeatAddTool());
@@ -422,7 +414,7 @@ export class Engine {
         await this.apps.discover();
         this.apps.registerTools(this.modules.tools);
         logger.debug(
-            "register: Core tools registered: cron, cron_memory, heartbeat, topology, background, agent_reset, agent_compact, send_user_message, skill, session_history, permanent_agents, channels, image_generation, mermaid_png, reaction, send_file, generate_signal, signal_events_csv, signal_subscribe, signal_unsubscribe, request_permission, grant_permission, install_app, app_rules"
+            "register: Core tools registered: cron, heartbeat, topology, background, agent_reset, agent_compact, send_user_message, skill, session_history, permanent_agents, channels, image_generation, mermaid_png, reaction, send_file, generate_signal, signal_events_csv, signal_subscribe, signal_unsubscribe, request_permission, grant_permission, install_app, app_rules"
         );
 
         await this.pluginManager.preStartAll();
