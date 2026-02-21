@@ -3,6 +3,7 @@ import type { ToolResultMessage } from "@mariozechner/pi-ai";
 import { createId } from "@paralleldrive/cuid2";
 import { type Static, Type } from "@sinclair/typebox";
 import type { ToolDefinition, ToolResultContract } from "@/types";
+import { agentDescriptorTargetResolve } from "../../agents/ops/agentDescriptorTargetResolve.js";
 import { permissionAccessParse } from "../../permissions/permissionAccessParse.js";
 import { permissionTagsNormalize } from "../../permissions/permissionTagsNormalize.js";
 import { permissionTagsValidate } from "../../permissions/permissionTagsValidate.js";
@@ -10,6 +11,7 @@ import { skillContentLoad } from "../../skills/skillContentLoad.js";
 import { skillResolve } from "../../skills/skillResolve.js";
 import type { AgentSkill } from "../../skills/skillTypes.js";
 import { toolMessageTextExtract } from "./toolReturnOutcome.js";
+import type { ToolExecutionContext } from "./types.js";
 
 const schema = Type.Object(
     {
@@ -65,6 +67,9 @@ export function skillToolBuild(): ToolDefinition {
                       )
                     : new Error(`Unknown skill: ${requested}.`);
             }
+
+            // Notify connector about skill activation (fire-and-forget for user agents)
+            void skillNotifyConnector(skill.name, toolContext);
 
             const skillBody = await skillContentLoad(skill.path);
             if (skill.sandbox === true) {
@@ -197,4 +202,25 @@ function toolMessageBuild(toolCallId: string, toolName: string, text: string): T
         isError: false,
         timestamp: Date.now()
     };
+}
+
+/**
+ * Sends a user-facing notification to the connector when a skill is loaded.
+ * Only fires for user-type agents that have a direct connector with text support.
+ * Entirely best-effort; failures are silently ignored.
+ */
+async function skillNotifyConnector(skillName: string, toolContext: ToolExecutionContext): Promise<void> {
+    try {
+        const target = agentDescriptorTargetResolve(toolContext.agent.descriptor);
+        if (!target) {
+            return;
+        }
+        const connector = toolContext.connectorRegistry.get(target.connector);
+        if (!connector?.capabilities.sendText) {
+            return;
+        }
+        await connector.sendMessage(target.targetId, { text: `⚡ Skill loaded: ${skillName}` });
+    } catch {
+        // Best-effort notification; do not break skill execution
+    }
 }

@@ -4,7 +4,7 @@ import path from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
-import type { AgentSkill, SessionPermissions, ToolExecutionContext } from "@/types";
+import type { AgentDescriptor, AgentSkill, SessionPermissions, ToolExecutionContext } from "@/types";
 import { skillToolBuild } from "./skillToolBuild.js";
 
 const toolCall = { id: "tool-1", name: "skill" };
@@ -154,11 +154,56 @@ describe("skillToolBuild", () => {
             await fs.rm(path.dirname(path.dirname(skillPath)), { recursive: true, force: true });
         }
     });
+
+    it("sends connector notification for user-type agents", async () => {
+        const skillPath = await skillFileCreate("scheduling", false);
+        try {
+            const sendMessage = vi.fn(async () => undefined);
+            const tool = skillToolBuild();
+            const context = contextBuild({
+                skills: [skillBuild(skillPath, { name: "scheduling", sandbox: false })],
+                descriptor: { type: "user", connector: "telegram", userId: "u1", channelId: "c1" },
+                connectorRegistry: {
+                    get: () => ({ capabilities: { sendText: true }, sendMessage })
+                }
+            });
+
+            await tool.execute({ name: "scheduling" }, context, toolCall);
+            // Allow fire-and-forget promise to resolve
+            await vi.waitFor(() => expect(sendMessage).toHaveBeenCalledTimes(1));
+            expect(sendMessage).toHaveBeenCalledWith("c1", { text: "⚡ Skill loaded: scheduling" });
+        } finally {
+            await fs.rm(path.dirname(path.dirname(skillPath)), { recursive: true, force: true });
+        }
+    });
+
+    it("skips connector notification for non-user agents", async () => {
+        const skillPath = await skillFileCreate("scheduling", false);
+        try {
+            const sendMessage = vi.fn(async () => undefined);
+            const tool = skillToolBuild();
+            const context = contextBuild({
+                skills: [skillBuild(skillPath, { name: "scheduling", sandbox: false })],
+                descriptor: { type: "cron", id: "cron-1" },
+                connectorRegistry: {
+                    get: () => ({ capabilities: { sendText: true }, sendMessage })
+                }
+            });
+
+            await tool.execute({ name: "scheduling" }, context, toolCall);
+            await new Promise((r) => setTimeout(r, 50));
+            expect(sendMessage).not.toHaveBeenCalled();
+        } finally {
+            await fs.rm(path.dirname(path.dirname(skillPath)), { recursive: true, force: true });
+        }
+    });
 });
 
 function contextBuild(input?: {
     permissions?: SessionPermissions;
     skills?: AgentSkill[];
+    descriptor?: AgentDescriptor;
+    connectorRegistry?: { get: (id: string) => unknown };
     agentSystem?: {
         agentIdForTarget?: (target: unknown) => Promise<string>;
         grantPermission?: (target: unknown, access: unknown, options?: unknown) => Promise<void>;
@@ -171,13 +216,13 @@ function contextBuild(input?: {
         input?.agentSystem?.postAndAwait ?? (async () => ({ type: "message" as const, responseText: "ok" }));
 
     return {
-        connectorRegistry: null as unknown as ToolExecutionContext["connectorRegistry"],
+        connectorRegistry: (input?.connectorRegistry ?? null) as unknown as ToolExecutionContext["connectorRegistry"],
         fileStore: null as unknown as ToolExecutionContext["fileStore"],
         auth: null as unknown as ToolExecutionContext["auth"],
         logger: console as unknown as ToolExecutionContext["logger"],
         assistant: null,
         permissions: input?.permissions ?? permissionsBuild({}),
-        agent: { id: "agent-parent" } as unknown as ToolExecutionContext["agent"],
+        agent: { id: "agent-parent", descriptor: input?.descriptor } as unknown as ToolExecutionContext["agent"],
         ctx: null as unknown as ToolExecutionContext["ctx"],
         source: "test",
         messageContext: {},
