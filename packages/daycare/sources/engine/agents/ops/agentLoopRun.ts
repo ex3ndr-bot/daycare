@@ -39,6 +39,7 @@ import { agentInferencePromptWrite } from "./agentInferencePromptWrite.js";
 import { agentMessageRunPythonFailureTrim } from "./agentMessageRunPythonFailureTrim.js";
 import { agentMessageRunPythonSayAfterTrim } from "./agentMessageRunPythonSayAfterTrim.js";
 import type { AgentHistoryRecord, AgentMessage } from "./agentTypes.js";
+import { inferenceErrorAnthropicPromptOverflowIs } from "./inferenceErrorAnthropicPromptOverflowIs.js";
 import { tokensResolve } from "./tokensResolve.js";
 
 const MAX_TOOL_ITERATIONS = 500; // Make this big enough to handle complex tasks
@@ -768,11 +769,22 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
     }
 
     if (response.message.stopReason === "error") {
-        const message = "Inference failed.";
         const errorDetail =
             response.message.errorMessage && response.message.errorMessage.length > 0
                 ? response.message.errorMessage
                 : "unknown";
+        if (
+            inferenceErrorAnthropicPromptOverflowIs({
+                providerId: response.providerId,
+                errorMessage: response.message.errorMessage
+            })
+        ) {
+            logger.warn(
+                `error: Inference returned Anthropic prompt overflow response provider=${response.providerId} model=${response.modelId} stopReason=${response.message.stopReason} error=${errorDetail}`
+            );
+            return { responseText: finalResponseText, historyRecords, contextOverflow: true, tokenStatsUpdates };
+        }
+        const message = "Inference failed.";
         logger.warn(
             `error: Inference returned error response provider=${response.providerId} model=${response.modelId} stopReason=${response.message.stopReason} error=${errorDetail}`
         );

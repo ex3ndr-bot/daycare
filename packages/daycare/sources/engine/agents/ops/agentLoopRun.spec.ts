@@ -43,6 +43,36 @@ describe("agentLoopRun", () => {
         });
     });
 
+    it("returns context overflow for anthropic prompt-too-long invalid request errors", async () => {
+        const connectorSend = vi.fn(async (_targetId: string, _message: unknown) => undefined);
+        const connector = connectorBuild(connectorSend);
+        const entry = entryBuild();
+        const context = contextBuild();
+        const inferenceRouter = {
+            complete: vi.fn(async () => ({
+                message: assistantMessageBuild([], {
+                    stopReason: "error",
+                    errorMessage:
+                        '400 {"type":"error","error":{"type":"invalid_request_error","message":"prompt is too long: 216326 tokens > 200000 maximum"},"request_id":"req_011CYLhsSnjf9m1xYbYsiK7c"}'
+                }),
+                providerId: "anthropic",
+                modelId: "claude-opus-4-5"
+            }))
+        } as unknown as InferenceRouter;
+        const toolResolver = toolResolverBuild(async () => {
+            throw new Error("unexpected");
+        });
+        const notifySubagentFailure = vi.fn(async () => undefined);
+        const options = optionsBuild({ entry, context, connector, inferenceRouter, toolResolver });
+        options.notifySubagentFailure = notifySubagentFailure;
+
+        const result = await agentLoopRun(options);
+
+        expect(result.contextOverflow).toBe(true);
+        expect(connectorSend).not.toHaveBeenCalled();
+        expect(notifySubagentFailure).not.toHaveBeenCalled();
+    });
+
     it("treats thrown errors with context wording as normal inference failures", async () => {
         const connectorSend = vi.fn(async (_targetId: string, _message: unknown) => undefined);
         const connector = connectorBuild(connectorSend);
