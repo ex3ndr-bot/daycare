@@ -1,4 +1,5 @@
 import { createId } from "@paralleldrive/cuid2";
+import type { Context } from "@/types";
 import { getLogger } from "../../log.js";
 import type { Storage } from "../../storage/storage.js";
 import type { AgentSystem } from "../agents/agentSystem.js";
@@ -148,11 +149,11 @@ export class Heartbeats {
         return this.scheduler.runNow(args?.ids);
     }
 
-    async addTask(args: HeartbeatCreateTaskArgs): Promise<HeartbeatDefinition> {
-        return this.scheduler.createTask(args);
+    async addTask(ctx: Context, args: HeartbeatCreateTaskArgs): Promise<HeartbeatDefinition> {
+        return this.scheduler.createTask(ctx, args);
     }
 
-    async removeTask(taskId: string): Promise<boolean> {
-        return this.scheduler.deleteTask(taskId);
+    async removeTask(ctx: Context, taskId: string): Promise<boolean> {
+        return this.scheduler.deleteTask(ctx, taskId);
     }
 }

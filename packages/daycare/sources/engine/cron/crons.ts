@@ -1,5 +1,5 @@
 import { createId } from "@paralleldrive/cuid2";
-import type { SessionPermissions } from "@/types";
+import type { Context, SessionPermissions } from "@/types";
 import { getLogger } from "../../log.js";
 import type { Storage } from "../../storage/storage.js";
 import type { AgentSystem } from "../agents/agentSystem.js";
@@ -132,14 +132,14 @@ export class Crons {
         return this.storage.cronTasks.findAll({ includeDisabled: true });
     }
 
-    async addTask(definition: Omit<CronTaskDefinition, "id"> & { id?: string }) {
-        const task = await this.scheduler.addTask(definition);
+    async addTask(ctx: Context, definition: Omit<CronTaskDefinition, "id" | "userId"> & { id?: string }) {
+        const task = await this.scheduler.addTask(ctx, definition);
         this.eventBus.emit("cron.task.added", { task });
         return task;
     }
 
-    async deleteTask(taskId: string): Promise<boolean> {
-        return this.scheduler.deleteTask(taskId);
+    async deleteTask(ctx: Context, taskId: string): Promise<boolean> {
+        return this.scheduler.deleteTask(ctx, taskId);
     }
 
     async loadTask(taskId: string) {

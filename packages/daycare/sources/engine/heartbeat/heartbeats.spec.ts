@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Context } from "@/types";
 
 import { configResolve } from "../../config/configResolve.js";
 import { Storage } from "../../storage/storage.js";
@@ -91,4 +92,53 @@ describe("Heartbeats", () => {
             storage.close();
         }
     });
+
+    it("requires ctx for add/remove and scopes deletion by ctx user", async () => {
+        const dir = await fs.mkdtemp(path.join(os.tmpdir(), "daycare-heartbeats-add-remove-"));
+        tempDirs.push(dir);
+        const connectorRegistry = {} as HeartbeatsOptions["connectorRegistry"];
+        const permissionRequestRegistry = {} as HeartbeatsOptions["permissionRequestRegistry"];
+        const agentSystem = {
+            permissionsForTarget: vi.fn(async () => ({
+                workingDir: dir,
+                writeDirs: [],
+                readDirs: [],
+                network: false,
+                events: false
+            })),
+            agentIdForTarget: vi.fn(async () => "heartbeat-agent"),
+            updateAgentPermissions: vi.fn(),
+            postAndAwait: vi.fn(async () => ({ status: "completed" })),
+            post: vi.fn(async () => undefined)
+        } as unknown as HeartbeatsOptions["agentSystem"];
+        const storage = Storage.open(":memory:");
+        try {
+            const heartbeats = new Heartbeats({
+                config: new ConfigModule(configResolve({ engine: { dataDir: dir } }, path.join(dir, "settings.json"))),
+                storage,
+                eventBus: { emit: vi.fn() } as unknown as HeartbeatsOptions["eventBus"],
+                agentSystem,
+                connectorRegistry,
+                permissionRequestRegistry
+            });
+            const ctxA = contextBuild("user-a");
+            const ctxB = contextBuild("user-b");
+            const task = await heartbeats.addTask(ctxA, {
+                title: "Scoped heartbeat",
+                prompt: "Run scoped heartbeat"
+            });
+
+            await expect(heartbeats.removeTask(ctxB, task.id)).resolves.toBe(false);
+            await expect(heartbeats.removeTask(ctxA, task.id)).resolves.toBe(true);
+        } finally {
+            storage.close();
+        }
+    });
 });
+
+function contextBuild(userId: string): Context {
+    return {
+        agentId: "agent-1",
+        userId
+    };
+}

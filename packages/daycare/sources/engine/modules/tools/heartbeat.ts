@@ -166,9 +166,8 @@ export function buildHeartbeatAddTool(): ToolDefinition {
             const payload = args as AddHeartbeatArgs;
 
             const gate = execGateNormalize(payload.gate);
-            const result = await toolContext.heartbeats.addTask({
+            const result = await toolContext.heartbeats.addTask(toolContext.ctx, {
                 id: payload.id,
-                userId: toolContext.ctx.userId,
                 title: payload.title,
                 prompt: payload.prompt,
                 gate,
@@ -217,7 +216,7 @@ export function buildHeartbeatRemoveTool(): ToolDefinition {
         returns: heartbeatRemoveReturns,
         execute: async (args, toolContext, toolCall) => {
             const payload = args as RemoveHeartbeatArgs;
-            const removed = await toolContext.heartbeats.removeTask(payload.id);
+            const removed = await toolContext.heartbeats.removeTask(toolContext.ctx, payload.id);
 
             const summary = removed ? `Removed heartbeat ${payload.id}.` : `Heartbeat not found: ${payload.id}.`;
             const toolMessage: ToolResultMessage = {

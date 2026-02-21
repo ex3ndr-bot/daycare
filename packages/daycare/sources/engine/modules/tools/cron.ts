@@ -113,14 +113,13 @@ export function buildCronTool(crons: Crons): ToolDefinition {
             }
 
             const gate = execGateNormalize(payload.gate);
-            const task = await crons.addTask({
+            const task = await crons.addTask(toolContext.ctx, {
                 id: payload.id,
                 name: payload.name,
                 description: payload.description,
                 schedule: payload.schedule,
                 prompt: payload.prompt,
                 agentId: payload.agentId,
-                userId: toolContext.ctx.userId,
                 gate,
                 enabled: payload.enabled,
                 deleteAfterRun: payload.deleteAfterRun
@@ -231,7 +230,7 @@ export function buildCronDeleteTaskTool(crons: Crons): ToolDefinition {
         execute: async (args, context, toolCall) => {
             const payload = args as CronDeleteTaskArgs;
             const taskId = await resolveTaskId(payload.taskId, context);
-            const deleted = await crons.deleteTask(taskId);
+            const deleted = await crons.deleteTask(context.ctx, taskId);
 
             const summary = deleted ? `Deleted cron task ${taskId}.` : `Cron task not found: ${taskId}.`;
             const toolMessage: ToolResultMessage = {

@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { SessionPermissions } from "@/types";
+import type { Context, SessionPermissions } from "@/types";
 import { configResolve } from "../../../config/configResolve.js";
 import { Storage } from "../../../storage/storage.js";
 import { ConfigModule } from "../../config/configModule.js";
@@ -44,8 +44,8 @@ describe("HeartbeatScheduler", () => {
             defaultPermissions: defaultPermissions(dir)
         });
 
-        const taskA = await scheduler.createTask({ userId: "user-1", title: "Alpha", prompt: "Check alpha." });
-        const taskB = await scheduler.createTask({ userId: "user-1", title: "Beta", prompt: "Check beta." });
+        const taskA = await scheduler.createTask(contextBuild("user-1"), { title: "Alpha", prompt: "Check alpha." });
+        const taskB = await scheduler.createTask(contextBuild("user-1"), { title: "Beta", prompt: "Check beta." });
 
         const result = await scheduler.runNow();
 
@@ -76,8 +76,8 @@ describe("HeartbeatScheduler", () => {
             defaultPermissions: defaultPermissions(dir)
         });
 
-        const taskA = await scheduler.createTask({ userId: "user-1", title: "Alpha", prompt: "Check alpha." });
-        await scheduler.createTask({ userId: "user-1", title: "Beta", prompt: "Check beta." });
+        const taskA = await scheduler.createTask(contextBuild("user-1"), { title: "Alpha", prompt: "Check alpha." });
+        await scheduler.createTask(contextBuild("user-1"), { title: "Beta", prompt: "Check beta." });
 
         const result = await scheduler.runNow([taskA.id]);
 
@@ -109,13 +109,12 @@ describe("HeartbeatScheduler", () => {
             defaultPermissions: defaultPermissions(dir)
         });
 
-        await scheduler.createTask({
-            userId: "user-1",
+        await scheduler.createTask(contextBuild("user-1"), {
             title: "Alpha",
             prompt: "Check alpha.",
             gate: { command: "echo gate" }
         });
-        await scheduler.createTask({ userId: "user-1", title: "Beta", prompt: "Check beta." });
+        await scheduler.createTask(contextBuild("user-1"), { title: "Beta", prompt: "Check beta." });
 
         const result = await scheduler.runNow();
 
@@ -145,8 +144,7 @@ describe("HeartbeatScheduler", () => {
             defaultPermissions: defaultPermissions(dir)
         });
 
-        await scheduler.createTask({
-            userId: "user-1",
+        await scheduler.createTask(contextBuild("user-1"), {
             title: "Alpha",
             prompt: "Base prompt",
             gate: { command: "echo gate" }
@@ -189,8 +187,7 @@ describe("HeartbeatScheduler", () => {
             defaultPermissions: defaultPermissions(dir)
         });
 
-        await scheduler.createTask({
-            userId: "user-1",
+        await scheduler.createTask(contextBuild("user-1"), {
             title: "Needs network",
             prompt: "Check network.",
             gate: { command: "echo gate", permissions: ["@network"] }
@@ -228,8 +225,7 @@ describe("HeartbeatScheduler", () => {
             defaultPermissions: defaultPermissions(dir)
         });
 
-        await scheduler.createTask({
-            userId: "user-1",
+        await scheduler.createTask(contextBuild("user-1"), {
             title: "Needs network",
             prompt: "Check network.",
             gate: { command: "echo gate", permissions: ["@network"] }
@@ -242,6 +238,47 @@ describe("HeartbeatScheduler", () => {
         expect(gateCheck).not.toHaveBeenCalled();
         expect(onRun).not.toHaveBeenCalled();
     });
+
+    it("deletes tasks only for the same ctx user", async () => {
+        const { dir, storage } = await createTempScheduler();
+        temps.push(dir);
+        storages.push(storage);
+
+        const scheduler = new HeartbeatScheduler({
+            config: configModule(dir),
+            repository: storage.heartbeatTasks,
+            onRun: vi.fn(),
+            defaultPermissions: defaultPermissions(dir)
+        });
+
+        const task = await scheduler.createTask(contextBuild("user-1"), {
+            title: "Owned task",
+            prompt: "Owned prompt"
+        });
+
+        await expect(scheduler.deleteTask(contextBuild("user-2"), task.id)).resolves.toBe(false);
+        await expect(scheduler.deleteTask(contextBuild("user-1"), task.id)).resolves.toBe(true);
+    });
+
+    it("normalizes ctx userId when deleting tasks", async () => {
+        const { dir, storage } = await createTempScheduler();
+        temps.push(dir);
+        storages.push(storage);
+
+        const scheduler = new HeartbeatScheduler({
+            config: configModule(dir),
+            repository: storage.heartbeatTasks,
+            onRun: vi.fn(),
+            defaultPermissions: defaultPermissions(dir)
+        });
+
+        const task = await scheduler.createTask(contextBuild("user-1"), {
+            title: "Trim user id",
+            prompt: "Delete using padded ctx user id"
+        });
+
+        await expect(scheduler.deleteTask(contextBuild("  user-1  "), task.id)).resolves.toBe(true);
+    });
 });
 
 function defaultPermissions(workingDir: string, overrides: Partial<SessionPermissions> = {}): SessionPermissions {
@@ -252,5 +289,12 @@ function defaultPermissions(workingDir: string, overrides: Partial<SessionPermis
         network: false,
         events: false,
         ...overrides
+    };
+}
+
+function contextBuild(userId: string): Context {
+    return {
+        agentId: "agent-1",
+        userId
     };
 }

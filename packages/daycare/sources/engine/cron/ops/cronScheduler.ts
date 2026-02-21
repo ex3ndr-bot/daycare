@@ -1,5 +1,5 @@
 import { createId } from "@paralleldrive/cuid2";
-import type { MessageContext, SessionPermissions } from "@/types";
+import type { Context, MessageContext, SessionPermissions } from "@/types";
 import { getLogger } from "../../../log.js";
 import type { CronTasksRepository } from "../../../storage/cronTasksRepository.js";
 import type { CronTaskDbRecord } from "../../../storage/databaseTypes.js";
@@ -120,13 +120,24 @@ export class CronScheduler {
         return Array.from(this.tasks.values()).map((scheduled) => cronTaskClone(scheduled.task));
     }
 
-    async addTask(definition: Omit<CronTaskDefinition, "id"> & { id?: string }): Promise<CronTaskDbRecord> {
+    async addTask(
+        ctx: Context,
+        definition: Omit<CronTaskDefinition, "id" | "userId"> & { id?: string }
+    ): Promise<CronTaskDbRecord> {
+        const userId = (ctx.userId ?? "").trim();
+        if (!userId) {
+            throw new Error("Cron userId is required.");
+        }
         const taskId = definition.id ?? (await this.generateTaskIdFromName(definition.name));
+        const existing = await this.repository.findById(taskId);
+        if (existing && existing.userId !== userId) {
+            throw new Error(`Cron task belongs to another user: ${taskId}`);
+        }
         const now = Date.now();
         const task: CronTaskDbRecord = {
             id: taskId,
             taskUid: definition.taskUid && cuid2Is(definition.taskUid) ? definition.taskUid : createId(),
-            userId: definition.userId,
+            userId,
             name: definition.name,
             description: definition.description ?? null,
             schedule: definition.schedule,
@@ -150,7 +161,15 @@ export class CronScheduler {
         return cronTaskClone(task);
     }
 
-    async deleteTask(taskId: string): Promise<boolean> {
+    async deleteTask(ctx: Context, taskId: string): Promise<boolean> {
+        const userId = (ctx.userId ?? "").trim();
+        if (!userId) {
+            return false;
+        }
+        const existing = await this.repository.findById(taskId);
+        if (!existing || existing.userId !== userId) {
+            return false;
+        }
         this.tasks.delete(taskId);
         this.runningTasks.delete(taskId);
         const deleted = await this.repository.delete(taskId);

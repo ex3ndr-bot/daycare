@@ -1,3 +1,4 @@
+import type { Context } from "@/types";
 import { getLogger } from "../../../log.js";
 import { stringSlugify } from "../../../utils/stringSlugify.js";
 import { taskIdIsSafe } from "../../../utils/taskIdIsSafe.js";
@@ -75,7 +76,7 @@ export class HeartbeatScheduler {
         return this.repository.findAll();
     }
 
-    async createTask(definition: HeartbeatCreateTaskArgs): Promise<HeartbeatDefinition> {
+    async createTask(ctx: Context, definition: HeartbeatCreateTaskArgs): Promise<HeartbeatDefinition> {
         const title = definition.title.trim();
         const prompt = definition.prompt.trim();
         if (!title) {
@@ -92,12 +93,15 @@ export class HeartbeatScheduler {
 
         const taskId = providedId ?? (await this.generateTaskIdFromTitle(title));
         const existing = await this.repository.findById(taskId);
-        if (existing && !definition.overwrite) {
-            throw new Error(`Heartbeat already exists: ${taskId}`);
-        }
-        const userId = definition.userId.trim();
+        const userId = (ctx.userId ?? "").trim();
         if (!userId) {
             throw new Error("Heartbeat userId is required.");
+        }
+        if (existing && existing.userId !== userId) {
+            throw new Error(`Heartbeat belongs to another user: ${taskId}`);
+        }
+        if (existing && !definition.overwrite) {
+            throw new Error(`Heartbeat already exists: ${taskId}`);
         }
 
         const now = Date.now();
@@ -128,9 +132,17 @@ export class HeartbeatScheduler {
         return heartbeatTaskClone(created);
     }
 
-    async deleteTask(taskId: string): Promise<boolean> {
+    async deleteTask(ctx: Context, taskId: string): Promise<boolean> {
         if (!taskIdIsSafe(taskId)) {
             throw new Error("Heartbeat id contains invalid characters.");
+        }
+        const userId = (ctx.userId ?? "").trim();
+        if (!userId) {
+            return false;
+        }
+        const existing = await this.repository.findById(taskId);
+        if (!existing || existing.userId !== userId) {
+            return false;
         }
         return this.repository.delete(taskId);
     }
