@@ -19,8 +19,7 @@ const logger = getLogger("signal.delayed");
 type DelayedRuntimeSignal = DelayedSignal & { userId: string };
 
 type DelayedSignalsRepositoryOptions = {
-    delayedSignals: Pick<DelayedSignalsRepository, "create" | "findDue" | "findMany" | "delete" | "deleteByRepeatKey">;
-    fallbackUserIdResolve: () => Promise<string>;
+    delayedSignals: Pick<DelayedSignalsRepository, "create" | "findDue" | "findAll" | "delete" | "deleteByRepeatKey">;
 };
 
 type DelayedSignalsLegacyOptions = {
@@ -45,9 +44,8 @@ export class DelayedSignals {
     private readonly signals: Pick<Signals, "generate">;
     private readonly delayedSignals: Pick<
         DelayedSignalsRepository,
-        "create" | "findDue" | "findMany" | "delete" | "deleteByRepeatKey"
+        "create" | "findDue" | "findAll" | "delete" | "deleteByRepeatKey"
     >;
-    private readonly fallbackUserIdResolve: () => Promise<string>;
     private readonly failureRetryMs: number;
     private readonly maxTimerMs: number;
     private readonly lock = new AsyncLock();
@@ -64,14 +62,9 @@ export class DelayedSignals {
         this.signals = options.signals;
         if ("delayedSignals" in options) {
             this.delayedSignals = options.delayedSignals;
-            this.fallbackUserIdResolve = options.fallbackUserIdResolve;
         } else {
             const storage = Storage.open(options.config.current.dbPath);
             this.delayedSignals = storage.delayedSignals;
-            this.fallbackUserIdResolve = async () => {
-                const owner = await storage.users.findOwner();
-                return owner?.id ?? "owner";
-            };
         }
         this.failureRetryMs = Math.max(10, Math.floor(options.failureRetryMs ?? 1_000));
         this.maxTimerMs = Math.max(1_000, Math.floor(options.maxTimerMs ?? 60_000));
@@ -115,7 +108,7 @@ export class DelayedSignals {
     async schedule(input: DelayedSignalScheduleInput): Promise<DelayedSignal> {
         const normalized = delayedSignalScheduleNormalize(input);
         const now = Date.now();
-        const userId = normalized.source.userId ?? (await this.fallbackUserIdResolve());
+        const userId = normalized.source.userId;
 
         const created = await this.lock.inLock(async () => {
             await this.loadUnlocked();
@@ -289,7 +282,7 @@ export class DelayedSignals {
         this.loaded = true;
         this.events.clear();
 
-        const records = await this.delayedSignals.findMany();
+        const records = await this.delayedSignals.findAll();
         for (const record of records) {
             const delayed = delayedSignalRuntimeBuild(record);
             this.events.set(delayed.id, delayedSignalRuntimeClone(delayed));
@@ -344,21 +337,16 @@ function delayedSignalCancelNormalize(input: DelayedSignalCancelRepeatKeyInput):
     return { type, repeatKey };
 }
 
-function signalSourceNormalize(source?: SignalSource): SignalSource {
-    if (!source) {
-        return { type: "system" };
-    }
+function signalSourceNormalize(source: SignalSource): SignalSource {
     if (source.type === "system") {
-        const userId = signalSourceUserIdNormalize(source.userId);
-        return userId ? { type: "system", userId } : { type: "system" };
+        return { type: "system", userId: signalSourceUserIdNormalize(source.userId) };
     }
     if (source.type === "agent") {
         const id = source.id.trim();
         if (!id) {
             throw new Error("Agent signal source id is required");
         }
-        const userId = signalSourceUserIdNormalize(source.userId);
-        return userId ? { type: "agent", id, userId } : { type: "agent", id };
+        return { type: "agent", id, userId: signalSourceUserIdNormalize(source.userId) };
     }
     if (source.type === "webhook") {
         const id = source.id?.trim();
@@ -366,7 +354,7 @@ function signalSourceNormalize(source?: SignalSource): SignalSource {
         return {
             type: "webhook",
             ...(id ? { id } : {}),
-            ...(userId ? { userId } : {})
+            userId
         };
     }
     if (source.type === "process") {
@@ -375,7 +363,7 @@ function signalSourceNormalize(source?: SignalSource): SignalSource {
         return {
             type: "process",
             ...(id ? { id } : {}),
-            ...(userId ? { userId } : {})
+            userId
         };
     }
     throw new Error(`Unsupported signal source type: ${(source as { type?: unknown }).type}`);
@@ -407,12 +395,15 @@ function delayedSignalNext(events: Iterable<DelayedSignal>): DelayedSignal | nul
     return next;
 }
 
-function signalSourceUserIdNormalize(userId?: string): string | undefined {
+function signalSourceUserIdNormalize(userId: unknown): string {
     if (typeof userId !== "string") {
-        return undefined;
+        throw new Error("Signal source userId is required");
     }
     const normalized = userId.trim();
-    return normalized.length > 0 ? normalized : undefined;
+    if (!normalized) {
+        throw new Error("Signal source userId is required");
+    }
+    return normalized;
 }
 
 function delayedSignalRecordBuild(signal: DelayedRuntimeSignal, userId: string): DelayedSignalDbRecord {

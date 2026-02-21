@@ -1,7 +1,15 @@
 import path from "node:path";
 import { createId } from "@paralleldrive/cuid2";
 
-import type { AgentInboxItem, AgentPostTarget, Channel, ChannelMessage, ChannelSignalData, Signal } from "@/types";
+import type {
+    AgentInboxItem,
+    AgentPostTarget,
+    Channel,
+    ChannelMessage,
+    ChannelSignalData,
+    Context,
+    Signal
+} from "@/types";
 import { getLogger } from "../../log.js";
 import type { ChannelMessagesRepository } from "../../storage/channelMessagesRepository.js";
 import type { ChannelsRepository } from "../../storage/channelsRepository.js";
@@ -17,12 +25,12 @@ type ChannelRuntimeRecord = Channel & { userId: string };
 
 export type ChannelsOptions = {
     signals: Pick<Signals, "subscribe" | "unsubscribe">;
-    agentSystem: Pick<AgentSystem, "agentExists" | "post" | "agentContextForAgentId">;
+    agentSystem: Pick<AgentSystem, "agentExists" | "post" | "contextForAgentId">;
 } & (
     | {
           channels: Pick<
               ChannelsRepository,
-              "create" | "findByName" | "findMany" | "update" | "delete" | "addMember" | "removeMember" | "findMembers"
+              "create" | "findByName" | "findAll" | "update" | "delete" | "addMember" | "removeMember" | "findMembers"
           >;
           channelMessages: Pick<ChannelMessagesRepository, "create" | "findRecent">;
       }
@@ -34,11 +42,11 @@ export type ChannelsOptions = {
 export class Channels {
     private readonly channels: Pick<
         ChannelsRepository,
-        "create" | "findByName" | "findMany" | "update" | "delete" | "addMember" | "removeMember" | "findMembers"
+        "create" | "findByName" | "findAll" | "update" | "delete" | "addMember" | "removeMember" | "findMembers"
     >;
     private readonly channelMessages: Pick<ChannelMessagesRepository, "create" | "findRecent">;
     private readonly signals: Pick<Signals, "subscribe" | "unsubscribe">;
-    private readonly agentSystem: Pick<AgentSystem, "agentExists" | "post" | "agentContextForAgentId">;
+    private readonly agentSystem: Pick<AgentSystem, "agentExists" | "post" | "contextForAgentId">;
     private readonly items = new Map<string, ChannelRuntimeRecord>();
 
     constructor(options: ChannelsOptions) {
@@ -63,7 +71,7 @@ export class Channels {
      */
     async load(): Promise<void> {
         this.items.clear();
-        const channels = await this.channels.findMany();
+        const channels = await this.channels.findAll();
         for (const channelRecord of channels) {
             const members = await this.channels.findMembers(channelRecord.id);
             const channel: ChannelRuntimeRecord = {
@@ -82,7 +90,7 @@ export class Channels {
             this.items.set(channel.name, cloneRuntimeChannel(channel));
 
             for (const member of channel.members) {
-                const memberContext = await this.agentSystem.agentContextForAgentId(member.agentId);
+                const memberContext = await this.agentSystem.contextForAgentId(member.agentId);
                 if (!memberContext) {
                     continue;
                 }
@@ -124,7 +132,7 @@ export class Channels {
             throw new Error(`Channel already exists: ${channelName}`);
         }
 
-        const leaderContext = await this.agentSystem.agentContextForAgentId(leader);
+        const leaderContext = await this.agentSystem.contextForAgentId(leader);
         if (!leaderContext) {
             throw new Error(`Leader agent not found: ${leader}`);
         }
@@ -159,7 +167,7 @@ export class Channels {
         }
 
         for (const member of channel.members) {
-            const memberContext = await this.agentSystem.agentContextForAgentId(member.agentId);
+            const memberContext = await this.agentSystem.contextForAgentId(member.agentId);
             if (!memberContext) {
                 continue;
             }
@@ -187,7 +195,7 @@ export class Channels {
             throw new Error(`Agent not found: ${normalizedAgentId}`);
         }
 
-        const memberContext = await this.agentSystem.agentContextForAgentId(normalizedAgentId);
+        const memberContext = await this.agentSystem.contextForAgentId(normalizedAgentId);
         if (!memberContext) {
             throw new Error(`Agent not found: ${normalizedAgentId}`);
         }
@@ -252,7 +260,7 @@ export class Channels {
         await this.channels.update(channel.id, { updatedAt: channel.updatedAt });
         this.items.set(channel.name, cloneRuntimeChannel(channel));
 
-        const memberContext = await this.agentSystem.agentContextForAgentId(normalizedAgentId);
+        const memberContext = await this.agentSystem.contextForAgentId(normalizedAgentId);
         if (!memberContext) {
             return true;
         }
@@ -349,7 +357,7 @@ export class Channels {
 
     async getHistory(channelName: string, limit?: number): Promise<ChannelMessage[]> {
         const channel = this.channelRequire(channelName);
-        const rows = await this.channelMessages.findRecent(channel.id, limit);
+        const rows = await this.channelMessages.findRecent(contextForUserId(channel.userId), channel.id, limit);
         return rows.map((row) => ({
             id: row.id,
             channelName: channel.name,
@@ -425,4 +433,8 @@ function cloneChannel(channel: ChannelRuntimeRecord): Channel {
         createdAt: channel.createdAt,
         updatedAt: channel.updatedAt
     };
+}
+
+function contextForUserId(userId: string): Context {
+    return { agentId: "channel", userId };
 }

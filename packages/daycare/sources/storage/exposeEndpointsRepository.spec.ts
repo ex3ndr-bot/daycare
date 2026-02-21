@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Context } from "@/types";
 
 import { databaseOpen } from "./databaseOpen.js";
 import { ExposeEndpointsRepository } from "./exposeEndpointsRepository.js";
@@ -33,8 +34,8 @@ describe("ExposeEndpointsRepository", () => {
                 updatedAt: 2
             });
 
-            const all = await repository.findMany();
-            const userA = await repository.findMany({ userId: "user-a" });
+            const all = await repository.findAll();
+            const userA = await repository.findMany(ctxBuild("user-a"));
 
             expect(all.map((entry) => entry.id)).toEqual(["ep-1", "ep-2"]);
             expect(userA.map((entry) => entry.id)).toEqual(["ep-1"]);
@@ -48,7 +49,7 @@ describe("ExposeEndpointsRepository", () => {
             expect(updated?.auth?.passwordHash).toBe("next-hash");
 
             const removed = await repository.delete("ep-2");
-            const remaining = await repository.findMany();
+            const remaining = await repository.findAll();
 
             expect(removed).toBe(true);
             expect(remaining.map((entry) => entry.id)).toEqual(["ep-1"]);
@@ -72,4 +73,8 @@ function schemaCreate(db: ReturnType<typeof databaseOpen>): void {
             updated_at INTEGER NOT NULL
         );
     `);
+}
+
+function ctxBuild(userId: string): Context {
+    return { agentId: "test-agent", userId };
 }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Context } from "@/types";
 
 import { ChannelMessagesRepository } from "./channelMessagesRepository.js";
 import { databaseOpen } from "./databaseOpen.js";
@@ -22,7 +23,7 @@ describe("ChannelMessagesRepository", () => {
                 });
             }
 
-            const recent = await repository.findRecent("channel-1", 2);
+            const recent = await repository.findRecent(ctxBuild("user-a"), "channel-1", 2);
             expect(recent.map((entry) => entry.id)).toEqual(["m-3", "m-4"]);
             expect(recent[1]?.mentions).toEqual(["bob"]);
         } finally {
@@ -43,4 +44,8 @@ function schemaCreate(db: ReturnType<typeof databaseOpen>): void {
             created_at INTEGER NOT NULL
         );
     `);
+}
+
+function ctxBuild(userId: string): Context {
+    return { agentId: "test-agent", userId };
 }

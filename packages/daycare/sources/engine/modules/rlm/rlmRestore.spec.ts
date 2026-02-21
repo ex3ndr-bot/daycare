@@ -130,7 +130,7 @@ function createContext(): ToolExecutionContext {
             events: false
         },
         agent: null as unknown as ToolExecutionContext["agent"],
-        agentContext: null as unknown as ToolExecutionContext["agentContext"],
+        ctx: null as unknown as ToolExecutionContext["ctx"],
         source: "test",
         messageContext: {},
         agentSystem: null as unknown as ToolExecutionContext["agentSystem"],

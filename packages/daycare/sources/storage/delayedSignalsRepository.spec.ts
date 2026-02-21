@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Context } from "@/types";
 
 import { databaseOpen } from "./databaseOpen.js";
 import { DelayedSignalsRepository } from "./delayedSignalsRepository.js";
@@ -44,7 +45,7 @@ describe("DelayedSignalsRepository", () => {
                 updatedAt: 3
             });
 
-            const all = await repository.findMany();
+            const all = await repository.findMany(ctxBuild("user-a"));
             const due = await repository.findDue(20);
 
             expect(all.map((entry) => entry.id)).toEqual(["delay-1", "delay-3"]);
@@ -52,7 +53,7 @@ describe("DelayedSignalsRepository", () => {
 
             const removed = await repository.delete("delay-1");
             const cancelled = await repository.deleteByRepeatKey("user-a", "notify:repeat", "r1");
-            const empty = await repository.findMany();
+            const empty = await repository.findMany(ctxBuild("user-a"));
 
             expect(removed).toBe(true);
             expect(cancelled).toBe(1);
@@ -77,4 +78,8 @@ function schemaCreate(db: ReturnType<typeof databaseOpen>): void {
             updated_at INTEGER NOT NULL
         );
     `);
+}
+
+function ctxBuild(userId: string): Context {
+    return { agentId: "test-agent", userId };
 }

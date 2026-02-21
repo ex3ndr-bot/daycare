@@ -51,7 +51,8 @@ describe("Processes", () => {
                 {
                     command: `node -e "console.log('events-enabled')"`,
                     keepAlive: false,
-                    cwd: workspaceDir
+                    cwd: workspaceDir,
+                    userId: "user-1"
                 },
                 { ...permissions, events: true }
             );
@@ -74,7 +75,8 @@ describe("Processes", () => {
                 {
                     command: `node -e "console.log('events-disabled')"`,
                     keepAlive: false,
-                    cwd: workspaceDir
+                    cwd: workspaceDir,
+                    userId: "user-1"
                 },
                 permissions
             );
@@ -97,6 +99,7 @@ describe("Processes", () => {
                     command: `node -e "console.log('local-bind-enabled')"`,
                     keepAlive: false,
                     cwd: workspaceDir,
+                    userId: "user-1",
                     allowLocalBinding: true,
                     allowedDomains: ["example.com"]
                 },
@@ -122,7 +125,8 @@ describe("Processes", () => {
                     {
                         command: `node -e "console.log('network-without-domains')"`,
                         keepAlive: false,
-                        cwd: workspaceDir
+                        cwd: workspaceDir,
+                        userId: "user-1"
                     },
                     { ...permissions, network: true }
                 )
@@ -139,7 +143,8 @@ describe("Processes", () => {
                 {
                     command: `node -e "setInterval(() => {}, 1000)"`,
                     keepAlive: false,
-                    cwd: workspaceDir
+                    cwd: workspaceDir,
+                    userId: "user-1"
                 },
                 permissions
             );
@@ -178,7 +183,8 @@ describe("Processes", () => {
                 {
                     command,
                     keepAlive: true,
-                    cwd: workspaceDir
+                    cwd: workspaceDir,
+                    userId: "user-1"
                 },
                 permissions
             );
@@ -203,7 +209,8 @@ describe("Processes", () => {
                 {
                     command: `node -e "console.log('hello-durable-log')"`,
                     keepAlive: false,
-                    cwd: workspaceDir
+                    cwd: workspaceDir,
+                    userId: "user-1"
                 },
                 permissions
             );
@@ -238,7 +245,8 @@ describe("Processes", () => {
                 {
                     command,
                     keepAlive: true,
-                    cwd: workspaceDir
+                    cwd: workspaceDir,
+                    userId: "user-1"
                 },
                 permissions
             );
@@ -324,6 +332,7 @@ describe("Processes", () => {
                     command: `node -e "setInterval(() => {}, 1000)"`,
                     keepAlive: true,
                     cwd: workspaceDir,
+                    userId: "user-1",
                     owner: { type: "plugin", id: "plugin-a" }
                 },
                 permissions
@@ -333,6 +342,7 @@ describe("Processes", () => {
                     command: `node -e "setInterval(() => {}, 1000)"`,
                     keepAlive: true,
                     cwd: workspaceDir,
+                    userId: "user-1",
                     owner: { type: "plugin", id: "plugin-a" }
                 },
                 permissions
@@ -342,6 +352,7 @@ describe("Processes", () => {
                     command: `node -e "setInterval(() => {}, 1000)"`,
                     keepAlive: true,
                     cwd: workspaceDir,
+                    userId: "user-1",
                     owner: { type: "plugin", id: "plugin-b" }
                 },
                 permissions

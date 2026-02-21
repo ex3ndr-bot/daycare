@@ -1,4 +1,4 @@
-# Users DB and Agent Context
+# Users DB and Context
 
 ## Summary
 This change introduces first-class users in storage and propagates user identity through runtime execution paths.
@@ -54,18 +54,22 @@ erDiagram
 ```
 
 ## Runtime Context Flow
-`AgentContext(agentId, userId)` is now carried into tool execution and used for user-scoped signal behavior.
+`Context(agentId, userId)` is carried into tool execution as `ToolExecutionContext.ctx` and used for user-scoped operations.
 
 ```mermaid
 flowchart LR
   A[AgentSystem resolves agent] --> B[Agent has userId]
-  B --> C[AgentContext agentId + userId]
-  C --> D[ToolExecutionContext.agentContext]
+  B --> C[Context agentId + userId]
+  C --> D[ToolExecutionContext.ctx]
   D --> E[signal.subscribe userId agentId pattern]
   D --> F[signal.generate source.userId]
+  D --> H[processes.create userId]
+  D --> I[heartbeat.createTask userId]
   E --> G[Signals delivery filter by userId]
   F --> G
-  C --> H[Cron/Heartbeat contexts include userId]
+  H --> J[repositories findMany(ctx)]
+  I --> J
+  C --> K[Cron/Heartbeat contexts include userId]
 ```
 
 ## Agent Ownership Rules

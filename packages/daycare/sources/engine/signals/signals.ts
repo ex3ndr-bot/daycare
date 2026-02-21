@@ -1,5 +1,6 @@
 import path from "node:path";
 import { createId } from "@paralleldrive/cuid2";
+import type { Context } from "@/types";
 
 import { getLogger } from "../../log.js";
 import type { SignalEventDbRecord, SignalSubscriptionDbRecord } from "../../storage/databaseTypes.js";
@@ -19,12 +20,11 @@ import type {
 const logger = getLogger("signal.facade");
 
 type SignalsRepositoryOptions = {
-    signalEvents: Pick<SignalEventsRepository, "create" | "findMany" | "findRecent">;
+    signalEvents: Pick<SignalEventsRepository, "create" | "findAll" | "findRecentAll">;
     signalSubscriptions: Pick<
         SignalSubscriptionsRepository,
         "create" | "delete" | "findByUserAndAgent" | "findMany" | "findMatching"
     >;
-    fallbackUserIdResolve: () => Promise<string>;
 };
 
 type SignalsLegacyOptions = {
@@ -38,12 +38,11 @@ export type SignalsOptions = {
 
 export class Signals {
     private readonly eventBus: EngineEventBus;
-    private readonly signalEvents: Pick<SignalEventsRepository, "create" | "findMany" | "findRecent">;
+    private readonly signalEvents: Pick<SignalEventsRepository, "create" | "findAll" | "findRecentAll">;
     private readonly signalSubscriptions: Pick<
         SignalSubscriptionsRepository,
         "create" | "delete" | "findByUserAndAgent" | "findMany" | "findMatching"
     >;
-    private readonly fallbackUserIdResolve: () => Promise<string>;
     private readonly onDeliver: SignalsOptions["onDeliver"];
 
     constructor(options: SignalsOptions) {
@@ -51,15 +50,10 @@ export class Signals {
         if ("signalEvents" in options) {
             this.signalEvents = options.signalEvents;
             this.signalSubscriptions = options.signalSubscriptions;
-            this.fallbackUserIdResolve = options.fallbackUserIdResolve;
         } else {
             const storage = Storage.open(path.join(options.configDir, "daycare.db"));
             this.signalEvents = storage.signalEvents;
             this.signalSubscriptions = storage.signalSubscriptions;
-            this.fallbackUserIdResolve = async () => {
-                const owner = await storage.users.findOwner();
-                return owner?.id ?? "owner";
-            };
         }
         this.onDeliver = options.onDeliver;
     }
@@ -79,7 +73,6 @@ export class Signals {
         }
 
         const source = signalSourceNormalize(input.source);
-        const userId = source.userId ?? (await this.fallbackUserIdResolve());
 
         const signal: Signal = {
             id: createId(),
@@ -89,11 +82,11 @@ export class Signals {
             createdAt: Date.now()
         };
 
-        await this.signalEvents.create(signalRecordBuild(signal, userId));
+        await this.signalEvents.create(signalRecordBuild(signal, source.userId));
         this.eventBus.emit("signal.generated", signal);
-        const subscriptions = (await this.signalSubscriptions.findMatching(signal.type, signal.source.userId)).map(
-            (record) => signalSubscriptionBuild(record)
-        );
+        const subscriptions = (
+            await this.signalSubscriptions.findMatching(contextFromUserId(signal.source.userId), signal.type)
+        ).map((record) => signalSubscriptionBuild(record));
         if (subscriptions.length > 0) {
             await this.signalDeliver(signal, subscriptions);
         }
@@ -113,7 +106,7 @@ export class Signals {
     async subscribe(input: SignalSubscribeInput): Promise<SignalSubscription> {
         const { userId, pattern, agentId } = signalSubscriptionInputNormalize(input);
         const now = Date.now();
-        const existing = await this.signalSubscriptions.findByUserAndAgent(userId, agentId, pattern);
+        const existing = await this.signalSubscriptions.findByUserAndAgent(contextFromUserId(userId), agentId, pattern);
         const subscription: SignalSubscription = existing
             ? {
                   ...signalSubscriptionBuild(existing),
@@ -146,7 +139,11 @@ export class Signals {
      */
     async subscriptionGet(input: SignalUnsubscribeInput): Promise<SignalSubscription | null> {
         const { userId, pattern, agentId } = signalSubscriptionInputNormalize(input);
-        const subscription = await this.signalSubscriptions.findByUserAndAgent(userId, agentId, pattern);
+        const subscription = await this.signalSubscriptions.findByUserAndAgent(
+            contextFromUserId(userId),
+            agentId,
+            pattern
+        );
         return subscription ? signalSubscriptionBuild(subscription) : null;
     }
 
@@ -171,12 +168,12 @@ export class Signals {
      * Returns all persisted signal events in append order.
      */
     async listAll(): Promise<Signal[]> {
-        const events = await this.signalEvents.findMany();
+        const events = await this.signalEvents.findAll();
         return events.map((event) => signalBuild(event));
     }
 
     async listRecent(limit = 200): Promise<Signal[]> {
-        const events = await this.signalEvents.findRecent(signalLimitNormalize(limit));
+        const events = await this.signalEvents.findRecentAll(signalLimitNormalize(limit));
         return events.map((event) => signalBuild(event));
     }
 
@@ -192,27 +189,22 @@ export class Signals {
     }
 }
 
-function signalSourceNormalize(source?: SignalSource): SignalSource {
-    if (!source) {
-        return { type: "system" };
-    }
+function signalSourceNormalize(source: SignalSource): SignalSource {
     if (source.type === "system") {
-        const userId = signalSourceUserIdNormalize(source.userId);
-        return userId ? { type: "system", userId } : { type: "system" };
+        return { type: "system", userId: signalSourceUserIdNormalize(source.userId) };
     }
     if (source.type === "agent") {
         const id = source.id.trim();
         if (!id) {
             throw new Error("Agent signal source id is required");
         }
-        const userId = signalSourceUserIdNormalize(source.userId);
-        return userId ? { type: "agent", id, userId } : { type: "agent", id };
+        return { type: "agent", id, userId: signalSourceUserIdNormalize(source.userId) };
     }
     if (source.type === "webhook") {
         const userId = signalSourceUserIdNormalize(source.userId);
         return {
             type: "webhook",
-            ...(userId ? { userId } : {}),
+            userId,
             id: typeof source.id === "string" && source.id.trim().length > 0 ? source.id.trim() : undefined
         };
     }
@@ -220,7 +212,7 @@ function signalSourceNormalize(source?: SignalSource): SignalSource {
         const userId = signalSourceUserIdNormalize(source.userId);
         return {
             type: "process",
-            ...(userId ? { userId } : {}),
+            userId,
             id: typeof source.id === "string" && source.id.trim().length > 0 ? source.id.trim() : undefined
         };
     }
@@ -286,10 +278,17 @@ function signalSubscriptionInputNormalize(input: { userId: string; agentId: stri
     return { userId, pattern, agentId };
 }
 
-function signalSourceUserIdNormalize(userId?: string): string | undefined {
+function signalSourceUserIdNormalize(userId: unknown): string {
     if (typeof userId !== "string") {
-        return undefined;
+        throw new Error("Signal source userId is required");
     }
     const normalized = userId.trim();
-    return normalized.length > 0 ? normalized : undefined;
+    if (!normalized) {
+        throw new Error("Signal source userId is required");
+    }
+    return normalized;
+}
+
+function contextFromUserId(userId: string): Context {
+    return { agentId: "signal", userId };
 }

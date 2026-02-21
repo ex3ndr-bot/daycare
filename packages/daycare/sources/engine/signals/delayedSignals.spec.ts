@@ -20,7 +20,7 @@ describe("DelayedSignals", () => {
                 generate: async (input: SignalGenerateInput): Promise<Signal> => ({
                     id: "signal-id",
                     type: input.type,
-                    source: input.source ?? { type: "system" },
+                    source: input.source,
                     data: input.data,
                     createdAt: Date.now()
                 })
@@ -31,12 +31,14 @@ describe("DelayedSignals", () => {
             const first = await delayed.schedule({
                 type: "reminder",
                 repeatKey: "job",
-                deliverAt: Date.now() + 60_000
+                deliverAt: Date.now() + 60_000,
+                source: { type: "system", userId: "user-1" }
             });
             const second = await delayed.schedule({
                 type: "reminder",
                 repeatKey: "job",
-                deliverAt: Date.now() + 120_000
+                deliverAt: Date.now() + 120_000,
+                source: { type: "system", userId: "user-1" }
             });
 
             expect(first.id).not.toBe(second.id);
@@ -78,7 +80,8 @@ describe("DelayedSignals", () => {
             await delayed.start();
             await delayed.schedule({
                 type: "notify.fail",
-                deliverAt: Date.now() + 5
+                deliverAt: Date.now() + 5,
+                source: { type: "system", userId: "user-1" }
             });
 
             await wait(35);
@@ -106,7 +109,7 @@ describe("DelayedSignals", () => {
                         return {
                             id: "signal-id",
                             type: input.type,
-                            source: input.source ?? { type: "system" },
+                            source: input.source,
                             data: input.data,
                             createdAt: Date.now()
                         };
@@ -118,7 +121,7 @@ describe("DelayedSignals", () => {
             await delayed.schedule({
                 type: "notify.ok",
                 deliverAt: Date.now() + 5,
-                source: { type: "process", id: "tests" },
+                source: { type: "process", id: "tests", userId: "user-1" },
                 data: { ok: true }
             });
 
@@ -128,6 +131,36 @@ describe("DelayedSignals", () => {
             expect(delivered).toHaveLength(1);
             expect(delivered[0]?.type).toBe("notify.ok");
             expect(delayed.list()).toEqual([]);
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
+    });
+
+    it("throws a validation error when scheduled source userId is missing at runtime", async () => {
+        const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-delayed-signals-"));
+        try {
+            const delayed = new DelayedSignals({
+                config: configModuleBuild(dir),
+                eventBus: new EngineEventBus(),
+                signals: {
+                    generate: async (input) => ({
+                        id: "signal-id",
+                        type: input.type,
+                        source: input.source,
+                        data: input.data,
+                        createdAt: Date.now()
+                    })
+                }
+            });
+            await delayed.ensureDir();
+
+            await expect(
+                delayed.schedule({
+                    type: "notify.invalid",
+                    deliverAt: Date.now() + 5,
+                    source: { type: "system" } as unknown as Signal["source"]
+                })
+            ).rejects.toThrow("Signal source userId is required");
         } finally {
             await rm(dir, { recursive: true, force: true });
         }

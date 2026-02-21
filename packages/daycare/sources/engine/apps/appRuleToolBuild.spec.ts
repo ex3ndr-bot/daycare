@@ -129,12 +129,13 @@ function contextBuild(workspaceDir: string): ToolExecutionContext {
             events: false
         },
         agent: { id: "agent-1" } as unknown as ToolExecutionContext["agent"],
-        agentContext: null as unknown as ToolExecutionContext["agentContext"],
+        ctx: { agentId: "agent-1", userId: "user-1" } as ToolExecutionContext["ctx"],
         source: "test",
         messageContext: {},
         agentSystem: {
             toolResolver: new ToolResolver(),
-            config: { current: { workspaceDir } }
+            config: { current: { workspaceDir } },
+            userHomeForUserId: () => ({ apps: path.join(workspaceDir, "apps") })
         } as unknown as ToolExecutionContext["agentSystem"],
         heartbeats: null as unknown as ToolExecutionContext["heartbeats"]
     };

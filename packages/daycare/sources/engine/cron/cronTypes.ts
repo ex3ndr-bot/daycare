@@ -12,7 +12,7 @@ export type CronTaskDefinition = {
     schedule: string;
     prompt: string;
     agentId?: string;
-    userId?: string;
+    userId: string;
     gate?: ExecGateDefinition;
     enabled?: boolean;
     deleteAfterRun?: boolean;
@@ -29,8 +29,8 @@ export type CronTaskContext = {
     taskUid: string;
     taskName: string;
     prompt: string;
-    agentId?: string;
-    userId?: string;
+    agentId: string | null;
+    userId: string;
 };
 
 /**

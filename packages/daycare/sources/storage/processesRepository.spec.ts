@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Context } from "@/types";
 
 import { databaseOpen } from "./databaseOpen.js";
 import { ProcessesRepository } from "./processesRepository.js";
@@ -18,9 +19,12 @@ describe("ProcessesRepository", () => {
             );
             await repository.create(recordBuild({ id: "p-3", userId: "user-a", owner: null }));
 
-            const all = await repository.findMany();
-            const byUser = await repository.findMany({ userId: "user-a" });
-            const byOwner = await repository.findMany({ ownerType: "plugin", ownerId: "plugin-a" });
+            const all = await repository.findAll();
+            const byUser = await repository.findMany(ctxBuild("user-a"));
+            const byOwner = await repository.findMany(ctxBuild("user-a"), {
+                ownerType: "plugin",
+                ownerId: "plugin-a"
+            });
 
             expect(all.map((entry) => entry.id)).toEqual(["p-1", "p-2", "p-3"]);
             expect(byUser.map((entry) => entry.id)).toEqual(["p-1", "p-3"]);
@@ -32,7 +36,7 @@ describe("ProcessesRepository", () => {
 
             const removedByOwner = await repository.deleteByOwner("plugin", "plugin-b");
             const removedDirect = await repository.delete("p-3");
-            const remaining = await repository.findMany();
+            const remaining = await repository.findAll();
 
             expect(removedByOwner).toBe(1);
             expect(removedDirect).toBe(true);
@@ -74,6 +78,10 @@ function schemaCreate(db: ReturnType<typeof databaseOpen>): void {
             last_exited_at INTEGER
         );
     `);
+}
+
+function ctxBuild(userId: string): Context {
+    return { agentId: "test-agent", userId };
 }
 
 function recordBuild(input: { id: string; userId: string; owner: { type: "plugin"; id: string } | null }) {

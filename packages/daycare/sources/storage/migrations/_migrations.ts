@@ -13,6 +13,7 @@ import { migration20260222ImportChannels } from "./20260222_import_channels.js";
 import { migration20260222ImportExpose } from "./20260222_import_expose.js";
 import { migration20260222ImportProcesses } from "./20260222_import_processes.js";
 import { migration20260222ImportSignals } from "./20260222_import_signals.js";
+import { migration20260223AddHeartbeatUsers } from "./20260223_add_heartbeat_users.js";
 import type { Migration } from "./migrationTypes.js";
 
 export const migrations: Migration[] = [
@@ -30,5 +31,6 @@ export const migrations: Migration[] = [
     migration20260222AddExpose,
     migration20260222ImportExpose,
     migration20260222AddProcesses,
-    migration20260222ImportProcesses
+    migration20260222ImportProcesses,
+    migration20260223AddHeartbeatUsers
 ];

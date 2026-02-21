@@ -14,8 +14,7 @@ const sourceSchema = Type.Union([
     Type.Object(
         {
             type: Type.Literal("agent"),
-            id: Type.String({ minLength: 1 }),
-            userId: Type.Optional(Type.String({ minLength: 1 }))
+            id: Type.String({ minLength: 1 })
         },
         { additionalProperties: false }
     ),
@@ -74,11 +73,16 @@ export function buildSignalGenerateTool(signals: Signals): ToolDefinition {
         returns: signalGenerateReturns,
         execute: async (args, toolContext, toolCall) => {
             const payload = args as GenerateSignalArgs;
-            const source = payload.source ?? {
-                type: "agent" as const,
-                id: toolContext.agent.id,
-                userId: toolContext.agentContext?.userId
-            };
+            const source =
+                payload.source?.type === "agent"
+                    ? { type: "agent" as const, id: payload.source.id, userId: toolContext.ctx.userId }
+                    : payload.source?.type === "webhook"
+                      ? { type: "webhook" as const, id: payload.source.id, userId: toolContext.ctx.userId }
+                      : payload.source?.type === "process"
+                        ? { type: "process" as const, id: payload.source.id, userId: toolContext.ctx.userId }
+                        : payload.source?.type === "system"
+                          ? { type: "system" as const, userId: toolContext.ctx.userId }
+                          : { type: "agent" as const, id: toolContext.agent.id, userId: toolContext.ctx.userId };
             const signal = await signals.generate({
                 type: payload.type,
                 source,

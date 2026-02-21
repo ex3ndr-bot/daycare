@@ -56,6 +56,7 @@ describe("appExecute", () => {
             createdAt: now,
             updatedAt: now
         });
+        await appFilesWrite(path.join(rootDir, "apps", "github-reviewer"));
 
         const post = vi.fn(async (_target: unknown, _item: unknown) => undefined);
         const postAndAwait = vi.fn(async (_target: unknown, _item: unknown) => ({
@@ -98,7 +99,7 @@ describe("appExecute", () => {
                 events: false
             },
             agent: { id: "parent-agent" } as ToolExecutionContext["agent"],
-            agentContext: null as unknown as ToolExecutionContext["agentContext"],
+            ctx: { agentId: "parent-agent", userId: "user-1" } as ToolExecutionContext["ctx"],
             source: "test",
             messageContext: {},
             agentSystem: {
@@ -108,6 +109,7 @@ describe("appExecute", () => {
                 updateAgentPermissions,
                 post,
                 postAndAwait,
+                userHomeForUserId: () => ({ apps: path.join(rootDir, "apps") }),
                 inferenceRouter: {} as unknown,
                 toolResolver
             } as unknown as ToolExecutionContext["agentSystem"],
@@ -145,7 +147,7 @@ describe("appExecute", () => {
                 id: expect.any(String),
                 parentAgentId: "parent-agent",
                 name: "GitHub Reviewer",
-                systemPrompt: "You are a focused PR review assistant.",
+                systemPrompt: expect.stringContaining("You are a focused PR review assistant."),
                 appId: "github-reviewer"
             }
         });
@@ -214,6 +216,7 @@ describe("appExecute", () => {
             createdAt: now,
             updatedAt: now
         });
+        await appFilesWrite(path.join(rootDir, "apps", "github-reviewer"));
 
         const post = vi.fn(async (_target: unknown, _item: unknown) => undefined);
         const postAndAwait = vi.fn(async (_target: unknown, _item: unknown) => ({
@@ -255,7 +258,7 @@ describe("appExecute", () => {
                 events: false
             },
             agent: { id: "parent-agent" } as ToolExecutionContext["agent"],
-            agentContext: null as unknown as ToolExecutionContext["agentContext"],
+            ctx: { agentId: "parent-agent", userId: "user-1" } as ToolExecutionContext["ctx"],
             source: "test",
             messageContext: {},
             agentSystem: {
@@ -265,6 +268,7 @@ describe("appExecute", () => {
                 updateAgentPermissions,
                 post,
                 postAndAwait,
+                userHomeForUserId: () => ({ apps: path.join(rootDir, "apps") }),
                 inferenceRouter: {} as unknown,
                 toolResolver
             } as unknown as ToolExecutionContext["agentSystem"],
@@ -309,3 +313,37 @@ describe("appExecute", () => {
         storage.close();
     });
 });
+
+async function appFilesWrite(appDir: string): Promise<void> {
+    await fs.mkdir(appDir, { recursive: true });
+    await fs.writeFile(
+        path.join(appDir, "APP.md"),
+        [
+            "---",
+            "name: github-reviewer",
+            "title: GitHub Reviewer",
+            "description: Reviews pull requests",
+            "---",
+            "",
+            "## System Prompt",
+            "",
+            "You are a focused PR review assistant."
+        ].join("\n")
+    );
+    await fs.writeFile(
+        path.join(appDir, "PERMISSIONS.md"),
+        [
+            "## Source Intent",
+            "",
+            "Review pull requests safely.",
+            "",
+            "## Rules",
+            "",
+            "### Allow",
+            "- Read files",
+            "",
+            "### Deny",
+            "- Delete files"
+        ].join("\n")
+    );
+}

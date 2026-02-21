@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import type { Context } from "@/types";
 import { AsyncLock } from "../util/lock.js";
 import type {
     ChannelDbRecord,
@@ -6,10 +7,6 @@ import type {
     DatabaseChannelMemberRow,
     DatabaseChannelRow
 } from "./databaseTypes.js";
-
-export type ChannelsFindManyOptions = {
-    userId?: string;
-};
 
 /**
  * Channels repository backed by SQLite with write-through caching.
@@ -105,26 +102,28 @@ export class ChannelsRepository {
         return channelClone(parsed);
     }
 
-    async findMany(options: ChannelsFindManyOptions = {}): Promise<ChannelDbRecord[]> {
-        if (this.allChannelsLoaded && !options.userId) {
+    async findMany(ctx: Context): Promise<ChannelDbRecord[]> {
+        const rows = this.db
+            .prepare("SELECT * FROM channels WHERE user_id = ? ORDER BY created_at ASC, id ASC")
+            .all(ctx.userId) as DatabaseChannelRow[];
+        return rows.map((row) => channelClone(this.channelParse(row)));
+    }
+
+    async findAll(): Promise<ChannelDbRecord[]> {
+        if (this.allChannelsLoaded) {
             return channelsSort(Array.from(this.channelsById.values())).map((record) => channelClone(record));
         }
 
-        const rows = options.userId
-            ? (this.db
-                  .prepare("SELECT * FROM channels WHERE user_id = ? ORDER BY created_at ASC, id ASC")
-                  .all(options.userId) as DatabaseChannelRow[])
-            : (this.db.prepare("SELECT * FROM channels ORDER BY created_at ASC, id ASC").all() as DatabaseChannelRow[]);
-
+        const rows = this.db
+            .prepare("SELECT * FROM channels ORDER BY created_at ASC, id ASC")
+            .all() as DatabaseChannelRow[];
         const parsed = rows.map((row) => this.channelParse(row));
 
         await this.cacheLock.inLock(() => {
             for (const record of parsed) {
                 this.channelCacheSet(record);
             }
-            if (!options.userId) {
-                this.allChannelsLoaded = true;
-            }
+            this.allChannelsLoaded = true;
         });
 
         return parsed.map((record) => channelClone(record));

@@ -1,11 +1,15 @@
 import type { DatabaseSync } from "node:sqlite";
+import type { Context } from "@/types";
 import { AsyncLock } from "../util/lock.js";
 import type { DatabaseProcessRow, ProcessDbRecord, ProcessOwnerDbRecord } from "./databaseTypes.js";
 
 export type ProcessesFindManyOptions = {
-    userId?: string;
     ownerId?: string;
     ownerType?: ProcessOwnerDbRecord["type"];
+};
+
+type ProcessesFindAllOptions = ProcessesFindManyOptions & {
+    userId?: string;
 };
 
 /**
@@ -155,7 +159,11 @@ export class ProcessesRepository {
         });
     }
 
-    async findMany(options: ProcessesFindManyOptions = {}): Promise<ProcessDbRecord[]> {
+    async findMany(ctx: Context, options: ProcessesFindManyOptions = {}): Promise<ProcessDbRecord[]> {
+        return this.findAll({ ...options, userId: ctx.userId });
+    }
+
+    async findAll(options: ProcessesFindAllOptions = {}): Promise<ProcessDbRecord[]> {
         const cached = await this.cacheLock.inLock(() => {
             if (!this.allRecordsLoaded || options.userId) {
                 return null;
@@ -309,7 +317,7 @@ export class ProcessesRepository {
     }
 
     async deleteByOwner(ownerType: ProcessOwnerDbRecord["type"], ownerId: string): Promise<number> {
-        const targets = await this.findMany({ ownerType, ownerId });
+        const targets = await this.findAll({ ownerType, ownerId });
         let count = 0;
         for (const target of targets) {
             const removed = await this.delete(target.id);
@@ -320,8 +328,11 @@ export class ProcessesRepository {
         return count;
     }
 
-    private processesFilter(records: ProcessDbRecord[], options: ProcessesFindManyOptions): ProcessDbRecord[] {
+    private processesFilter(records: ProcessDbRecord[], options: ProcessesFindAllOptions): ProcessDbRecord[] {
         return records.filter((record) => {
+            if (options.userId && record.userId !== options.userId) {
+                return false;
+            }
             if (options.ownerId) {
                 if (!record.owner || record.owner.id !== options.ownerId) {
                     return false;

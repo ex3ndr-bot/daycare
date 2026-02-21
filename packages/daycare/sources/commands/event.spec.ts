@@ -27,7 +27,7 @@ describe("eventCommand", () => {
         expect(sendEngineSignalMock).toHaveBeenCalledWith(
             "demo.event",
             { ok: true },
-            { type: "process", id: "daycare-cli" }
+            { type: "process", id: "daycare-cli", userId: "owner" }
         );
         expect(process.exitCode).toBeUndefined();
     });

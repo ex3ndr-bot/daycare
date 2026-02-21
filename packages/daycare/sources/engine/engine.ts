@@ -113,7 +113,6 @@ export class Engine {
             eventBus: this.eventBus,
             signalEvents: this.storage.signalEvents,
             signalSubscriptions: this.storage.signalSubscriptions,
-            fallbackUserIdResolve,
             onDeliver: async (signal, subscriptions) => {
                 await this.agentSystem.signalDeliver(signal, subscriptions);
             }
@@ -122,8 +121,7 @@ export class Engine {
             config: this.config,
             eventBus: this.eventBus,
             signals: this.signals,
-            delayedSignals: this.storage.delayedSignals,
-            fallbackUserIdResolve
+            delayedSignals: this.storage.delayedSignals
         });
         this.reloadSync = new InvalidateSync(async () => {
             await this.reloadApplyLatest();
@@ -133,8 +131,7 @@ export class Engine {
         this.fileStore = new FileStore(this.config.current);
         this.processes = new Processes(this.config.current.dataDir, getLogger("engine.processes"), {
             socketPath: this.config.current.socketPath,
-            repository: this.storage.processes,
-            fallbackUserIdResolve
+            repository: this.storage.processes
         });
         this.incomingMessages = new IncomingMessages({
             delayMs: INCOMING_MESSAGES_DEBOUNCE_MS,

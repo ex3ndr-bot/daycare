@@ -60,9 +60,7 @@ export function appRuleToolBuild(apps: Apps): ToolDefinition {
                 throw new Error("app_id is required.");
             }
 
-            const appsDir = context.agentContext?.userId
-                ? context.agentSystem.userHomeForUserId(context.agentContext.userId).apps
-                : path.join(context.agentSystem.config.current.workspaceDir, "apps");
+            const appsDir = context.agentSystem.userHomeForUserId(context.ctx.userId).apps;
             const descriptor = (await appDiscover(appsDir)).find((entry) => entry.id === appId) ?? null;
             if (!descriptor) {
                 throw new Error(`Unknown app: ${appId}`);

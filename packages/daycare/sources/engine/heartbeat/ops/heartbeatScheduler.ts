@@ -72,7 +72,7 @@ export class HeartbeatScheduler {
     }
 
     async listTasks(): Promise<HeartbeatDefinition[]> {
-        return this.repository.findMany();
+        return this.repository.findAll();
     }
 
     async createTask(definition: HeartbeatCreateTaskArgs): Promise<HeartbeatDefinition> {
@@ -95,11 +95,16 @@ export class HeartbeatScheduler {
         if (existing && !definition.overwrite) {
             throw new Error(`Heartbeat already exists: ${taskId}`);
         }
+        const userId = definition.userId.trim();
+        if (!userId) {
+            throw new Error("Heartbeat userId is required.");
+        }
 
         const now = Date.now();
         if (existing) {
             const updated: HeartbeatDefinition = {
                 ...existing,
+                userId,
                 title,
                 prompt,
                 gate: definition.gate ?? null,
@@ -111,6 +116,7 @@ export class HeartbeatScheduler {
 
         const created: HeartbeatDefinition = {
             id: taskId,
+            userId,
             title,
             prompt,
             gate: definition.gate ?? null,
@@ -139,7 +145,7 @@ export class HeartbeatScheduler {
 
     private async generateTaskIdFromTitle(title: string): Promise<string> {
         const base = stringSlugify(title) || "heartbeat";
-        const tasks = await this.repository.findMany();
+        const tasks = await this.repository.findAll();
         const existing = new Set(tasks.map((task) => task.id));
 
         let candidate = base;
@@ -187,7 +193,7 @@ export class HeartbeatScheduler {
         }
         this.running = true;
         try {
-            const tasks = await this.repository.findMany();
+            const tasks = await this.repository.findAll();
             const filtered = taskIds && taskIds.length > 0 ? tasks.filter((task) => taskIds.includes(task.id)) : tasks;
             if (filtered.length === 0) {
                 return { ran: 0, taskIds: [] };

@@ -144,7 +144,7 @@ describe("AgentSystem", () => {
             await harness.agentSystem.postAndAwait({ descriptor }, { type: "reset", message: "init cron" });
             await harness.signals.generate({
                 type: `agent:${agentId}:poison-pill`,
-                source: { type: "system" }
+                source: { type: "system", userId: "user-1" }
             });
 
             const state = await agentStateRead(harness.config, agentId);
@@ -192,7 +192,7 @@ describe("AgentSystem", () => {
 
             await harness.signals.generate({
                 type: `agent:${agentId}:poison-pill`,
-                source: { type: "system" }
+                source: { type: "system", userId: "user-1" }
             });
             const queued = harness.agentSystem.postAndAwait(
                 { agentId },
@@ -340,11 +340,11 @@ describe("AgentSystem", () => {
             };
             await harness.agentSystem.postAndAwait({ descriptor }, { type: "reset", message: "init user" });
             const agentId = await harness.agentSystem.agentIdForTarget({ descriptor });
-            const agentContext = await harness.agentSystem.agentContextForAgentId(agentId);
+            const ctx = await harness.agentSystem.contextForAgentId(agentId);
             const linked = await harness.storage.users.findByConnectorKey("telegram:connector-user-1");
 
-            expect(agentContext?.userId).toBeTruthy();
-            expect(linked?.id).toBe(agentContext?.userId);
+            expect(ctx?.userId).toBeTruthy();
+            expect(linked?.id).toBe(ctx?.userId);
         } finally {
             await rm(dir, { recursive: true, force: true });
         }
@@ -365,7 +365,7 @@ describe("AgentSystem", () => {
             };
             await harness.agentSystem.postAndAwait({ descriptor }, { type: "reset", message: "init scoped user" });
             const agentId = await harness.agentSystem.agentIdForTarget({ descriptor });
-            const context = await harness.agentSystem.agentContextForAgentId(agentId);
+            const context = await harness.agentSystem.contextForAgentId(agentId);
             if (!context) {
                 throw new Error("Agent context missing");
             }
@@ -424,8 +424,8 @@ describe("AgentSystem", () => {
 
             const firstAgentId = await harness.agentSystem.agentIdForTarget({ descriptor: first });
             const secondAgentId = await harness.agentSystem.agentIdForTarget({ descriptor: second });
-            const firstContext = await harness.agentSystem.agentContextForAgentId(firstAgentId);
-            const secondContext = await harness.agentSystem.agentContextForAgentId(secondAgentId);
+            const firstContext = await harness.agentSystem.contextForAgentId(firstAgentId);
+            const secondContext = await harness.agentSystem.contextForAgentId(secondAgentId);
 
             expect(firstContext?.userId).toBeTruthy();
             expect(secondContext?.userId).toBe(firstContext?.userId);
@@ -452,7 +452,7 @@ describe("AgentSystem", () => {
                 { type: "reset", message: "parent" }
             );
             const parentAgentId = await harness.agentSystem.agentIdForTarget({ descriptor: parentDescriptor });
-            const parentContext = await harness.agentSystem.agentContextForAgentId(parentAgentId);
+            const parentContext = await harness.agentSystem.contextForAgentId(parentAgentId);
             if (!parentContext) {
                 throw new Error("Parent agent context missing");
             }
@@ -468,7 +468,7 @@ describe("AgentSystem", () => {
                 { type: "reset", message: "subagent" }
             );
             const subagentId = await harness.agentSystem.agentIdForTarget({ descriptor: subagentDescriptor });
-            const subagentContext = await harness.agentSystem.agentContextForAgentId(subagentId);
+            const subagentContext = await harness.agentSystem.contextForAgentId(subagentId);
 
             expect(subagentContext?.userId).toBe(parentContext.userId);
         } finally {

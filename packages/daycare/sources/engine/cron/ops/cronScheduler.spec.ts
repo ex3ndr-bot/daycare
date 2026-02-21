@@ -410,7 +410,7 @@ async function cronTaskInsert(
     const task = {
         id: input.id,
         taskUid: createId(),
-        userId: input.userId ?? null,
+        userId: input.userId ?? "user-1",
         name: input.name,
         description: null,
         schedule: input.schedule,

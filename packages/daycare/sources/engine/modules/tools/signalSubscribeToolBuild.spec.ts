@@ -81,19 +81,19 @@ function contextForAgent(agentId: string, exists: boolean): ToolExecutionContext
             events: false
         },
         agent: { id: agentId } as unknown as ToolExecutionContext["agent"],
-        agentContext: {
+        ctx: {
             agentId,
             userId: "user-source"
-        } as unknown as ToolExecutionContext["agentContext"],
+        } as unknown as ToolExecutionContext["ctx"],
         source: "test",
         messageContext: {},
         agentSystem: {
-            agentContextForAgentId: async (targetAgentId: string) =>
+            contextForAgentId: async (targetAgentId: string) =>
                 exists
                     ? ({
                           agentId: targetAgentId,
                           userId: "user-target"
-                      } as unknown as ToolExecutionContext["agentContext"])
+                      } as unknown as ToolExecutionContext["ctx"])
                     : null
         } as unknown as ToolExecutionContext["agentSystem"],
         heartbeats: null as unknown as ToolExecutionContext["heartbeats"]

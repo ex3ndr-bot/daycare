@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import type { Context } from "@/types";
 import type { ChannelMessageDbRecord, DatabaseChannelMessageRow } from "./databaseTypes.js";
 
 /**
@@ -45,19 +46,19 @@ export class ChannelMessagesRepository {
             );
     }
 
-    async findRecent(channelId: string, limit = 50): Promise<ChannelMessageDbRecord[]> {
+    async findRecent(ctx: Context, channelId: string, limit = 50): Promise<ChannelMessageDbRecord[]> {
         const normalizedLimit = Math.min(500, Math.max(1, Math.floor(limit)));
         const rows = this.db
             .prepare(
                 `
                   SELECT *
                   FROM channel_messages
-                  WHERE channel_id = ?
+                  WHERE user_id = ? AND channel_id = ?
                   ORDER BY created_at DESC, id DESC
                   LIMIT ?
                 `
             )
-            .all(channelId, normalizedLimit) as DatabaseChannelMessageRow[];
+            .all(ctx.userId, channelId, normalizedLimit) as DatabaseChannelMessageRow[];
         return rows
             .map((row) => this.messageParse(row))
             .reverse()

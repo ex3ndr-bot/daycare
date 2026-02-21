@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import type { Context } from "@/types";
 import { AsyncLock } from "../util/lock.js";
 import type { DatabaseHeartbeatTaskRow, HeartbeatTaskDbRecord } from "./databaseTypes.js";
 
@@ -45,7 +46,14 @@ export class HeartbeatTasksRepository {
         });
     }
 
-    async findMany(): Promise<HeartbeatTaskDbRecord[]> {
+    async findMany(ctx: Context): Promise<HeartbeatTaskDbRecord[]> {
+        const rows = this.db
+            .prepare("SELECT * FROM tasks_heartbeat WHERE user_id = ? ORDER BY updated_at ASC")
+            .all(ctx.userId) as DatabaseHeartbeatTaskRow[];
+        return rows.map((task) => heartbeatTaskClone(this.taskParse(task)));
+    }
+
+    async findAll(): Promise<HeartbeatTaskDbRecord[]> {
         if (this.allTasksLoaded) {
             return heartbeatTasksSort(Array.from(this.tasksById.values())).map((task) => heartbeatTaskClone(task));
         }
@@ -73,14 +81,16 @@ export class HeartbeatTasksRepository {
                     `
                   INSERT INTO tasks_heartbeat (
                     id,
+                    user_id,
                     title,
                     prompt,
                     gate,
                     last_run_at,
                     created_at,
                     updated_at
-                  ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                   ON CONFLICT(id) DO UPDATE SET
+                    user_id = excluded.user_id,
                     title = excluded.title,
                     prompt = excluded.prompt,
                     gate = excluded.gate,
@@ -91,6 +101,7 @@ export class HeartbeatTasksRepository {
                 )
                 .run(
                     record.id,
+                    record.userId,
                     record.title,
                     record.prompt,
                     record.gate ? JSON.stringify(record.gate) : null,
@@ -117,6 +128,7 @@ export class HeartbeatTasksRepository {
                 ...current,
                 ...data,
                 id: current.id,
+                userId: data.userId ?? current.userId,
                 gate: data.gate === undefined ? current.gate : data.gate,
                 lastRunAt: data.lastRunAt === undefined ? current.lastRunAt : data.lastRunAt
             };
@@ -126,6 +138,7 @@ export class HeartbeatTasksRepository {
                     `
                   UPDATE tasks_heartbeat
                   SET
+                    user_id = ?,
                     title = ?,
                     prompt = ?,
                     gate = ?,
@@ -136,6 +149,7 @@ export class HeartbeatTasksRepository {
                 `
                 )
                 .run(
+                    next.userId,
                     next.title,
                     next.prompt,
                     next.gate ? JSON.stringify(next.gate) : null,
@@ -198,6 +212,7 @@ export class HeartbeatTasksRepository {
     private taskParse(row: DatabaseHeartbeatTaskRow): HeartbeatTaskDbRecord {
         return {
             id: row.id,
+            userId: row.user_id,
             title: row.title,
             prompt: row.prompt,
             gate: gateParse(row.gate),

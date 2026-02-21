@@ -56,14 +56,12 @@ const signalEventsQuerySchema = z.object({
 });
 const signalGenerateSchema = z.object({
     type: z.string().min(1),
-    source: z
-        .discriminatedUnion("type", [
-            z.object({ type: z.literal("system") }),
-            z.object({ type: z.literal("agent"), id: z.string().min(1) }),
-            z.object({ type: z.literal("webhook"), id: z.string().optional() }),
-            z.object({ type: z.literal("process"), id: z.string().optional() })
-        ])
-        .optional(),
+    source: z.discriminatedUnion("type", [
+        z.object({ type: z.literal("system"), userId: z.string().min(1) }),
+        z.object({ type: z.literal("agent"), id: z.string().min(1), userId: z.string().min(1) }),
+        z.object({ type: z.literal("webhook"), id: z.string().optional(), userId: z.string().min(1) }),
+        z.object({ type: z.literal("process"), id: z.string().optional(), userId: z.string().min(1) })
+    ]),
     data: z.unknown().optional()
 });
 const engineEventSchema = z.object({

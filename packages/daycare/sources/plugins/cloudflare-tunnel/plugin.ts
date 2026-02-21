@@ -66,6 +66,7 @@ export const plugin = definePlugin({
                 network: true,
                 events: false
             };
+            const userId = await api.processes.defaultUserId();
             await api.processes.create(
                 {
                     name: `cloudflared-${instanceId}`,
@@ -75,7 +76,8 @@ export const plugin = definePlugin({
                     env: { TUNNEL_TOKEN: token },
                     allowedDomains: CLOUDFLARED_ALLOWED_DOMAINS,
                     keepAlive: true,
-                    owner: processOwner
+                    owner: processOwner,
+                    userId
                 },
                 processPermissions
             );

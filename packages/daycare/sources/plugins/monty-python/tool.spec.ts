@@ -115,7 +115,7 @@ function createContext(workingDir: string): ToolExecutionContext {
         assistant: null,
         permissions: state.permissions,
         agent,
-        agentContext: null as unknown as ToolExecutionContext["agentContext"],
+        ctx: null as unknown as ToolExecutionContext["ctx"],
         source: "test",
         messageContext,
         agentSystem: null as unknown as ToolExecutionContext["agentSystem"],

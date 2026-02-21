@@ -58,7 +58,7 @@ export type AgentDbRecord = {
 export type DatabaseCronTaskRow = {
     id: string;
     task_uid: string;
-    user_id: string | null;
+    user_id: string;
     name: string;
     description: string | null;
     schedule: string;
@@ -75,7 +75,7 @@ export type DatabaseCronTaskRow = {
 export type CronTaskDbRecord = {
     id: string;
     taskUid: string;
-    userId: string | null;
+    userId: string;
     name: string;
     description: string | null;
     schedule: string;
@@ -91,6 +91,7 @@ export type CronTaskDbRecord = {
 
 export type DatabaseHeartbeatTaskRow = {
     id: string;
+    user_id: string;
     title: string;
     prompt: string;
     gate: string | null;
@@ -101,6 +102,7 @@ export type DatabaseHeartbeatTaskRow = {
 
 export type HeartbeatTaskDbRecord = {
     id: string;
+    userId: string;
     title: string;
     prompt: string;
     gate: ExecGateDefinition | null;

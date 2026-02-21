@@ -60,7 +60,7 @@ export function exposeCreateToolBuild(exposes: Pick<Exposes, "create">): ToolDef
                     mode,
                     authenticated
                 },
-                toolContext.agentContext?.userId
+                toolContext.ctx.userId
             );
 
             const authText = created.password

@@ -416,18 +416,18 @@ describe("Agent", () => {
             const agentId = createId();
             const descriptor: AgentDescriptor = { type: "cron", id: agentId, name: "Signal agent" };
             await agentSystem.post({ descriptor }, { type: "reset", message: "init" });
-            const agentContext = await agentSystem.agentContextForAgentId(agentId);
-            if (!agentContext) {
+            const ctx = await agentSystem.contextForAgentId(agentId);
+            if (!ctx) {
                 throw new Error("Missing agent context");
             }
             await signals.subscribe({
-                userId: agentContext.userId,
+                userId: ctx.userId,
                 agentId,
                 pattern: "build:*:done",
                 silent: true
             });
-            await signals.generate({ type: "build:alpha:done", source: { type: "system" } });
-            await signals.unsubscribe({ userId: agentContext.userId, agentId, pattern: "build:*:done" });
+            await signals.generate({ type: "build:alpha:done", source: { type: "system", userId: ctx.userId } });
+            await signals.unsubscribe({ userId: ctx.userId, agentId, pattern: "build:*:done" });
 
             await agentSystem.start();
             await agentSystem.postAndAwait({ agentId }, { type: "reset", message: "flush queue" });
@@ -474,20 +474,20 @@ describe("Agent", () => {
             const agentId = createId();
             const descriptor: AgentDescriptor = { type: "cron", id: agentId, name: "Signal agent" };
             await agentSystem.post({ descriptor }, { type: "reset", message: "init" });
-            const agentContext = await agentSystem.agentContextForAgentId(agentId);
-            if (!agentContext) {
+            const ctx = await agentSystem.contextForAgentId(agentId);
+            if (!ctx) {
                 throw new Error("Missing agent context");
             }
             await signals.subscribe({
-                userId: agentContext.userId,
+                userId: ctx.userId,
                 agentId,
                 pattern: "build:*:done",
                 silent: true
             });
-            await signals.generate({ type: "build:alpha:done", source: { type: "system" } });
-            await signals.unsubscribe({ userId: agentContext.userId, agentId, pattern: "build:*:done" });
+            await signals.generate({ type: "build:alpha:done", source: { type: "system", userId: ctx.userId } });
+            await signals.unsubscribe({ userId: ctx.userId, agentId, pattern: "build:*:done" });
             await signals.subscribe({
-                userId: agentContext.userId,
+                userId: ctx.userId,
                 agentId,
                 pattern: "build:*:done",
                 silent: true
@@ -546,19 +546,19 @@ describe("Agent", () => {
                 { type: "reset", message: "init peer" }
             );
 
-            const sourceAgentContext = await agentSystem.agentContextForAgentId(sourceAgentId);
-            const peerAgentContext = await agentSystem.agentContextForAgentId(peerAgentId);
-            if (!sourceAgentContext || !peerAgentContext) {
+            const sourceCtx = await agentSystem.contextForAgentId(sourceAgentId);
+            const peerCtx = await agentSystem.contextForAgentId(peerAgentId);
+            if (!sourceCtx || !peerCtx) {
                 throw new Error("Missing signal test agent contexts");
             }
             await signals.subscribe({
-                userId: sourceAgentContext.userId,
+                userId: sourceCtx.userId,
                 agentId: sourceAgentId,
                 pattern: "build:*:done",
                 silent: true
             });
             await signals.subscribe({
-                userId: peerAgentContext.userId,
+                userId: peerCtx.userId,
                 agentId: peerAgentId,
                 pattern: "build:*:done",
                 silent: true
@@ -568,7 +568,7 @@ describe("Agent", () => {
                 source: {
                     type: "agent",
                     id: sourceAgentId,
-                    userId: sourceAgentContext.userId
+                    userId: sourceCtx.userId
                 }
             });
 

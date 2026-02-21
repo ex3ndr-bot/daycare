@@ -1,12 +1,16 @@
 import type { DatabaseSync, SQLInputValue } from "node:sqlite";
+import type { Context } from "@/types";
 import { AsyncLock } from "../util/lock.js";
 import type { DatabaseSignalEventRow, SignalEventDbRecord } from "./databaseTypes.js";
 
 export type SignalEventsFindManyOptions = {
-    userId?: string;
     type?: string;
     limit?: number;
     offset?: number;
+};
+
+type SignalEventsQueryOptions = SignalEventsFindManyOptions & {
+    userId?: string;
 };
 
 /**
@@ -61,7 +65,11 @@ export class SignalEventsRepository {
         });
     }
 
-    async findMany(options: SignalEventsFindManyOptions = {}): Promise<SignalEventDbRecord[]> {
+    async findMany(ctx: Context, options: SignalEventsFindManyOptions = {}): Promise<SignalEventDbRecord[]> {
+        return this.findAll({ ...options, userId: ctx.userId });
+    }
+
+    async findAll(options: SignalEventsQueryOptions = {}): Promise<SignalEventDbRecord[]> {
         const limit = numberLimitResolve(options.limit);
         const offset = numberOffsetResolve(options.offset);
         const hasFilter = Boolean(options.userId) || Boolean(options.type) || limit !== null || offset > 0;
@@ -110,7 +118,16 @@ export class SignalEventsRepository {
         return parsed.map((event) => signalEventClone(event));
     }
 
-    async findRecent(limit = 200): Promise<SignalEventDbRecord[]> {
+    async findRecent(ctx: Context, limit = 200): Promise<SignalEventDbRecord[]> {
+        const normalizedLimit = Math.min(1000, Math.max(1, Math.floor(limit)));
+        const rows = this.db
+            .prepare("SELECT * FROM signals_events WHERE user_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?")
+            .all(ctx.userId, normalizedLimit) as DatabaseSignalEventRow[];
+        const parsed = rows.map((row) => this.eventParse(row)).reverse();
+        return parsed.map((event) => signalEventClone(event));
+    }
+
+    async findRecentAll(limit = 200): Promise<SignalEventDbRecord[]> {
         const normalizedLimit = Math.min(1000, Math.max(1, Math.floor(limit)));
 
         if (this.allEventsLoaded) {
@@ -203,7 +220,7 @@ function sourceParse(raw: string): SignalEventDbRecord["source"] {
     try {
         return JSON.parse(raw) as SignalEventDbRecord["source"];
     } catch {
-        return { type: "system" };
+        return { type: "system", userId: "unknown" };
     }
 }
 

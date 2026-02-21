@@ -55,6 +55,7 @@ describe("cloudflare tunnel plugin", () => {
                 }
             },
             processes: {
+                defaultUserId: vi.fn(async () => "owner-user"),
                 listByOwner: vi.fn(async () => []),
                 removeByOwner: vi.fn(async () => 0),
                 create: vi.fn(async () => undefined)
@@ -76,7 +77,8 @@ describe("cloudflare tunnel plugin", () => {
                 env: { TUNNEL_TOKEN: "token-123" },
                 allowedDomains: ["*.argotunnel.com", "*.cftunnel.com", "*.cloudflare.com"],
                 keepAlive: true,
-                owner: { type: "plugin", id: "cloudflare-1" }
+                owner: { type: "plugin", id: "cloudflare-1" },
+                userId: "owner-user"
             },
             {
                 workingDir: "/tmp/daycare/plugins/cloudflare-1",
@@ -157,6 +159,7 @@ describe("cloudflare tunnel plugin", () => {
                 }
             },
             processes: {
+                defaultUserId: vi.fn(async () => "owner-user"),
                 listByOwner: vi.fn(async () => [
                     {
                         id: "proc-1",

@@ -55,6 +55,7 @@ describe("local-expose plugin", () => {
                 }
             },
             processes: {
+                defaultUserId: vi.fn(async () => "owner-user"),
                 listByOwner: vi.fn(async () => []),
                 removeByOwner: vi.fn(async () => 0),
                 create: vi.fn(async () => undefined)
@@ -132,6 +133,7 @@ describe("local-expose plugin", () => {
                 }
             },
             processes: {
+                defaultUserId: vi.fn(async () => "owner-user"),
                 listByOwner: vi.fn(async () => [
                     {
                         id: "proc-1",
@@ -198,6 +200,7 @@ describe("local-expose plugin", () => {
                 }
             },
             processes: {
+                defaultUserId: vi.fn(async () => "owner-user"),
                 listByOwner: vi.fn(async () => []),
                 removeByOwner: vi.fn(async () => 0),
                 create: vi.fn(async () => undefined)

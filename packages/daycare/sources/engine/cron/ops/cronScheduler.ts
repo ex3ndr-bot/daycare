@@ -68,7 +68,7 @@ export class CronScheduler {
 
         this.started = true;
 
-        const tasks = await this.repository.findMany();
+        const tasks = await this.repository.findAll();
         logger.debug(`load: Loaded tasks from db taskCount=${tasks.length}`);
 
         for (const task of tasks) {
@@ -107,7 +107,7 @@ export class CronScheduler {
             return;
         }
 
-        const tasks = await this.repository.findMany();
+        const tasks = await this.repository.findAll();
         for (const task of tasks) {
             this.scheduleTask(task);
         }
@@ -126,7 +126,7 @@ export class CronScheduler {
         const task: CronTaskDbRecord = {
             id: taskId,
             taskUid: definition.taskUid && cuid2Is(definition.taskUid) ? definition.taskUid : createId(),
-            userId: definition.userId ?? null,
+            userId: definition.userId,
             name: definition.name,
             description: definition.description ?? null,
             schedule: definition.schedule,
@@ -175,14 +175,14 @@ export class CronScheduler {
             taskUid: scheduled.task.taskUid,
             taskName: scheduled.task.name,
             prompt: scheduled.task.prompt,
-            agentId: scheduled.task.agentId ?? undefined,
-            userId: scheduled.task.userId ?? undefined
+            agentId: scheduled.task.agentId,
+            userId: scheduled.task.userId
         };
     }
 
     private async generateTaskIdFromName(name: string): Promise<string> {
         const base = stringSlugify(name) || "cron-task";
-        const tasks = await this.repository.findMany({ includeDisabled: true });
+        const tasks = await this.repository.findAll({ includeDisabled: true });
         const existing = new Set(tasks.map((task) => task.id));
 
         let candidate = base;
@@ -238,8 +238,8 @@ export class CronScheduler {
             taskUid: task.taskUid,
             taskName: task.name,
             prompt,
-            agentId: task.agentId ?? undefined,
-            userId: task.userId ?? undefined
+            agentId: task.agentId,
+            userId: task.userId
         };
 
         const messageContext: MessageContext = {};

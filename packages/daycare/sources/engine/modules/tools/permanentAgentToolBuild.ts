@@ -3,7 +3,7 @@ import path from "node:path";
 import type { ToolResultMessage } from "@mariozechner/pi-ai";
 import { createId } from "@paralleldrive/cuid2";
 import { type Static, Type } from "@sinclair/typebox";
-import type { AgentState, SessionPermissions, ToolDefinition, ToolResultContract } from "@/types";
+import type { AgentState, SessionPermissions, ToolDefinition, ToolExecutionContext, ToolResultContract } from "@/types";
 import { cuid2Is } from "../../../utils/cuid2Is.js";
 import { agentDescriptorWrite } from "../../agents/ops/agentDescriptorWrite.js";
 import { agentPermanentList } from "../../agents/ops/agentPermanentList.js";
@@ -103,10 +103,7 @@ export function permanentAgentToolBuild(): ToolDefinition {
                 systemPrompt,
                 ...(resolvedWorkspaceDir ? { workspaceDir: resolvedWorkspaceDir } : {})
             };
-            const ownerUserId = toolContext.agentContext?.userId;
-            if (!ownerUserId) {
-                throw new Error("Permanent agent operations require a valid caller userId.");
-            }
+            const ownerUserId = contextUserIdResolve(toolContext);
 
             if (resolvedAgent) {
                 await agentDescriptorWrite(storage, agentId, descriptor, ownerUserId, config.defaultPermissions);
@@ -229,4 +226,12 @@ function updatePermissions(permissions: SessionPermissions, workspaceDir: string
         ...permissions,
         workingDir: workspaceDir
     };
+}
+
+function contextUserIdResolve(context: ToolExecutionContext): string {
+    const userId = context.ctx?.userId;
+    if (!userId) {
+        throw new Error("Tool context userId is required.");
+    }
+    return userId;
 }

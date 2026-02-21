@@ -46,39 +46,38 @@ export class Heartbeats {
                     descriptor: { type: "system", tag: "heartbeat" }
                 }),
             onRun: async (tasks) => {
-                const batch = heartbeatPromptBuildBatch(tasks);
                 const target = { descriptor: { type: "system" as const, tag: "heartbeat" } };
                 const targetAgentId = await this.agentSystem.agentIdForTarget(target);
-                const targetAgentContext = await this.agentSystem.agentContextForAgentId(targetAgentId);
                 const permissions = await this.agentSystem.permissionsForTarget(target);
-                const resolvedUserId = targetAgentContext?.userId;
-                if (!resolvedUserId) {
-                    logger.warn(
-                        {
-                            targetAgentId,
-                            taskIds: tasks.map((task) => task.id)
-                        },
-                        "skip: Heartbeat batch skipped because target user context is unavailable"
-                    );
-                    return;
-                }
                 this.agentSystem.updateAgentPermissions(targetAgentId, permissions, Date.now());
-
-                await this.agentSystem.postAndAwait(target, {
-                    type: "signal",
-                    subscriptionPattern: "internal.heartbeat.tick",
-                    signal: {
-                        id: createId(),
-                        type: "internal.heartbeat.tick",
-                        source: { type: "system", userId: resolvedUserId },
-                        createdAt: Date.now(),
-                        data: {
-                            prompt: batch.prompt,
-                            userId: resolvedUserId,
-                            tasks: tasks.map((task) => ({ id: task.id, title: task.title, prompt: task.prompt }))
+                const tasksByUserId = new Map<string, HeartbeatDefinition[]>();
+                for (const task of tasks) {
+                    const bucket = tasksByUserId.get(task.userId) ?? [];
+                    bucket.push(task);
+                    tasksByUserId.set(task.userId, bucket);
+                }
+                for (const [userId, userTasks] of tasksByUserId.entries()) {
+                    const batch = heartbeatPromptBuildBatch(userTasks);
+                    await this.agentSystem.postAndAwait(target, {
+                        type: "signal",
+                        subscriptionPattern: "internal.heartbeat.tick",
+                        signal: {
+                            id: createId(),
+                            type: "internal.heartbeat.tick",
+                            source: { type: "system", userId },
+                            createdAt: Date.now(),
+                            data: {
+                                prompt: batch.prompt,
+                                userId,
+                                tasks: userTasks.map((task) => ({
+                                    id: task.id,
+                                    title: task.title,
+                                    prompt: task.prompt
+                                }))
+                            }
                         }
-                    }
-                });
+                    });
+                }
             },
             onError: async (error, taskIds) => {
                 logger.warn({ taskIds, error }, "error: Heartbeat task failed");

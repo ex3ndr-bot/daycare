@@ -18,7 +18,7 @@ describe("migration20260222ImportSignals", () => {
             await writeFile(
                 path.join(dir, "signals", "events.jsonl"),
                 `${JSON.stringify({ id: "ev-1", type: "build:ok", source: { type: "system", userId: "user-a" }, data: { ok: true }, createdAt: 10 })}\n` +
-                    `${JSON.stringify({ id: "ev-2", type: "build:ok", source: { type: "system" }, data: { ok: false }, createdAt: 20 })}\n`,
+                    `${JSON.stringify({ id: "ev-2", type: "build:ok", source: { type: "system", userId: "user-1" }, data: { ok: false }, createdAt: 20 })}\n`,
                 "utf8"
             );
             await writeFile(
@@ -41,7 +41,7 @@ describe("migration20260222ImportSignals", () => {
                                 id: "delay-2",
                                 type: "notify",
                                 deliverAt: 40,
-                                source: { type: "system" },
+                                source: { type: "system", userId: "user-1" },
                                 data: { b: true },
                                 createdAt: 3,
                                 updatedAt: 4
@@ -84,11 +84,11 @@ describe("migration20260222ImportSignals", () => {
 
                 expect(events).toEqual([
                     { id: "ev-1", user_id: "user-a", type: "build:ok" },
-                    { id: "ev-2", user_id: "owner-user", type: "build:ok" }
+                    { id: "ev-2", user_id: "user-1", type: "build:ok" }
                 ]);
                 expect(delayed).toEqual([
                     { id: "delay-1", user_id: "user-a", type: "notify", repeat_key: "r1" },
-                    { id: "delay-2", user_id: "owner-user", type: "notify", repeat_key: null }
+                    { id: "delay-2", user_id: "user-1", type: "notify", repeat_key: null }
                 ]);
             } finally {
                 db.close();

@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import type { Context } from "@/types";
 import { signalTypeMatchesPattern } from "../engine/signals/signalTypeMatchesPattern.js";
 import { AsyncLock } from "../util/lock.js";
 import type { DatabaseSignalSubscriptionRow, SignalSubscriptionDbRecord } from "./databaseTypes.js";
@@ -73,11 +74,11 @@ export class SignalSubscriptionsRepository {
     }
 
     async findByUserAndAgent(
-        userId: string,
+        ctx: Context,
         agentId: string,
         pattern: string
     ): Promise<SignalSubscriptionDbRecord | null> {
-        const key = subscriptionKeyBuild(userId, agentId, pattern);
+        const key = subscriptionKeyBuild(ctx.userId, agentId, pattern);
         const lock = await this.subscriptionLockForKey(key);
         return lock.inLock(async () => {
             const existing = await this.cacheLock.inLock(() => {
@@ -94,7 +95,7 @@ export class SignalSubscriptionsRepository {
                 return existing;
             }
 
-            const loaded = this.subscriptionLoadByKey(userId, agentId, pattern);
+            const loaded = this.subscriptionLoadByKey(ctx.userId, agentId, pattern);
             if (!loaded) {
                 return null;
             }
@@ -136,12 +137,11 @@ export class SignalSubscriptionsRepository {
         return parsed.map((entry) => signalSubscriptionClone(entry));
     }
 
-    async findMatching(signalType: string, userId?: string): Promise<SignalSubscriptionDbRecord[]> {
+    async findMatching(ctx: Context, signalType: string): Promise<SignalSubscriptionDbRecord[]> {
         const all = await this.findMany();
-        const normalizedUserId = typeof userId === "string" ? userId.trim() : "";
         return all
             .filter((entry) => {
-                if (normalizedUserId && entry.userId !== normalizedUserId) {
+                if (entry.userId !== ctx.userId) {
                     return false;
                 }
                 return signalTypeMatchesPattern(signalType, entry.pattern);

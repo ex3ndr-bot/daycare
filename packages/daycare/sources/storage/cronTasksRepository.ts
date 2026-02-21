@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import type { Context } from "@/types";
 import { AsyncLock } from "../util/lock.js";
 import type { CronTaskDbRecord, DatabaseCronTaskRow } from "./databaseTypes.js";
 
@@ -48,7 +49,19 @@ export class CronTasksRepository {
         });
     }
 
-    async findMany(options: CronTasksFindManyOptions = {}): Promise<CronTaskDbRecord[]> {
+    async findMany(ctx: Context, options: CronTasksFindManyOptions = {}): Promise<CronTaskDbRecord[]> {
+        const includeDisabled = options.includeDisabled === true;
+        const rows = includeDisabled
+            ? (this.db
+                  .prepare("SELECT * FROM tasks_cron WHERE user_id = ? ORDER BY updated_at ASC")
+                  .all(ctx.userId) as DatabaseCronTaskRow[])
+            : (this.db
+                  .prepare("SELECT * FROM tasks_cron WHERE user_id = ? AND enabled = 1 ORDER BY updated_at ASC")
+                  .all(ctx.userId) as DatabaseCronTaskRow[]);
+        return rows.map((row) => cronTaskClone(this.taskParse(row)));
+    }
+
+    async findAll(options: CronTasksFindManyOptions = {}): Promise<CronTaskDbRecord[]> {
         const includeDisabled = options.includeDisabled === true;
 
         if (this.allTasksLoaded) {

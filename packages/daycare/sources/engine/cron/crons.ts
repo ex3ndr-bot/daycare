@@ -66,16 +66,7 @@ export class Crons {
                           await this.agentSystem.permissionsForTarget({ descriptor: { type: "system", tag: "cron" } })
                       );
                 const targetAgentId = await this.agentSystem.agentIdForTarget(target);
-                const targetAgentContext = await this.agentSystem.agentContextForAgentId(targetAgentId);
                 this.agentSystem.updateAgentPermissions(targetAgentId, permissions, Date.now());
-                const resolvedUserId = task.userId ?? targetAgentContext?.userId;
-                if (!resolvedUserId) {
-                    logger.warn(
-                        { taskId: task.taskId, taskUid: task.taskUid, targetAgentId },
-                        "skip: Cron task skipped because target user context is unavailable"
-                    );
-                    return;
-                }
 
                 await this.agentSystem.postAndAwait(target, {
                     type: "signal",
@@ -85,7 +76,7 @@ export class Crons {
                         type: "internal.cron.task",
                         source: {
                             type: "system",
-                            userId: resolvedUserId
+                            userId: task.userId
                         },
                         createdAt: Date.now(),
                         data: {
@@ -93,7 +84,7 @@ export class Crons {
                             taskId: task.taskId,
                             taskUid: task.taskUid,
                             taskName: task.taskName,
-                            userId: resolvedUserId,
+                            userId: task.userId,
                             messageContext
                         }
                     }
@@ -138,7 +129,7 @@ export class Crons {
     }
 
     async listTasks() {
-        return this.storage.cronTasks.findMany({ includeDisabled: true });
+        return this.storage.cronTasks.findAll({ includeDisabled: true });
     }
 
     async addTask(definition: Omit<CronTaskDefinition, "id"> & { id?: string }) {

@@ -32,12 +32,8 @@ export async function appExecute(input: AppExecuteInput): Promise<AppExecuteResu
     const config = agentSystem.config.current;
     const storage = agentSystem.storage;
     const waitForResponse = input.waitForResponse ?? false;
-    const appsDir = input.context.agentContext?.userId
-        ? agentSystem.userHomeForUserId(input.context.agentContext.userId).apps
-        : path.join(config.workspaceDir, "apps");
-    const appDescriptor =
-        (await appDiscover(appsDir)).find((entry) => entry.id === input.app.id) ??
-        (input.context.agentContext?.userId ? null : input.app);
+    const appsDir = agentSystem.userHomeForUserId(input.context.ctx.userId).apps;
+    const appDescriptor = (await appDiscover(appsDir)).find((entry) => entry.id === input.app.id) ?? null;
     if (!appDescriptor) {
         throw new Error(`Unknown app: ${input.app.id}`);
     }

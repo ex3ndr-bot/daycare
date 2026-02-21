@@ -5,7 +5,12 @@ import { exposeListToolBuild } from "./exposeListToolBuild.js";
 import { exposeRemoveToolBuild } from "./exposeRemoveToolBuild.js";
 import { exposeUpdateToolBuild } from "./exposeUpdateToolBuild.js";
 
-const toolContext = {} as never;
+const toolContext = {
+    ctx: {
+        agentId: "agent-1",
+        userId: "user-1"
+    }
+} as never;
 
 describe("expose tools", () => {
     it("creates endpoint with port target and returns password", async () => {
@@ -41,7 +46,7 @@ describe("expose tools", () => {
                 mode: "public",
                 authenticated: true
             },
-            undefined
+            "user-1"
         );
         expect(result.toolMessage.isError).toBe(false);
         expect(result.toolMessage.content[0]).toEqual(

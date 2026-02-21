@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import type { Context } from "@mariozechner/pi-ai";
+import type { Context as InferenceContext } from "@mariozechner/pi-ai";
 import { createId } from "@paralleldrive/cuid2";
 import type { MessageContext, ToolExecutionContext } from "@/types";
 import { FileStore } from "../../files/store.js";
@@ -32,8 +32,8 @@ import { signalMessageBuild } from "../signals/signalMessageBuild.js";
 import { Skills } from "../skills/skills.js";
 import type { UserHome } from "../users/userHome.js";
 import { userHomeEnsure } from "../users/userHomeEnsure.js";
-import { AgentContext } from "./agentContext.js";
 import type { AgentSystem } from "./agentSystem.js";
+import { Context } from "./context.js";
 import { agentDescriptorIsCron } from "./ops/agentDescriptorIsCron.js";
 import { agentDescriptorIsHeartbeat } from "./ops/agentDescriptorIsHeartbeat.js";
 import { agentDescriptorTargetResolve } from "./ops/agentDescriptorTargetResolve.js";
@@ -488,9 +488,9 @@ export class Agent {
             await agentHistoryAppend(this.agentSystem.storage, this.id, pendingUserRecord);
         }
 
-        const agentContext = this.state.context;
-        const contextForRun: Context = {
-            ...agentContext,
+        const ctx = this.state.context;
+        const contextForRun: InferenceContext = {
+            ...ctx,
             tools: contextTools,
             systemPrompt
         };
@@ -959,7 +959,7 @@ export class Agent {
             assistant: this.agentSystem.config.current.settings.assistant ?? null,
             permissions: this.state.permissions,
             agent: this,
-            agentContext: new AgentContext(this.id, this.userId),
+            ctx: new Context(this.id, this.userId),
             source,
             messageContext: {},
             agentSystem: this.agentSystem,
@@ -1048,7 +1048,7 @@ export class Agent {
             allowCronTools?: boolean;
             rlmToolDescription?: string;
         }
-    ): Promise<Context["tools"]> {
+    ): Promise<InferenceContext["tools"]> {
         const tools = toolResolver.listTools();
         const noToolsModeEnabled = rlmNoToolsModeIs(this.agentSystem.config.current.features);
         let rlmToolDescription = options?.rlmToolDescription;
@@ -1107,7 +1107,7 @@ export class Agent {
         return connector?.startTyping?.(target.targetId) ?? null;
     }
 
-    private async buildHistoryContext(records: AgentHistoryRecord[]): Promise<Context["messages"]> {
+    private async buildHistoryContext(records: AgentHistoryRecord[]): Promise<InferenceContext["messages"]> {
         return agentHistoryContext(records, this.id);
     }
 
@@ -1185,7 +1185,7 @@ function toFileReferences(
     }));
 }
 
-function buildResetSystemMessage(text: string, at: number, origin: string): Context["messages"][number] {
+function buildResetSystemMessage(text: string, at: number, origin: string): InferenceContext["messages"][number] {
     return {
         role: "user",
         content: messageBuildSystemText(text, origin),

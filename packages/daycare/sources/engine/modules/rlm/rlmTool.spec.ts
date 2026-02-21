@@ -2,7 +2,7 @@ import { Type } from "@sinclair/typebox";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ToolExecutionContext, ToolExecutionResult } from "@/types";
-import { AgentContext } from "../../agents/agentContext.js";
+import { Context } from "../../agents/context.js";
 import type { ToolResolverApi } from "../toolResolver.js";
 import { rlmToolBuild } from "./rlmTool.js";
 
@@ -194,7 +194,7 @@ function createContext(overrides: Partial<ToolExecutionContext> = {}): ToolExecu
             events: false
         },
         agent,
-        agentContext: new AgentContext("agent-1", "user-1"),
+        ctx: new Context("agent-1", "user-1"),
         source: "test",
         messageContext: {},
         agentSystem: null as unknown as ToolExecutionContext["agentSystem"],

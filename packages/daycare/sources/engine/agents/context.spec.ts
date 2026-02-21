@@ -1,20 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { AgentContext } from "./agentContext.js";
+import { Context } from "./context.js";
 
-describe("AgentContext", () => {
+describe("Context", () => {
     it("stores agentId and userId from constructor", () => {
-        const context = new AgentContext("agent-1", "user-1");
+        const context = new Context("agent-1", "user-1");
         expect(context.agentId).toBe("agent-1");
         expect(context.userId).toBe("user-1");
     });
 
     it("is readonly", () => {
-        const context = new AgentContext("agent-1", "user-1");
-        const readonlyAssertion = (value: AgentContext): void => {
-            // @ts-expect-error AgentContext fields are readonly
+        const context = new Context("agent-1", "user-1");
+        const readonlyAssertion = (value: Context): void => {
+            // @ts-expect-error Context fields are readonly
             value.agentId = "agent-2";
-            // @ts-expect-error AgentContext fields are readonly
+            // @ts-expect-error Context fields are readonly
             value.userId = "user-2";
         };
         void readonlyAssertion;

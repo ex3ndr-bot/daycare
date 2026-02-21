@@ -36,7 +36,7 @@ import type { PluginManager } from "../plugins/manager.js";
 import type { Signals } from "../signals/signals.js";
 import { UserHome } from "../users/userHome.js";
 import { Agent } from "./agent.js";
-import { AgentContext } from "./agentContext.js";
+import { Context } from "./context.js";
 import { agentDescriptorCacheKey } from "./ops/agentDescriptorCacheKey.js";
 import { agentDescriptorMatchesStrategy } from "./ops/agentDescriptorMatchesStrategy.js";
 import { agentDescriptorRead } from "./ops/agentDescriptorRead.js";
@@ -315,16 +315,16 @@ export class AgentSystem {
      * Reads agent + user identity by agent id.
      * Returns: null when the agent does not exist in memory or storage.
      */
-    async agentContextForAgentId(agentId: string): Promise<AgentContext | null> {
+    async contextForAgentId(agentId: string): Promise<Context | null> {
         const loaded = this.entries.get(agentId);
         if (loaded) {
-            return new AgentContext(loaded.agentId, loaded.userId);
+            return new Context(loaded.agentId, loaded.userId);
         }
         const record = await this.storage.agents.findById(agentId);
         if (!record) {
             return null;
         }
-        return new AgentContext(record.id, record.userId);
+        return new Context(record.id, record.userId);
     }
 
     async signalDeliver(signal: Signal, subscriptions: SignalSubscription[]): Promise<void> {
@@ -333,7 +333,7 @@ export class AgentSystem {
                 if (signal.source.type === "agent" && signal.source.id === subscription.agentId) {
                     return;
                 }
-                const context = await this.agentContextForAgentId(subscription.agentId);
+                const context = await this.contextForAgentId(subscription.agentId);
                 if (!context || context.userId !== subscription.userId) {
                     return;
                 }
@@ -724,14 +724,17 @@ export class AgentSystem {
         if (!this.delayedSignals) {
             return;
         }
-        const context = await this.agentContextForAgentId(agentId);
+        const context = await this.contextForAgentId(agentId);
+        if (!context) {
+            return;
+        }
         const deliverAt = Date.now() + AGENT_IDLE_DELAY_MS;
         const type = lifecycleSignalTypeBuild(agentId, "idle");
         try {
             await this.delayedSignals.schedule({
                 type,
                 deliverAt,
-                source: { type: "agent", id: agentId, userId: context?.userId },
+                source: { type: "agent", id: agentId, userId: context.userId },
                 data: { agentId, state: "idle" },
                 repeatKey: AGENT_IDLE_REPEAT_KEY
             });
@@ -765,14 +768,17 @@ export class AgentSystem {
         if (descriptor?.type !== "subagent") {
             return;
         }
-        const context = await this.agentContextForAgentId(agentId);
+        const context = await this.contextForAgentId(agentId);
+        if (!context) {
+            return;
+        }
         try {
             // load() runs before DelayedSignals.start(); ensure persistence directory exists.
             await fs.mkdir(`${this.config.current.configDir}/signals`, { recursive: true });
             await this.delayedSignals.schedule({
                 type: lifecycleSignalTypeBuild(agentId, "poison-pill"),
                 deliverAt: options?.deliverAt ?? Date.now() + AGENT_POISON_PILL_DELAY_MS,
-                source: { type: "agent", id: agentId, userId: context?.userId },
+                source: { type: "agent", id: agentId, userId: context.userId },
                 data: { agentId, state: "poison-pill" },
                 repeatKey: AGENT_POISON_PILL_REPEAT_KEY
             });
@@ -803,11 +809,14 @@ export class AgentSystem {
         if (!this._signals) {
             return;
         }
-        const context = await this.agentContextForAgentId(agentId);
+        const context = await this.contextForAgentId(agentId);
+        if (!context) {
+            return;
+        }
         try {
             await this._signals.generate({
                 type: lifecycleSignalTypeBuild(agentId, state),
-                source: { type: "agent", id: agentId, userId: context?.userId },
+                source: { type: "agent", id: agentId, userId: context.userId },
                 data: { agentId, state }
             });
         } catch (error) {
@@ -943,7 +952,7 @@ export class AgentSystem {
             return this.resolveUserIdForConnectorKey(connectorKey);
         }
         if (descriptor.type === "subagent" || descriptor.type === "app") {
-            const parent = await this.agentContextForAgentId(descriptor.parentAgentId);
+            const parent = await this.contextForAgentId(descriptor.parentAgentId);
             if (parent) {
                 return parent.userId;
             }

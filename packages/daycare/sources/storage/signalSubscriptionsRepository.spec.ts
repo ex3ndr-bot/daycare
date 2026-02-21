@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Context } from "@/types";
 
 import { databaseOpen } from "./databaseOpen.js";
 import { SignalSubscriptionsRepository } from "./signalSubscriptionsRepository.js";
@@ -30,12 +31,12 @@ describe("SignalSubscriptionsRepository", () => {
                 updatedAt: 20
             });
 
-            const found = await repository.findByUserAndAgent("user-a", "agent-1", "build:*");
+            const found = await repository.findByUserAndAgent(ctxBuild("user-a"), "agent-1", "build:*");
             expect(found?.id).toBe("sub-2");
             expect(found?.silent).toBe(false);
 
             const removed = await repository.delete("user-a", "agent-1", "build:*");
-            const missing = await repository.findByUserAndAgent("user-a", "agent-1", "build:*");
+            const missing = await repository.findByUserAndAgent(ctxBuild("user-a"), "agent-1", "build:*");
 
             expect(removed).toBe(true);
             expect(missing).toBeNull();
@@ -78,8 +79,11 @@ describe("SignalSubscriptionsRepository", () => {
                 updatedAt: 3
             });
 
-            const allMatches = await repository.findMatching("build:app:done");
-            const userMatches = await repository.findMatching("build:app:done", "user-a");
+            const allMatches = [
+                ...(await repository.findMatching(ctxBuild("user-a"), "build:app:done")),
+                ...(await repository.findMatching(ctxBuild("user-b"), "build:app:done"))
+            ];
+            const userMatches = await repository.findMatching(ctxBuild("user-a"), "build:app:done");
 
             expect(allMatches.map((entry) => entry.id).sort()).toEqual(["sub-a", "sub-b"]);
             expect(userMatches.map((entry) => entry.id)).toEqual(["sub-a"]);
@@ -102,4 +106,8 @@ function schemaCreate(db: ReturnType<typeof databaseOpen>): void {
             UNIQUE(user_id, agent_id, pattern)
         );
     `);
+}
+
+function ctxBuild(userId: string): Context {
+    return { agentId: "test-agent", userId };
 }

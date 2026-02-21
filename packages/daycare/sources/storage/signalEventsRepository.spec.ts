@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Context } from "@/types";
 
 import { databaseOpen } from "./databaseOpen.js";
 import { SignalEventsRepository } from "./signalEventsRepository.js";
@@ -35,10 +36,10 @@ describe("SignalEventsRepository", () => {
                 createdAt: 30
             });
 
-            const all = await repository.findMany();
-            const byUser = await repository.findMany({ userId: "user-a" });
-            const byType = await repository.findMany({ type: "build:ok" });
-            const byBoth = await repository.findMany({ userId: "user-a", type: "build:ok" });
+            const all = await repository.findAll();
+            const byUser = await repository.findMany(ctxBuild("user-a"));
+            const byType = await repository.findAll({ type: "build:ok" });
+            const byBoth = await repository.findMany(ctxBuild("user-a"), { type: "build:ok" });
 
             expect(all.map((entry) => entry.id)).toEqual(["ev-1", "ev-2", "ev-3"]);
             expect(byUser.map((entry) => entry.id)).toEqual(["ev-1", "ev-3"]);
@@ -67,8 +68,8 @@ describe("SignalEventsRepository", () => {
                 });
             }
 
-            const recentTwo = await repository.findRecent(2);
-            const recentHuge = await repository.findRecent(99_999);
+            const recentTwo = await repository.findRecent(ctxBuild("user-a"), 2);
+            const recentHuge = await repository.findRecentAll(99_999);
 
             expect(recentTwo.map((entry) => entry.id)).toEqual(["ev-4", "ev-5"]);
             expect(recentHuge).toHaveLength(5);
@@ -89,4 +90,8 @@ function schemaCreate(db: ReturnType<typeof databaseOpen>): void {
             created_at INTEGER NOT NULL
         );
     `);
+}
+
+function ctxBuild(userId: string): Context {
+    return { agentId: "test-agent", userId };
 }

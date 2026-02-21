@@ -70,21 +70,21 @@ function signalEventsFixture(): Signal[] {
         {
             id: "e1",
             type: "build.done",
-            source: { type: "system" },
+            source: { type: "system", userId: "user-1" },
             data: { ok: true },
             createdAt: 2000
         },
         {
             id: "e2",
             type: "build.failed",
-            source: { type: "system" },
+            source: { type: "system", userId: "user-1" },
             data: { ok: false },
             createdAt: 3000
         },
         {
             id: "e3",
             type: "deploy.done",
-            source: { type: "system" },
+            source: { type: "system", userId: "user-1" },
             data: { env: "prod" },
             createdAt: 4000
         }
@@ -106,7 +106,7 @@ function contextBuild(): ToolExecutionContext {
             events: false
         },
         agent: { id: "agent-caller" } as unknown as ToolExecutionContext["agent"],
-        agentContext: null as unknown as ToolExecutionContext["agentContext"],
+        ctx: null as unknown as ToolExecutionContext["ctx"],
         source: "test",
         messageContext: {},
         agentSystem: null as unknown as ToolExecutionContext["agentSystem"],

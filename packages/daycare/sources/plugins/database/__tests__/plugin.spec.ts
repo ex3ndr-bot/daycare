@@ -8,7 +8,7 @@ import type { AgentState, SessionPermissions } from "@/types";
 import { AuthStore } from "../../../auth/store.js";
 import { configResolve } from "../../../config/configResolve.js";
 import { Agent } from "../../../engine/agents/agent.js";
-import { AgentContext } from "../../../engine/agents/agentContext.js";
+import { Context } from "../../../engine/agents/context.js";
 import { AgentInbox } from "../../../engine/agents/ops/agentInbox.js";
 import { ModuleRegistry } from "../../../engine/modules/moduleRegistry.js";
 import { PluginRegistry } from "../../../engine/plugins/registry.js";
@@ -116,7 +116,7 @@ describe("database plugin", () => {
             assistant: null,
             permissions,
             agent,
-            agentContext: new AgentContext(agent.id, agent.userId),
+            ctx: new Context(agent.id, agent.userId),
             source: "test",
             messageContext,
             agentSystem: null as unknown as Parameters<typeof modules.tools.execute>[1]["agentSystem"],

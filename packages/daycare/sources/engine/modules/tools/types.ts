@@ -1,7 +1,7 @@
 import type { Tool, ToolResultMessage } from "@mariozechner/pi-ai";
 import type { TSchema } from "@sinclair/typebox";
 import type { Logger } from "pino";
-import type { AgentContext, MessageContext, SessionPermissions } from "@/types";
+import type { Context, MessageContext, SessionPermissions } from "@/types";
 import type { AuthStore } from "../../../auth/store.js";
 import type { FileStore } from "../../../files/store.js";
 import type { AssistantSettings } from "../../../settings.js";
@@ -22,7 +22,7 @@ export type ToolExecutionContext<State = Record<string, unknown>> = {
     assistant: AssistantSettings | null;
     permissions: SessionPermissions;
     agent: Agent;
-    agentContext: AgentContext;
+    ctx: Context;
     source: string;
     messageContext: MessageContext;
     agentSystem: AgentSystem;

@@ -135,6 +135,45 @@ describe("permanentAgentToolBuild", () => {
             await rm(dir, { recursive: true, force: true });
         }
     });
+
+    it("throws a clear error when context userId is missing", async () => {
+        const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-permanent-tool-missing-user-"));
+        try {
+            const config = configResolve(
+                {
+                    engine: { dataDir: dir },
+                    assistant: { workspaceDir: dir }
+                },
+                path.join(dir, "settings.json")
+            );
+            const storage = Storage.open(config.dbPath);
+            const tool = permanentAgentToolBuild();
+            const context = {
+                ...contextBuild(buildPermissions({ network: false }), {
+                    config: { current: config },
+                    storage,
+                    updateAgentDescriptor: vi.fn(),
+                    updateAgentPermissions: vi.fn()
+                }),
+                ctx: null as unknown as ToolExecutionContext["ctx"]
+            };
+
+            await expect(
+                tool.execute(
+                    {
+                        name: "ops",
+                        description: "Operations agent",
+                        systemPrompt: "Run operations tasks"
+                    },
+                    context,
+                    toolCall
+                )
+            ).rejects.toThrow("Tool context userId is required.");
+            storage.close();
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
+    });
 });
 
 function buildPermissions(overrides: Partial<SessionPermissions>): SessionPermissions {
@@ -165,10 +204,10 @@ function contextBuild(
         assistant: null,
         permissions,
         agent: { id: "creator-agent" } as unknown as ToolExecutionContext["agent"],
-        agentContext: {
+        ctx: {
             agentId: "creator-agent",
             userId: "creator-user"
-        } as unknown as ToolExecutionContext["agentContext"],
+        } as unknown as ToolExecutionContext["ctx"],
         source: "test",
         messageContext: {},
         agentSystem: agentSystem as unknown as ToolExecutionContext["agentSystem"],

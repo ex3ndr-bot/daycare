@@ -168,6 +168,7 @@ export function buildHeartbeatAddTool(): ToolDefinition {
             const gate = execGateNormalize(payload.gate);
             const result = await toolContext.heartbeats.addTask({
                 id: payload.id,
+                userId: toolContext.ctx.userId,
                 title: payload.title,
                 prompt: payload.prompt,
                 gate,

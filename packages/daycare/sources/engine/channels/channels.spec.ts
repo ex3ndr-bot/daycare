@@ -17,7 +17,7 @@ describe("Channels", () => {
                 signals: { subscribe, unsubscribe },
                 agentSystem: {
                     agentExists: async (agentId: string) => agentId !== "missing",
-                    agentContextForAgentId: async (agentId: string) => ({
+                    contextForAgentId: async (agentId: string) => ({
                         agentId,
                         userId: "user-1"
                     }),
@@ -64,7 +64,7 @@ describe("Channels", () => {
                 } as never,
                 agentSystem: {
                     agentExists: async () => true,
-                    agentContextForAgentId: async (agentId: string) => ({
+                    contextForAgentId: async (agentId: string) => ({
                         agentId,
                         userId: "user-1"
                     }),
@@ -121,7 +121,7 @@ describe("Channels", () => {
                 } as never,
                 agentSystem: {
                     agentExists: async () => true,
-                    agentContextForAgentId: async (agentId: string) => ({
+                    contextForAgentId: async (agentId: string) => ({
                         agentId,
                         userId: "user-1"
                     }),
@@ -141,7 +141,7 @@ describe("Channels", () => {
                 } as never,
                 agentSystem: {
                     agentExists: async () => true,
-                    agentContextForAgentId: async (agentId: string) => ({
+                    contextForAgentId: async (agentId: string) => ({
                         agentId,
                         userId: "user-1"
                     }),

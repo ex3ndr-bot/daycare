@@ -25,6 +25,7 @@ export type HeartbeatSchedulerOptions = {
 
 export type HeartbeatCreateTaskArgs = {
     id?: string;
+    userId: string;
     title: string;
     prompt: string;
     gate?: HeartbeatDefinition["gate"];

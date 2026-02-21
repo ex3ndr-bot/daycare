@@ -75,10 +75,10 @@ function contextForAgent(agentId: string): ToolExecutionContext {
             events: false
         },
         agent: { id: agentId } as unknown as ToolExecutionContext["agent"],
-        agentContext: {
+        ctx: {
             agentId,
             userId: "user-123"
-        } as unknown as ToolExecutionContext["agentContext"],
+        } as unknown as ToolExecutionContext["ctx"],
         source: "test",
         messageContext: {},
         agentSystem: null as unknown as ToolExecutionContext["agentSystem"],

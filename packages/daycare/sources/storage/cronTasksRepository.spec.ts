@@ -35,7 +35,7 @@ describe("CronTasksRepository", () => {
             const byId = await repo.findById("daily-report");
             expect(byId).toEqual(record);
 
-            const enabledOnly = await repo.findMany();
+            const enabledOnly = await repo.findAll();
             expect(enabledOnly).toHaveLength(1);
             expect(enabledOnly[0]?.id).toBe("daily-report");
 
@@ -53,10 +53,10 @@ describe("CronTasksRepository", () => {
             expect(updated?.lastRunAt).toBe(20);
             expect(updated?.gate?.permissions).toEqual(["@read:/tmp"]);
 
-            const stillEnabled = await repo.findMany();
+            const stillEnabled = await repo.findAll();
             expect(stillEnabled).toHaveLength(0);
 
-            const includeDisabled = await repo.findMany({ includeDisabled: true });
+            const includeDisabled = await repo.findAll({ includeDisabled: true });
             expect(includeDisabled).toHaveLength(1);
             expect(includeDisabled[0]?.enabled).toBe(false);
 
@@ -75,7 +75,7 @@ describe("CronTasksRepository", () => {
             await repo.create({
                 id: "cached-task",
                 taskUid: "clx9rk1p20000x5p3j7q1x8z2",
-                userId: null,
+                userId: "user-1",
                 name: "Cached",
                 description: null,
                 schedule: "* * * * *",

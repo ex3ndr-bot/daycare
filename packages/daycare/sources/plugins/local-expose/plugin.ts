@@ -132,6 +132,7 @@ export const plugin = definePlugin({
                 network: true,
                 events: false
             };
+            const userId = await api.processes.defaultUserId();
             await api.processes.create(
                 {
                     name: expectedName,
@@ -141,7 +142,8 @@ export const plugin = definePlugin({
                     keepAlive: true,
                     allowLocalBinding: true,
                     owner: processOwner,
-                    allowedDomains: LOCAL_FORWARDER_ALLOWED_DOMAINS
+                    allowedDomains: LOCAL_FORWARDER_ALLOWED_DOMAINS,
+                    userId
                 },
                 processPermissions
             );

@@ -1,12 +1,12 @@
 export type SignalSource =
-    | { type: "system"; userId?: string }
-    | { type: "agent"; id: string; userId?: string }
-    | { type: "webhook"; id?: string; userId?: string }
-    | { type: "process"; id?: string; userId?: string };
+    | { type: "system"; userId: string }
+    | { type: "agent"; id: string; userId: string }
+    | { type: "webhook"; id?: string; userId: string }
+    | { type: "process"; id?: string; userId: string };
 
 export type SignalGenerateInput = {
     type: string;
-    source?: SignalSource;
+    source: SignalSource;
     data?: unknown;
 };
 
@@ -43,7 +43,7 @@ export type SignalUnsubscribeInput = {
 export type DelayedSignalScheduleInput = {
     type: string;
     deliverAt: number;
-    source?: SignalSource;
+    source: SignalSource;
     data?: unknown;
     repeatKey?: string;
 };

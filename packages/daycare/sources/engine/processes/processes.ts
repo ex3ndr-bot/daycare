@@ -52,7 +52,7 @@ export type ProcessCreateInput = {
     keepAlive?: boolean;
     allowLocalBinding?: boolean;
     owner?: ProcessOwner;
-    userId?: string;
+    userId: string;
 };
 
 export type ProcessInfo = {
@@ -115,7 +115,7 @@ export class Processes {
     private readonly socketPath: string;
     private readonly repository: Pick<
         ProcessesRepository,
-        "create" | "findMany" | "findById" | "update" | "delete" | "deleteByOwner"
+        "create" | "findAll" | "findById" | "update" | "delete" | "deleteByOwner"
     >;
     private readonly fallbackUserIdResolve: () => Promise<string>;
     private readonly ownedStorage: Storage | null;
@@ -134,9 +134,8 @@ export class Processes {
             socketPath?: string;
             repository?: Pick<
                 ProcessesRepository,
-                "create" | "findMany" | "findById" | "update" | "delete" | "deleteByOwner"
+                "create" | "findAll" | "findById" | "update" | "delete" | "deleteByOwner"
             >;
-            fallbackUserIdResolve?: () => Promise<string>;
         } = {}
     ) {
         this.baseDir = path.resolve(baseDir);
@@ -147,17 +146,15 @@ export class Processes {
 
         if (options.repository) {
             this.repository = options.repository;
-            this.fallbackUserIdResolve = options.fallbackUserIdResolve ?? (async () => "owner");
+            this.fallbackUserIdResolve = async () => "owner";
             this.ownedStorage = null;
         } else {
             const storage = Storage.open(path.join(this.baseDir, "daycare.db"));
             this.repository = storage.processes;
-            this.fallbackUserIdResolve =
-                options.fallbackUserIdResolve ??
-                (async () => {
-                    const owner = await storage.users.findOwner();
-                    return owner?.id ?? "owner";
-                });
+            this.fallbackUserIdResolve = async () => {
+                const owner = await storage.users.findOwner();
+                return owner?.id ?? "owner";
+            };
             this.ownedStorage = storage;
         }
     }
@@ -168,7 +165,7 @@ export class Processes {
         this.currentBootTimeKnown = true;
         await this.lock.inLock(async () => {
             this.records.clear();
-            const rows = await this.repository.findMany();
+            const rows = await this.repository.findAll();
             for (const row of rows) {
                 const record = processRecordFromDb(row);
                 this.clearStalePidForBootMismatch(record);
@@ -191,11 +188,11 @@ export class Processes {
         }
     }
 
-    async create(
-        input: ProcessCreateInput,
-        permissions: SessionPermissions,
-        userIdOverride?: string
-    ): Promise<ProcessInfo> {
+    async defaultUserId(): Promise<string> {
+        return this.fallbackUserIdResolve();
+    }
+
+    async create(input: ProcessCreateInput, permissions: SessionPermissions): Promise<ProcessInfo> {
         return this.lock.inLock(async () => {
             const now = Date.now();
             const workingDir = permissions.workingDir;
@@ -230,8 +227,7 @@ export class Processes {
             const settingsPath = path.join(recordDir, "sandbox.json");
             const logPath = path.join(recordDir, "process.log");
             const bootTimeMs = await this.resolveCurrentBootTimeMsLocked();
-            const userId =
-                normalizeOptionalUserId(input.userId ?? userIdOverride) ?? (await this.fallbackUserIdResolve());
+            const userId = normalizeRequiredUserId(input.userId);
             await fs.mkdir(recordDir, { recursive: true });
 
             const record: ProcessRecord = {
@@ -697,12 +693,12 @@ function isPackageManager(value: unknown): value is SandboxPackageManager {
     );
 }
 
-function normalizeOptionalUserId(userId?: string): string | null {
-    if (typeof userId !== "string") {
-        return null;
-    }
+function normalizeRequiredUserId(userId: string): string {
     const normalized = userId.trim();
-    return normalized.length > 0 ? normalized : null;
+    if (!normalized) {
+        throw new Error("Process userId is required.");
+    }
+    return normalized;
 }
 
 function processRecordFromDb(record: ProcessDbRecord): ProcessRecord {

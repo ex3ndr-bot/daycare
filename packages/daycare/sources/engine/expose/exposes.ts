@@ -29,7 +29,7 @@ type ExposeRuntimeEndpoint = ExposeEndpoint & { userId: string };
 export type ExposesOptions = {
     config: ConfigModule;
     eventBus: EngineEventBus;
-    exposeEndpoints?: Pick<ExposeEndpointsRepository, "create" | "findMany" | "update" | "delete">;
+    exposeEndpoints?: Pick<ExposeEndpointsRepository, "create" | "findAll" | "update" | "delete">;
     fallbackUserIdResolve?: () => Promise<string>;
 };
 
@@ -40,7 +40,7 @@ export type ExposesOptions = {
 export class Exposes implements ExposeProviderRegistrationApi {
     private readonly lock = new AsyncLock();
     private readonly proxy = new ExposeProxy();
-    private readonly exposeEndpoints: Pick<ExposeEndpointsRepository, "create" | "findMany" | "update" | "delete">;
+    private readonly exposeEndpoints: Pick<ExposeEndpointsRepository, "create" | "findAll" | "update" | "delete">;
     private readonly fallbackUserIdResolve: () => Promise<string>;
     private readonly providers = new Map<string, ExposeTunnelProvider>();
     private readonly endpoints = new Map<string, ExposeRuntimeEndpoint>();
@@ -328,7 +328,7 @@ export class Exposes implements ExposeProviderRegistrationApi {
 
     private async endpointsLoad(): Promise<void> {
         this.endpoints.clear();
-        const rows = await this.exposeEndpoints.findMany();
+        const rows = await this.exposeEndpoints.findAll();
         for (const row of rows) {
             this.endpoints.set(row.id, endpointFromRecord(row));
         }

@@ -23,7 +23,7 @@ describe("Signals", () => {
 
             const signal = await signals.generate({
                 type: "build.completed",
-                source: { type: "process", id: "main-runtime" },
+                source: { type: "process", id: "main-runtime", userId: "user-1" },
                 data: { ok: true }
             });
             unsubscribe();
@@ -31,7 +31,7 @@ describe("Signals", () => {
             expect(signal.id.length).toBeGreaterThan(0);
             expect(signal.createdAt).toBeGreaterThan(0);
             expect(signal.type).toBe("build.completed");
-            expect(signal.source).toEqual({ type: "process", id: "main-runtime" });
+            expect(signal.source).toEqual({ type: "process", id: "main-runtime", userId: "user-1" });
             expect(signal.data).toEqual({ ok: true });
 
             const generated = events.find((event) => event.type === "signal.generated");
@@ -65,8 +65,8 @@ describe("Signals", () => {
                 eventBus: new EngineEventBus(),
                 configDir: dir
             });
-            await signals.generate({ type: "event.one", source: { type: "system" }, data: { n: 1 } });
-            await signals.generate({ type: "event.two", source: { type: "system" }, data: { n: 2 } });
+            await signals.generate({ type: "event.one", source: { type: "system", userId: "user-1" }, data: { n: 1 } });
+            await signals.generate({ type: "event.two", source: { type: "system", userId: "user-1" }, data: { n: 2 } });
 
             const recent = await signals.listRecent(1);
             expect(recent).toHaveLength(1);
@@ -75,6 +75,24 @@ describe("Signals", () => {
             const all = await signals.listAll();
             expect(all).toHaveLength(2);
             expect(all.map((item) => item.type)).toEqual(["event.one", "event.two"]);
+        } finally {
+            await rm(dir, { recursive: true, force: true });
+        }
+    });
+
+    it("throws a validation error when source userId is missing at runtime", async () => {
+        const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-signals-"));
+        try {
+            const signals = new Signals({
+                eventBus: new EngineEventBus(),
+                configDir: dir
+            });
+            await expect(
+                signals.generate({
+                    type: "event.invalid",
+                    source: { type: "system" } as unknown as Signal["source"]
+                })
+            ).rejects.toThrow("Signal source userId is required");
         } finally {
             await rm(dir, { recursive: true, force: true });
         }
@@ -114,7 +132,7 @@ describe("Signals", () => {
 
             await signals.generate({
                 type: "build:alpha:done",
-                source: { type: "system" }
+                source: { type: "system", userId: "user-1" }
             });
 
             expect(delivered).toHaveLength(1);
@@ -155,7 +173,7 @@ describe("Signals", () => {
 
             await signals.generate({
                 type: "build:alpha:done",
-                source: { type: "system" }
+                source: { type: "system", userId: "user-1" }
             });
 
             expect(delivered).toEqual([]);

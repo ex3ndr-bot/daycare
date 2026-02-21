@@ -44,13 +44,13 @@ export function buildSignalSubscribeTool(signals: Signals): ToolDefinition {
         execute: async (args, toolContext, toolCall) => {
             const payload = args as SubscribeSignalArgs;
             const targetAgentId = payload.agentId?.trim() ?? toolContext.agent.id;
-            const agentContext = await toolContext.agentSystem.agentContextForAgentId(targetAgentId);
-            if (!agentContext) {
+            const ctx = await toolContext.agentSystem.contextForAgentId(targetAgentId);
+            if (!ctx) {
                 throw new Error(`Agent not found: ${targetAgentId}`);
             }
 
             const subscription = await signals.subscribe({
-                userId: agentContext.userId,
+                userId: ctx.userId,
                 agentId: targetAgentId,
                 pattern: payload.pattern,
                 silent: payload.silent

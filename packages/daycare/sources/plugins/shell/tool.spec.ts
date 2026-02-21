@@ -403,7 +403,7 @@ function createContext(
         assistant: null,
         permissions: state.permissions,
         agent,
-        agentContext: null as unknown as ToolExecutionContext["agentContext"],
+        ctx: null as unknown as ToolExecutionContext["ctx"],
         source: "test",
         messageContext,
         agentSystem: {

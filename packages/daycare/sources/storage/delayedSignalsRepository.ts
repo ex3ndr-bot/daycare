@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite";
+import type { Context } from "@/types";
 import { AsyncLock } from "../util/lock.js";
 import type { DatabaseDelayedSignalRow, DelayedSignalDbRecord } from "./databaseTypes.js";
 
@@ -133,15 +134,19 @@ export class DelayedSignalsRepository {
         return parsed.map((entry) => delayedSignalClone(entry));
     }
 
-    async findMany(options: { userId?: string } = {}): Promise<DelayedSignalDbRecord[]> {
-        if (this.allSignalsLoaded && !options.userId) {
+    async findMany(ctx: Context): Promise<DelayedSignalDbRecord[]> {
+        return this.findAll(ctx.userId);
+    }
+
+    async findAll(userId?: string): Promise<DelayedSignalDbRecord[]> {
+        if (this.allSignalsLoaded && !userId) {
             return delayedSignalsSort(Array.from(this.signalsById.values())).map((entry) => delayedSignalClone(entry));
         }
 
-        const rows = options.userId
+        const rows = userId
             ? (this.db
                   .prepare("SELECT * FROM signals_delayed WHERE user_id = ? ORDER BY deliver_at ASC, id ASC")
-                  .all(options.userId) as DatabaseDelayedSignalRow[])
+                  .all(userId) as DatabaseDelayedSignalRow[])
             : (this.db
                   .prepare("SELECT * FROM signals_delayed ORDER BY deliver_at ASC, id ASC")
                   .all() as DatabaseDelayedSignalRow[]);
@@ -151,7 +156,7 @@ export class DelayedSignalsRepository {
             for (const record of parsed) {
                 this.signalCacheSet(record);
             }
-            if (!options.userId) {
+            if (!userId) {
                 this.allSignalsLoaded = true;
             }
         });
@@ -247,7 +252,7 @@ function sourceParse(raw: string): DelayedSignalDbRecord["source"] {
     try {
         return JSON.parse(raw) as DelayedSignalDbRecord["source"];
     } catch {
-        return { type: "system" };
+        return { type: "system", userId: "unknown" };
     }
 }
 

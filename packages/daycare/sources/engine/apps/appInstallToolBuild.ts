@@ -3,7 +3,7 @@ import path from "node:path";
 import type { ToolResultMessage } from "@mariozechner/pi-ai";
 import { type Static, Type } from "@sinclair/typebox";
 
-import type { ToolDefinition, ToolResultContract } from "@/types";
+import type { ToolDefinition, ToolExecutionContext, ToolResultContract } from "@/types";
 import { appInstall } from "./appInstall.js";
 import type { Apps } from "./appManager.js";
 
@@ -53,9 +53,8 @@ export function appInstallToolBuild(apps: Apps): ToolDefinition {
             const resolvedSource = path.isAbsolute(source)
                 ? path.resolve(source)
                 : path.resolve(context.permissions.workingDir, source);
-            const appsDir = context.agentContext?.userId
-                ? context.agentSystem.userHomeForUserId(context.agentContext.userId).apps
-                : path.join(context.agentSystem.config.current.workspaceDir, "apps");
+            const userId = contextUserIdResolve(context);
+            const appsDir = context.agentSystem.userHomeForUserId(userId).apps;
 
             const descriptor = await appInstall(appsDir, resolvedSource);
             await apps.discover();
@@ -80,4 +79,12 @@ export function appInstallToolBuild(apps: Apps): ToolDefinition {
             };
         }
     };
+}
+
+function contextUserIdResolve(context: ToolExecutionContext): string {
+    const userId = context.ctx?.userId;
+    if (!userId) {
+        throw new Error("Tool context userId is required.");
+    }
+    return userId;
 }

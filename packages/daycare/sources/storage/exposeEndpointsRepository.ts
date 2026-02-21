@@ -1,11 +1,8 @@
 import type { DatabaseSync } from "node:sqlite";
+import type { Context } from "@/types";
 import { exposeDomainNormalize, exposeTargetParse } from "../engine/expose/exposeTypes.js";
 import { AsyncLock } from "../util/lock.js";
 import type { DatabaseExposeEndpointRow, ExposeEndpointDbRecord } from "./databaseTypes.js";
-
-export type ExposeEndpointsFindManyOptions = {
-    userId?: string;
-};
 
 /**
  * Expose endpoints repository backed by SQLite with write-through caching.
@@ -103,9 +100,16 @@ export class ExposeEndpointsRepository {
         });
     }
 
-    async findMany(options: ExposeEndpointsFindManyOptions = {}): Promise<ExposeEndpointDbRecord[]> {
+    async findMany(ctx: Context): Promise<ExposeEndpointDbRecord[]> {
+        const rows = this.db
+            .prepare("SELECT * FROM expose_endpoints WHERE user_id = ? ORDER BY created_at ASC, id ASC")
+            .all(ctx.userId) as DatabaseExposeEndpointRow[];
+        return rows.map((entry) => endpointClone(this.endpointParse(entry)));
+    }
+
+    async findAll(): Promise<ExposeEndpointDbRecord[]> {
         const cached = await this.cacheLock.inLock(() => {
-            if (!this.allEndpointsLoaded || options.userId) {
+            if (!this.allEndpointsLoaded) {
                 return null;
             }
             return exposeEndpointsSort(Array.from(this.endpointsById.values())).map((entry) => endpointClone(entry));
@@ -114,13 +118,9 @@ export class ExposeEndpointsRepository {
             return cached;
         }
 
-        const rows = options.userId
-            ? (this.db
-                  .prepare("SELECT * FROM expose_endpoints WHERE user_id = ? ORDER BY created_at ASC, id ASC")
-                  .all(options.userId) as DatabaseExposeEndpointRow[])
-            : (this.db
-                  .prepare("SELECT * FROM expose_endpoints ORDER BY created_at ASC, id ASC")
-                  .all() as DatabaseExposeEndpointRow[]);
+        const rows = this.db
+            .prepare("SELECT * FROM expose_endpoints ORDER BY created_at ASC, id ASC")
+            .all() as DatabaseExposeEndpointRow[];
 
         const parsed = rows.map((row) => this.endpointParse(row));
 
@@ -128,9 +128,7 @@ export class ExposeEndpointsRepository {
             for (const entry of parsed) {
                 this.endpointCacheSet(entry);
             }
-            if (!options.userId) {
-                this.allEndpointsLoaded = true;
-            }
+            this.allEndpointsLoaded = true;
         });
 
         return parsed.map((entry) => endpointClone(entry));

@@ -10,6 +10,7 @@ describe("HeartbeatTasksRepository", () => {
             const repo = new HeartbeatTasksRepository(storage.db);
             const first: HeartbeatTaskDbRecord = {
                 id: "alpha",
+                userId: "user-1",
                 title: "Alpha",
                 prompt: "Check alpha",
                 gate: { command: "echo alpha", permissions: ["@network"] },
@@ -19,6 +20,7 @@ describe("HeartbeatTasksRepository", () => {
             };
             const second: HeartbeatTaskDbRecord = {
                 id: "beta",
+                userId: "user-1",
                 title: "Beta",
                 prompt: "Check beta",
                 gate: null,
@@ -33,7 +35,7 @@ describe("HeartbeatTasksRepository", () => {
             const byId = await repo.findById("alpha");
             expect(byId).toEqual(first);
 
-            const many = await repo.findMany();
+            const many = await repo.findAll();
             expect(many).toHaveLength(2);
             expect(many.map((task) => task.id).sort()).toEqual(["alpha", "beta"]);
 
@@ -47,7 +49,7 @@ describe("HeartbeatTasksRepository", () => {
             expect(updated?.gate?.permissions).toEqual(["@read:/tmp"]);
 
             await repo.recordRun(30);
-            const refreshed = await repo.findMany();
+            const refreshed = await repo.findAll();
             expect(refreshed.every((task) => task.lastRunAt === 30)).toBe(true);
 
             expect(await repo.delete("beta")).toBe(true);
@@ -64,6 +66,7 @@ describe("HeartbeatTasksRepository", () => {
             const repo = new HeartbeatTasksRepository(storage.db);
             await repo.create({
                 id: "cache-heartbeat",
+                userId: "user-1",
                 title: "Cache",
                 prompt: "Prompt",
                 gate: null,

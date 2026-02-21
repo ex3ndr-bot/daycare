@@ -44,8 +44,8 @@ describe("HeartbeatScheduler", () => {
             defaultPermissions: defaultPermissions(dir)
         });
 
-        const taskA = await scheduler.createTask({ title: "Alpha", prompt: "Check alpha." });
-        const taskB = await scheduler.createTask({ title: "Beta", prompt: "Check beta." });
+        const taskA = await scheduler.createTask({ userId: "user-1", title: "Alpha", prompt: "Check alpha." });
+        const taskB = await scheduler.createTask({ userId: "user-1", title: "Beta", prompt: "Check beta." });
 
         const result = await scheduler.runNow();
 
@@ -76,8 +76,8 @@ describe("HeartbeatScheduler", () => {
             defaultPermissions: defaultPermissions(dir)
         });
 
-        const taskA = await scheduler.createTask({ title: "Alpha", prompt: "Check alpha." });
-        await scheduler.createTask({ title: "Beta", prompt: "Check beta." });
+        const taskA = await scheduler.createTask({ userId: "user-1", title: "Alpha", prompt: "Check alpha." });
+        await scheduler.createTask({ userId: "user-1", title: "Beta", prompt: "Check beta." });
 
         const result = await scheduler.runNow([taskA.id]);
 
@@ -110,11 +110,12 @@ describe("HeartbeatScheduler", () => {
         });
 
         await scheduler.createTask({
+            userId: "user-1",
             title: "Alpha",
             prompt: "Check alpha.",
             gate: { command: "echo gate" }
         });
-        await scheduler.createTask({ title: "Beta", prompt: "Check beta." });
+        await scheduler.createTask({ userId: "user-1", title: "Beta", prompt: "Check beta." });
 
         const result = await scheduler.runNow();
 
@@ -145,6 +146,7 @@ describe("HeartbeatScheduler", () => {
         });
 
         await scheduler.createTask({
+            userId: "user-1",
             title: "Alpha",
             prompt: "Base prompt",
             gate: { command: "echo gate" }
@@ -188,6 +190,7 @@ describe("HeartbeatScheduler", () => {
         });
 
         await scheduler.createTask({
+            userId: "user-1",
             title: "Needs network",
             prompt: "Check network.",
             gate: { command: "echo gate", permissions: ["@network"] }
@@ -226,6 +229,7 @@ describe("HeartbeatScheduler", () => {
         });
 
         await scheduler.createTask({
+            userId: "user-1",
             title: "Needs network",
             prompt: "Check network.",
             gate: { command: "echo gate", permissions: ["@network"] }

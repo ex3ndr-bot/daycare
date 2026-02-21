@@ -59,7 +59,7 @@ export function topologyTool(
         returns: topologyReturns,
         execute: async (_args, toolContext, toolCall) => {
             const callerAgentId = toolContext.agent.id;
-            const callerUserId = toolContext.agentContext?.userId ?? null;
+            const callerUserId = toolContext.ctx.userId;
 
             const [agentEntries, cronTasks, heartbeatTasks, exposeEndpoints] = await Promise.all([
                 agentList(toolContext.agentSystem.storage),
@@ -103,7 +103,7 @@ export function topologyTool(
                 }));
 
             const signalSubscriptionsSummary = signalSubscriptions
-                .filter((subscription) => !!callerUserId && subscription.userId === callerUserId)
+                .filter((subscription) => subscription.userId === callerUserId)
                 .slice()
                 .sort((left, right) => {
                     const byUser = left.userId.localeCompare(right.userId);

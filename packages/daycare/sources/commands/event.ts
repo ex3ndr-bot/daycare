@@ -4,7 +4,7 @@ export async function eventCommand(type: string, payloadJson?: string): Promise<
     intro("daycare event");
     try {
         const payload = eventPayloadParse(payloadJson);
-        await sendEngineSignal(type, payload, { type: "process", id: "daycare-cli" });
+        await sendEngineSignal(type, payload, { type: "process", id: "daycare-cli", userId: "owner" });
         outro(`Sent event ${type}.`);
     } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

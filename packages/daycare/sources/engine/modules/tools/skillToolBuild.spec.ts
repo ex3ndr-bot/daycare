@@ -178,7 +178,7 @@ function contextBuild(input?: {
         assistant: null,
         permissions: input?.permissions ?? permissionsBuild({}),
         agent: { id: "agent-parent" } as unknown as ToolExecutionContext["agent"],
-        agentContext: null as unknown as ToolExecutionContext["agentContext"],
+        ctx: null as unknown as ToolExecutionContext["ctx"],
         source: "test",
         messageContext: {},
         skills: input?.skills ?? [],

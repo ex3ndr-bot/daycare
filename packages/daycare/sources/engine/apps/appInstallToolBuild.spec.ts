@@ -71,6 +71,24 @@ describe("appInstallToolBuild", () => {
         expect(discover).toHaveBeenCalledTimes(1);
         expect(registerTools).toHaveBeenCalledTimes(1);
     });
+
+    it("throws a clear error when context userId is missing", async () => {
+        const discover = vi.fn(async () => []);
+        const registerTools = vi.fn();
+        const apps = { discover, registerTools } as unknown as Apps;
+        const tool = appInstallToolBuild(apps);
+
+        await expect(
+            tool.execute(
+                { source: sourceRoot },
+                {
+                    ...contextBuild(workspaceDir),
+                    ctx: null as unknown as ToolExecutionContext["ctx"]
+                },
+                { id: "tool-1", name: "install_app" }
+            )
+        ).rejects.toThrow("Tool context userId is required.");
+    });
 });
 
 function contextBuild(workspaceDir: string): ToolExecutionContext {
@@ -89,11 +107,12 @@ function contextBuild(workspaceDir: string): ToolExecutionContext {
             events: false
         },
         agent: { id: "agent-1" } as unknown as ToolExecutionContext["agent"],
-        agentContext: null as unknown as ToolExecutionContext["agentContext"],
+        ctx: { agentId: "agent-1", userId: "user-1" } as ToolExecutionContext["ctx"],
         source: "test",
         messageContext: {},
         agentSystem: {
             config: { current: { workspaceDir } },
+            userHomeForUserId: () => ({ apps: path.join(workspaceDir, "apps") }),
             toolResolver
         } as unknown as ToolExecutionContext["agentSystem"],
         heartbeats: null as unknown as ToolExecutionContext["heartbeats"]

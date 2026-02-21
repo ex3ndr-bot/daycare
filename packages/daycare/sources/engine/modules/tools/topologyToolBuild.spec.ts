@@ -176,6 +176,7 @@ describe("topologyTool", () => {
                     heartbeatTasks: [
                         {
                             id: "check-health",
+                            userId: "user-1",
                             title: "Health Check",
                             prompt: "Check status",
                             gate: null,
@@ -281,6 +282,7 @@ describe("topologyTool", () => {
                     heartbeatTasks: [
                         {
                             id: "check-health",
+                            userId: "user-1",
                             title: "Health Check",
                             prompt: "Check status",
                             gate: null,
@@ -332,10 +334,10 @@ function contextBuild(
         assistant: null,
         permissions: config.defaultPermissions,
         agent: { id: options.callerAgentId } as unknown as ToolExecutionContext["agent"],
-        agentContext: {
+        ctx: {
             agentId: options.callerAgentId,
             userId: options.callerUserId
-        } as unknown as ToolExecutionContext["agentContext"],
+        } as unknown as ToolExecutionContext["ctx"],
         source: "test",
         messageContext: {},
         agentSystem: {
@@ -370,7 +372,7 @@ function cronTaskBuild(input: {
     return {
         id: input.id,
         taskUid: `${input.id}-uid`,
-        userId: null,
+        userId: "user-1",
         name: input.name,
         description: null,
         schedule: input.schedule,

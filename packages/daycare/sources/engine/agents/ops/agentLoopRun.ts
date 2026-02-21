@@ -1,4 +1,4 @@
-import type { Context, ToolResultMessage } from "@mariozechner/pi-ai";
+import type { Context as InferenceContext, ToolResultMessage } from "@mariozechner/pi-ai";
 import { createId } from "@paralleldrive/cuid2";
 import type { Logger } from "pino";
 import type { AgentSkill, Connector } from "@/types";
@@ -30,8 +30,8 @@ import { toolResultFormatVerbose } from "../../modules/tools/toolResultFormatVer
 import { toolExecutionResultOutcome } from "../../modules/tools/toolReturnOutcome.js";
 import type { Skills } from "../../skills/skills.js";
 import type { Agent } from "../agent.js";
-import { AgentContext } from "../agentContext.js";
 import type { AgentSystem } from "../agentSystem.js";
+import { Context } from "../context.js";
 import { agentDescriptorIsCron } from "./agentDescriptorIsCron.js";
 import { agentDescriptorTargetResolve } from "./agentDescriptorTargetResolve.js";
 import { agentHistoryPendingToolResults } from "./agentHistoryPendingToolResults.js";
@@ -47,7 +47,7 @@ type AgentLoopRunOptions = {
     entry: AgentMessage;
     agent: Agent;
     source: string;
-    context: Context;
+    context: InferenceContext;
     connector: Connector | null;
     connectorRegistry: ConnectorRegistry;
     inferenceRouter: InferenceRouter;
@@ -451,7 +451,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
                         assistant,
                         permissions: agent.state.permissions,
                         agent,
-                        agentContext: new AgentContext(agent.id, agent.userId),
+                        ctx: new Context(agent.id, agent.userId),
                         source,
                         messageContext: entry.context,
                         agentSystem,
@@ -588,7 +588,7 @@ export async function agentLoopRun(options: AgentLoopRunOptions): Promise<AgentL
                     assistant,
                     permissions: agent.state.permissions,
                     agent,
-                    agentContext: new AgentContext(agent.id, agent.userId),
+                    ctx: new Context(agent.id, agent.userId),
                     source,
                     messageContext: entry.context,
                     agentSystem,
@@ -902,7 +902,7 @@ async function historyRecordAppend(
 }
 
 // Remove NO_MESSAGE text blocks so the sentinel never re-enters future model context.
-function stripNoMessageTextBlocks(message: Context["messages"][number]): void {
+function stripNoMessageTextBlocks(message: InferenceContext["messages"][number]): void {
     if (message.role !== "assistant" || !Array.isArray(message.content)) {
         return;
     }
@@ -929,7 +929,7 @@ function runPythonResponseSplit(text: string): RunPythonResponseSplit | null {
     };
 }
 
-function messageAssistantTextRewrite(message: Context["messages"][number], text: string): void {
+function messageAssistantTextRewrite(message: InferenceContext["messages"][number], text: string): void {
     if (message.role !== "assistant") {
         return;
     }

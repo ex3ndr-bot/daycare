@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { Context } from "@/types";
 import { ChannelsRepository } from "./channelsRepository.js";
 import { databaseOpen } from "./databaseOpen.js";
 
@@ -26,8 +27,8 @@ describe("ChannelsRepository", () => {
                 updatedAt: 2
             });
 
-            const all = await repository.findMany();
-            const userA = await repository.findMany({ userId: "user-a" });
+            const all = await repository.findAll();
+            const userA = await repository.findMany(ctxBuild("user-a"));
             const byName = await repository.findByName("dev");
 
             expect(all.map((entry) => entry.id)).toEqual(["channel-1", "channel-2"]);
@@ -35,7 +36,7 @@ describe("ChannelsRepository", () => {
             expect(byName?.id).toBe("channel-1");
 
             const removed = await repository.delete("channel-2");
-            const remaining = await repository.findMany();
+            const remaining = await repository.findAll();
 
             expect(removed).toBe(true);
             expect(remaining.map((entry) => entry.id)).toEqual(["channel-1"]);
@@ -109,4 +110,8 @@ function schemaCreate(db: ReturnType<typeof databaseOpen>): void {
             UNIQUE(channel_id, agent_id)
         );
     `);
+}
+
+function ctxBuild(userId: string): Context {
+    return { agentId: "test-agent", userId };
 }
