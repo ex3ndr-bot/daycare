@@ -16,7 +16,7 @@ describe("buildSignalUnsubscribeTool", () => {
         const dir = await mkdtemp(path.join(os.tmpdir(), "daycare-signal-unsubscribe-tool-"));
         try {
             const signals = new Signals({ eventBus: new EngineEventBus(), configDir: dir });
-            signals.subscribe({
+            await signals.subscribe({
                 userId: "user-target",
                 agentId: "agent-target",
                 pattern: "build:*:done",

@@ -34,12 +34,15 @@ describe("expose tools", () => {
             { id: "tool-1", name: "expose_create" }
         );
 
-        expect(create).toHaveBeenCalledWith({
-            target: { type: "port", port: 3000 },
-            provider: undefined,
-            mode: "public",
-            authenticated: true
-        });
+        expect(create).toHaveBeenCalledWith(
+            {
+                target: { type: "port", port: 3000 },
+                provider: undefined,
+                mode: "public",
+                authenticated: true
+            },
+            undefined
+        );
         expect(result.toolMessage.isError).toBe(false);
         expect(result.toolMessage.content[0]).toEqual(
             expect.objectContaining({ text: expect.stringContaining("Password: secret") })

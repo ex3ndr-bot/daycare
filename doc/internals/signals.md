@@ -17,7 +17,10 @@ Supported source variants:
 ## Runtime model
 
 `Engine` owns a `Signals` facade (`sources/engine/signals/signals.ts`).
-`Signals.generate()` creates a signal object, appends it to `<config>/signals/events.jsonl`, and emits `signal.generated` on the engine event bus.
+`Signals.generate()` creates a signal object, persists it through `SignalEventsRepository` into SQLite table
+`signals_events`, and emits `signal.generated` on the engine event bus.
+
+Signal subscriptions are persisted in SQLite table `signals_subscriptions` via `SignalSubscriptionsRepository`.
 
 Signal shape:
 - `id` (cuid2)
@@ -32,7 +35,8 @@ flowchart TD
   Tool --> Signals[Signals facade]
   Process[Process code] --> Signals
   Webhook[Webhook handler] --> Signals
-  Signals --> Jsonl["<config>/signals/events.jsonl"]
+  Signals --> EventsTable[(signals_events)]
+  Signals --> SubsTable[(signals_subscriptions)]
   Signals --> EventBus[EngineEventBus]
   EventBus --> Event[signal.generated]
 ```
@@ -83,14 +87,14 @@ The engine exposes persisted signal events for the dashboard:
 - Returns `{ ok: true, events: Signal[] }`
 - Default `limit` is `200`, max is `1000`
 
-Signal reads and writes share a lock in `Signals`, so JSONL appends and dashboard reads stay ordered.
+Signal reads and writes share locks in facade/repositories, so writes and dashboard reads stay ordered.
 
 ```mermaid
 flowchart LR
   Dashboard[daycare-dashboard] --> Api["/api/v1/engine/signals/events"]
   Api --> Engine["engine/ipc/server.ts"]
   Engine --> Signals[Signals.listRecent]
-  Signals --> Jsonl["<config>/signals/events.jsonl"]
+  Signals --> EventsTable[(signals_events)]
 ```
 
 ## Delayed signals
@@ -99,8 +103,8 @@ flowchart LR
 for wall-time scheduling.
 
 Storage:
-- `<config>/signals/delayed.json`
-- persistent queue of delayed signal entries
+- SQLite table `signals_delayed`
+- persistent queue of delayed signal entries with mandatory `user_id`
 
 Delivery model:
 - `deliverAt` is a wall-time unix timestamp (milliseconds)
@@ -122,12 +126,12 @@ Repeat key behavior:
 
 ```mermaid
 flowchart TD
-  Producer[Schedule delayed signal] --> Queue[delayed.json queue]
+  Producer[Schedule delayed signal] --> Queue[(signals_delayed)]
   Queue --> Timer[DelayedSignals timer]
   Timer --> Due{deliverAt <= now}
   Due -->|no| Wait[wait until due]
   Due -->|yes| Generate[Signals.generate]
-  Generate -->|success| Remove[remove from queue]
+  Generate -->|success| Remove[delete from signals_delayed]
   Generate -->|error| Retry[keep in queue and retry]
 ```
 
@@ -138,7 +142,7 @@ flowchart LR
   Match -->|no| Keep[keep current queue]
   Replace --> Insert[insert new queued entry]
   Keep --> Insert
-  Insert --> Queue[(delayed.json)]
+  Insert --> Queue[(signals_delayed)]
 ```
 
 ```mermaid

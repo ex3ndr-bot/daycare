@@ -7,6 +7,9 @@ import { createId } from "@paralleldrive/cuid2";
 import type { Logger } from "pino";
 
 import type { SandboxPackageManager, SessionPermissions } from "@/types";
+import type { ProcessDbRecord, ProcessOwnerDbRecord } from "../../storage/databaseTypes.js";
+import type { ProcessesRepository } from "../../storage/processesRepository.js";
+import { Storage } from "../../storage/storage.js";
 import { sandboxAllowedDomainsResolve } from "../../sandbox/sandboxAllowedDomainsResolve.js";
 import { sandboxAllowedDomainsValidate } from "../../sandbox/sandboxAllowedDomainsValidate.js";
 import { sandboxCanWrite } from "../../sandbox/sandboxCanWrite.js";
@@ -19,7 +22,6 @@ import { resolveEngineSocketPath } from "../ipc/socket.js";
 import { resolveWorkspacePath } from "../permissions.js";
 import { processBootTimeRead } from "./processBootTimeRead.js";
 
-const RECORD_VERSION = 2;
 const MONITOR_INTERVAL_MS = 2_000;
 const PROCESS_STOP_TIMEOUT_MS = 8_000;
 const PROCESS_STOP_POLL_MS = 200;
@@ -50,6 +52,7 @@ export type ProcessCreateInput = {
     keepAlive?: boolean;
     allowLocalBinding?: boolean;
     owner?: ProcessOwner;
+    userId?: string;
 };
 
 export type ProcessInfo = {
@@ -71,8 +74,8 @@ export type ProcessInfo = {
 };
 
 type ProcessRecord = {
-    version: number;
     id: string;
+    userId: string;
     name: string;
     command: string;
     cwd: string;
@@ -100,8 +103,8 @@ type ProcessRecord = {
 };
 
 /**
- * Manages durable sandboxed background processes persisted on disk.
- * Expects: all state writes happen through this facade to keep pid/status files in sync.
+ * Manages durable sandboxed background processes persisted in SQLite.
+ * Expects: all state writes happen through this facade to keep pid/status in sync.
  */
 export class Processes {
     private readonly baseDir: string;
@@ -110,6 +113,13 @@ export class Processes {
     private readonly logger: Logger;
     private readonly bootTimeProvider: () => Promise<number | null>;
     private readonly socketPath: string;
+    private readonly repository: Pick<
+        ProcessesRepository,
+        "create" | "findMany" | "findById" | "update" | "delete" | "deleteByOwner"
+    >;
+    private readonly fallbackUserIdResolve: () => Promise<string>;
+    private readonly ownedStorage: Storage | null;
+    private ownedStorageClosed = false;
     private readonly records = new Map<string, ProcessRecord>();
     private readonly children = new Map<string, ChildProcess>();
     private currentBootTimeMs: number | null = null;
@@ -119,13 +129,37 @@ export class Processes {
     constructor(
         baseDir: string,
         logger: Logger,
-        options: { bootTimeProvider?: () => Promise<number | null>; socketPath?: string } = {}
+        options: {
+            bootTimeProvider?: () => Promise<number | null>;
+            socketPath?: string;
+            repository?: Pick<
+                ProcessesRepository,
+                "create" | "findMany" | "findById" | "update" | "delete" | "deleteByOwner"
+            >;
+            fallbackUserIdResolve?: () => Promise<string>;
+        } = {}
     ) {
         this.baseDir = path.resolve(baseDir);
         this.recordsDir = path.join(this.baseDir, "processes");
         this.logger = logger;
         this.bootTimeProvider = options.bootTimeProvider ?? processBootTimeRead;
         this.socketPath = resolveEngineSocketPath(options.socketPath);
+
+        if (options.repository) {
+            this.repository = options.repository;
+            this.fallbackUserIdResolve = options.fallbackUserIdResolve ?? (async () => "owner");
+            this.ownedStorage = null;
+        } else {
+            const storage = Storage.open(path.join(this.baseDir, "daycare.db"));
+            this.repository = storage.processes;
+            this.fallbackUserIdResolve =
+                options.fallbackUserIdResolve ??
+                (async () => {
+                    const owner = await storage.users.findOwner();
+                    return owner?.id ?? "owner";
+                });
+            this.ownedStorage = storage;
+        }
     }
 
     async load(): Promise<void> {
@@ -134,16 +168,9 @@ export class Processes {
         this.currentBootTimeKnown = true;
         await this.lock.inLock(async () => {
             this.records.clear();
-            const entries = await fs.readdir(this.recordsDir, { withFileTypes: true });
-            for (const entry of entries) {
-                if (!entry.isDirectory()) {
-                    continue;
-                }
-                const recordPath = this.recordPath(entry.name);
-                const record = await readRecord(recordPath);
-                if (!record) {
-                    continue;
-                }
+            const rows = await this.repository.findMany();
+            for (const row of rows) {
+                const record = processRecordFromDb(row);
                 this.clearStalePidForBootMismatch(record);
                 this.records.set(record.id, record);
             }
@@ -153,15 +180,18 @@ export class Processes {
     }
 
     unload(): void {
-        if (!this.monitorHandle) {
-            return;
+        if (this.monitorHandle) {
+            // Interval cleanup is required to avoid keeping timers alive after runtime shutdown.
+            clearInterval(this.monitorHandle);
+            this.monitorHandle = null;
         }
-        // Interval cleanup is required to avoid keeping timers alive after runtime shutdown.
-        clearInterval(this.monitorHandle);
-        this.monitorHandle = null;
+        if (this.ownedStorage && !this.ownedStorageClosed) {
+            this.ownedStorage.close();
+            this.ownedStorageClosed = true;
+        }
     }
 
-    async create(input: ProcessCreateInput, permissions: SessionPermissions): Promise<ProcessInfo> {
+    async create(input: ProcessCreateInput, permissions: SessionPermissions, userIdOverride?: string): Promise<ProcessInfo> {
         return this.lock.inLock(async () => {
             const now = Date.now();
             const workingDir = permissions.workingDir;
@@ -196,11 +226,12 @@ export class Processes {
             const settingsPath = path.join(recordDir, "sandbox.json");
             const logPath = path.join(recordDir, "process.log");
             const bootTimeMs = await this.resolveCurrentBootTimeMsLocked();
+            const userId = normalizeOptionalUserId(input.userId ?? userIdOverride) ?? (await this.fallbackUserIdResolve());
             await fs.mkdir(recordDir, { recursive: true });
 
             const record: ProcessRecord = {
-                version: RECORD_VERSION,
                 id,
+                userId,
                 name: (input.name?.trim() || id).slice(0, 80),
                 command,
                 cwd,
@@ -428,6 +459,7 @@ export class Processes {
         await this.stopRecordLocked(record, signal);
         this.records.delete(record.id);
         this.children.delete(record.id);
+        await this.repository.delete(record.id);
         await fs.rm(this.processDir(record.id), { recursive: true, force: true });
         this.logger.info({ processId: record.id, signal }, "remove: Process removed");
     }
@@ -534,17 +566,11 @@ export class Processes {
     }
 
     private async writeRecordLocked(record: ProcessRecord): Promise<void> {
-        await fs.mkdir(path.dirname(this.recordPath(record.id)), { recursive: true });
-        const serialized = JSON.stringify(record, null, 2);
-        await atomicWrite(this.recordPath(record.id), serialized);
+        await this.repository.create(processRecordToDb(record));
     }
 
     private processDir(processId: string): string {
         return path.join(this.recordsDir, processId);
-    }
-
-    private recordPath(processId: string): string {
-        return path.join(this.processDir(processId), "record.json");
     }
 
     private async resolveCurrentBootTimeMsLocked(): Promise<number | null> {
@@ -627,104 +653,6 @@ function toProcessInfo(record: ProcessRecord): ProcessInfo {
     };
 }
 
-async function readRecord(recordPath: string): Promise<ProcessRecord | null> {
-    try {
-        const raw = await fs.readFile(recordPath, "utf8");
-        const parsed = JSON.parse(raw) as Partial<ProcessRecord>;
-        if (parsed.version !== RECORD_VERSION) {
-            return null;
-        }
-        if (!parsed.id || !parsed.command || !parsed.cwd || !parsed.settingsPath || !parsed.logPath || !parsed.name) {
-            return null;
-        }
-        const permissions = parsePermissions(parsed.permissions);
-        if (!permissions) {
-            return null;
-        }
-        const keepAlive = parsed.keepAlive === true;
-        const desiredState = parsed.desiredState === "stopped" ? "stopped" : "running";
-        const status =
-            parsed.status === "running" || parsed.status === "stopped" || parsed.status === "exited"
-                ? parsed.status
-                : "stopped";
-
-        const packageManagers = Array.isArray(parsed.packageManagers)
-            ? parsed.packageManagers.filter(isPackageManager)
-            : [];
-        const allowedDomains = Array.isArray(parsed.allowedDomains)
-            ? parsed.allowedDomains.filter((entry): entry is string => typeof entry === "string")
-            : [];
-        const env =
-            parsed.env && typeof parsed.env === "object"
-                ? Object.fromEntries(
-                      Object.entries(parsed.env)
-                          .filter(([key, value]) => key.trim().length > 0 && typeof value === "string")
-                          .map(([key, value]) => [key.trim(), value])
-                  )
-                : {};
-        const owner = parseOwner(parsed.owner);
-
-        return {
-            version: RECORD_VERSION,
-            id: parsed.id,
-            name: parsed.name,
-            command: parsed.command,
-            cwd: parsed.cwd,
-            home: typeof parsed.home === "string" ? parsed.home : null,
-            env,
-            packageManagers,
-            allowedDomains,
-            allowLocalBinding: parsed.allowLocalBinding === true,
-            permissions,
-            owner,
-            keepAlive,
-            desiredState,
-            status,
-            pid: typeof parsed.pid === "number" ? parsed.pid : null,
-            bootTimeMs: typeof parsed.bootTimeMs === "number" ? parsed.bootTimeMs : null,
-            restartCount: typeof parsed.restartCount === "number" ? parsed.restartCount : 0,
-            restartFailureCount: typeof parsed.restartFailureCount === "number" ? parsed.restartFailureCount : 0,
-            nextRestartAt: typeof parsed.nextRestartAt === "number" ? parsed.nextRestartAt : null,
-            createdAt: typeof parsed.createdAt === "number" ? parsed.createdAt : Date.now(),
-            updatedAt: typeof parsed.updatedAt === "number" ? parsed.updatedAt : Date.now(),
-            lastStartedAt: typeof parsed.lastStartedAt === "number" ? parsed.lastStartedAt : null,
-            lastExitedAt: typeof parsed.lastExitedAt === "number" ? parsed.lastExitedAt : null,
-            settingsPath: parsed.settingsPath,
-            logPath: parsed.logPath
-        };
-    } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-            return null;
-        }
-        throw error;
-    }
-}
-
-function parsePermissions(value: unknown): SessionPermissions | null {
-    if (!value || typeof value !== "object") {
-        return null;
-    }
-    const candidate = value as Partial<SessionPermissions>;
-    if (
-        typeof candidate.workingDir !== "string" ||
-        !Array.isArray(candidate.writeDirs) ||
-        !Array.isArray(candidate.readDirs) ||
-        typeof candidate.network !== "boolean" ||
-        typeof candidate.events !== "boolean"
-    ) {
-        return null;
-    }
-    const writeDirs = candidate.writeDirs.filter((entry): entry is string => typeof entry === "string");
-    const readDirs = candidate.readDirs.filter((entry): entry is string => typeof entry === "string");
-    return {
-        workingDir: candidate.workingDir,
-        writeDirs,
-        readDirs,
-        network: candidate.network,
-        events: candidate.events
-    };
-}
-
 function clonePermissions(permissions: SessionPermissions): SessionPermissions {
     return {
         workingDir: permissions.workingDir,
@@ -750,21 +678,6 @@ function ownerIs(candidate: ProcessOwner | null, owner: ProcessOwner): boolean {
     return candidate.type === owner.type && candidate.id === owner.id;
 }
 
-function parseOwner(value: unknown): ProcessOwner | null {
-    if (!value || typeof value !== "object") {
-        return null;
-    }
-    const candidate = value as { type?: unknown; id?: unknown };
-    if (candidate.type !== "plugin" || typeof candidate.id !== "string") {
-        return null;
-    }
-    const id = candidate.id.trim();
-    if (!id) {
-        return null;
-    }
-    return { type: "plugin", id };
-}
-
 function isPackageManager(value: unknown): value is SandboxPackageManager {
     return (
         value === "dart" ||
@@ -777,6 +690,76 @@ function isPackageManager(value: unknown): value is SandboxPackageManager {
         value === "ruby" ||
         value === "rust"
     );
+}
+
+function normalizeOptionalUserId(userId?: string): string | null {
+    if (typeof userId !== "string") {
+        return null;
+    }
+    const normalized = userId.trim();
+    return normalized.length > 0 ? normalized : null;
+}
+
+function processRecordFromDb(record: ProcessDbRecord): ProcessRecord {
+    return {
+        id: record.id,
+        userId: record.userId,
+        name: record.name,
+        command: record.command,
+        cwd: record.cwd,
+        home: record.home,
+        env: { ...record.env },
+        packageManagers: record.packageManagers.filter(isPackageManager),
+        allowedDomains: [...record.allowedDomains],
+        allowLocalBinding: record.allowLocalBinding,
+        permissions: clonePermissions(record.permissions),
+        owner: record.owner ? ownerNormalize(record.owner) : null,
+        keepAlive: record.keepAlive,
+        desiredState: record.desiredState,
+        status: record.status,
+        pid: record.pid,
+        bootTimeMs: record.bootTimeMs,
+        restartCount: record.restartCount,
+        restartFailureCount: record.restartFailureCount,
+        nextRestartAt: record.nextRestartAt,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+        lastStartedAt: record.lastStartedAt,
+        lastExitedAt: record.lastExitedAt,
+        settingsPath: record.settingsPath,
+        logPath: record.logPath
+    };
+}
+
+function processRecordToDb(record: ProcessRecord): ProcessDbRecord {
+    return {
+        id: record.id,
+        userId: record.userId,
+        name: record.name,
+        command: record.command,
+        cwd: record.cwd,
+        home: record.home,
+        env: { ...record.env },
+        packageManagers: [...record.packageManagers],
+        allowedDomains: [...record.allowedDomains],
+        allowLocalBinding: record.allowLocalBinding,
+        permissions: clonePermissions(record.permissions),
+        owner: record.owner ? ownerNormalize(record.owner) : null,
+        keepAlive: record.keepAlive,
+        desiredState: record.desiredState,
+        status: record.status,
+        pid: record.pid,
+        bootTimeMs: record.bootTimeMs,
+        restartCount: record.restartCount,
+        restartFailureCount: record.restartFailureCount,
+        nextRestartAt: record.nextRestartAt,
+        settingsPath: record.settingsPath,
+        logPath: record.logPath,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt,
+        lastStartedAt: record.lastStartedAt,
+        lastExitedAt: record.lastExitedAt
+    };
 }
 
 function isProcessRunning(pid: number): boolean {

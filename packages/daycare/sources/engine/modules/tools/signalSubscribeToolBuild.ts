@@ -49,7 +49,7 @@ export function buildSignalSubscribeTool(signals: Signals): ToolDefinition {
                 throw new Error(`Agent not found: ${targetAgentId}`);
             }
 
-            const subscription = signals.subscribe({
+            const subscription = await signals.subscribe({
                 userId: agentContext.userId,
                 agentId: targetAgentId,
                 pattern: payload.pattern,

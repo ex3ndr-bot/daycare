@@ -623,7 +623,7 @@ export class Agent {
         const isInternalSignal = item.subscriptionPattern.startsWith("internal.");
         const subscription = isInternalSignal
             ? null
-            : this.agentSystem.signals.subscriptionGet({
+            : await this.agentSystem.signals.subscriptionGet({
                   userId: this.userId,
                   agentId: this.id,
                   pattern: item.subscriptionPattern

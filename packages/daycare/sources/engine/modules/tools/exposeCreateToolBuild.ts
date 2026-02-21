@@ -48,17 +48,20 @@ export function exposeCreateToolBuild(exposes: Pick<Exposes, "create">): ToolDef
             parameters: schema
         },
         returns: exposeCreateReturns,
-        execute: async (args, _toolContext, toolCall) => {
+        execute: async (args, toolContext, toolCall) => {
             const payload = args as ExposeCreateArgs;
             const target = targetResolve(payload);
             const mode = (payload.mode ?? "public") as ExposeMode;
             const authenticated = payload.authenticated ?? false;
-            const created = await exposes.create({
-                target,
-                provider: payload.provider,
-                mode,
-                authenticated
-            });
+            const created = await exposes.create(
+                {
+                    target,
+                    provider: payload.provider,
+                    mode,
+                    authenticated
+                },
+                toolContext.agentContext?.userId
+            );
 
             const authText = created.password
                 ? `Auth enabled. Username: daycare Password: ${created.password}`

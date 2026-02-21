@@ -10,7 +10,7 @@ Daycare persists data using five mechanisms:
 | --- | --- | --- |
 | SQLite | relational tables | `config.dbPath` (default: `<dataDir>/daycare.db`) |
 | JSON files | structured objects | `configDir`, `dataDir`, `workspaceDir`, and plugin `dataDir` |
-| JSONL append files | one JSON object per line | `configDir/channels/*/history.jsonl`, `configDir/signals/events.jsonl` |
+| JSONL append files | one JSON object per line | legacy migration inputs only (`configDir/channels/*/history.jsonl`, `configDir/signals/events.jsonl`) |
 | Markdown (+ frontmatter for some files) | markdown bodies and YAML-like metadata | cron/heartbeat/app/memory/skills files |
 | PGlite | embedded Postgres directory | `<plugin dataDir>/db.pglite` |
 
@@ -108,6 +108,13 @@ flowchart TD
     A --> D[AgentsRepository cache: agents]
     A --> E[SessionsRepository no cache]
     A --> F[HistoryRepository no cache]
+    A --> G[SignalEventsRepository cache]
+    A --> H[SignalSubscriptionsRepository cache]
+    A --> I[DelayedSignalsRepository cache]
+    A --> J[ChannelsRepository cache]
+    A --> K[ChannelMessagesRepository no cache]
+    A --> L[ExposeEndpointsRepository cache]
+    A --> M[ProcessesRepository cache]
 ```
 
 Repository files:
@@ -116,6 +123,13 @@ Repository files:
 - `packages/daycare/sources/storage/agentsRepository.ts`
 - `packages/daycare/sources/storage/sessionsRepository.ts`
 - `packages/daycare/sources/storage/historyRepository.ts`
+- `packages/daycare/sources/storage/signalEventsRepository.ts`
+- `packages/daycare/sources/storage/signalSubscriptionsRepository.ts`
+- `packages/daycare/sources/storage/delayedSignalsRepository.ts`
+- `packages/daycare/sources/storage/channelsRepository.ts`
+- `packages/daycare/sources/storage/channelMessagesRepository.ts`
+- `packages/daycare/sources/storage/exposeEndpointsRepository.ts`
+- `packages/daycare/sources/storage/processesRepository.ts`
 
 Facade-level operations:
 
@@ -128,7 +142,36 @@ Cache behavior:
 
 - `UsersRepository` keeps write-through caches for `userId -> user` and `connectorKey -> userId`
 - `AgentsRepository` keeps a write-through `agentId -> agent` cache
+- `SignalEventsRepository` keeps a write-through `eventId -> signal event` cache
+- `SignalSubscriptionsRepository` keeps write-through caches for subscription matching and lookups
+- `DelayedSignalsRepository` keeps a write-through delayed-signal cache
+- `ChannelsRepository` keeps write-through caches for channels and members
+- `ExposeEndpointsRepository` keeps a write-through endpoint cache
+- `ProcessesRepository` keeps a write-through process cache
 - `SessionsRepository` and `HistoryRepository` are DB-only (no cache)
+
+### Subsystem Tables Added in 20260222
+
+The signals, channels, expose, and processes migrations add:
+
+- `signals_events`, `signals_subscriptions`, `signals_delayed`
+- `channels`, `channel_members`, `channel_messages`
+- `expose_endpoints`
+- `processes`
+
+All new tables include mandatory `user_id` for user scoping.
+
+```mermaid
+erDiagram
+  channels ||--o{ channel_members : has
+  channels ||--o{ channel_messages : has
+  users ||--o{ signals_events : owns
+  users ||--o{ signals_subscriptions : owns
+  users ||--o{ signals_delayed : owns
+  users ||--o{ channels : owns
+  users ||--o{ expose_endpoints : owns
+  users ||--o{ processes : owns
+```
 
 ### SQL Schemas
 

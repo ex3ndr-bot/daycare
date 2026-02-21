@@ -48,7 +48,7 @@ export function buildSignalUnsubscribeTool(signals: Signals): ToolDefinition {
                 throw new Error(`Agent not found: ${targetAgentId}`);
             }
 
-            const removed = signals.unsubscribe({
+            const removed = await signals.unsubscribe({
                 userId: agentContext.userId,
                 agentId: targetAgentId,
                 pattern: payload.pattern

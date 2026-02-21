@@ -104,9 +104,15 @@ export class Engine {
         this.config = new ConfigModule(options.config);
         this.storage = Storage.open(this.config.current.dbPath);
         this.eventBus = options.eventBus;
+        const fallbackUserIdResolve = async (): Promise<string> => {
+            const owner = await this.storage.users.findOwner();
+            return owner?.id ?? "owner";
+        };
         this.signals = new Signals({
             eventBus: this.eventBus,
-            configDir: this.config.current.configDir,
+            signalEvents: this.storage.signalEvents,
+            signalSubscriptions: this.storage.signalSubscriptions,
+            fallbackUserIdResolve,
             onDeliver: async (signal, subscriptions) => {
                 await this.agentSystem.signalDeliver(signal, subscriptions);
             }
@@ -114,7 +120,9 @@ export class Engine {
         this.delayedSignals = new DelayedSignals({
             config: this.config,
             eventBus: this.eventBus,
-            signals: this.signals
+            signals: this.signals,
+            delayedSignals: this.storage.delayedSignals,
+            fallbackUserIdResolve
         });
         this.reloadSync = new InvalidateSync(async () => {
             await this.reloadApplyLatest();
@@ -123,7 +131,9 @@ export class Engine {
         this.authStore = new AuthStore(this.config.current);
         this.fileStore = new FileStore(this.config.current);
         this.processes = new Processes(this.config.current.dataDir, getLogger("engine.processes"), {
-            socketPath: this.config.current.socketPath
+            socketPath: this.config.current.socketPath,
+            repository: this.storage.processes,
+            fallbackUserIdResolve
         });
         this.incomingMessages = new IncomingMessages({
             delayMs: INCOMING_MESSAGES_DEBOUNCE_MS,
@@ -145,7 +155,9 @@ export class Engine {
         logger.debug(`init: AuthStore and FileStore initialized`);
         this.exposes = new Exposes({
             config: this.config,
-            eventBus: this.eventBus
+            eventBus: this.eventBus,
+            exposeEndpoints: this.storage.exposeEndpoints,
+            fallbackUserIdResolve
         });
 
         this.modules = new ModuleRegistry({
@@ -335,7 +347,8 @@ export class Engine {
         this.heartbeats = heartbeats;
         this.agentSystem.setHeartbeats(heartbeats);
         this.channels = new Channels({
-            configDir: this.config.current.configDir,
+            channels: this.storage.channels,
+            channelMessages: this.storage.channelMessages,
             signals: this.signals,
             agentSystem: this.agentSystem
         });
@@ -364,10 +377,6 @@ export class Engine {
         await this.pluginManager.reload();
         logger.debug("reload: Plugin reload complete");
 
-        await this.signals.ensureDir();
-        await this.delayedSignals.ensureDir();
-        await this.channels.ensureDir();
-        await this.exposes.ensureDir();
         await this.channels.load();
         await this.exposes.start();
 

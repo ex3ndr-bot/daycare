@@ -32,7 +32,7 @@ describe("topologyTool", () => {
 
             const tool = topologyTool(
                 { listTasks: async () => [] } as unknown as Crons,
-                { listSubscriptions: () => [] } as unknown as Signals,
+                { listSubscriptions: async () => [] } as unknown as Signals,
                 { list: () => [] } as never,
                 { list: async () => [] } as never
             );
@@ -119,7 +119,7 @@ describe("topologyTool", () => {
                     ]
                 } as unknown as Crons,
                 {
-                    listSubscriptions: () => [
+                    listSubscriptions: async () => [
                         signalSubscriptionBuild({
                             userId: "user-1",
                             agentId: "agent-other",
@@ -258,7 +258,7 @@ describe("topologyTool", () => {
                     ]
                 } as unknown as Crons,
                 {
-                    listSubscriptions: () => [
+                    listSubscriptions: async () => [
                         signalSubscriptionBuild({
                             userId: "user-1",
                             agentId: "agent-caller",

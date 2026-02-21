@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { SessionPermissions } from "@/types";
 import { getLogger } from "../../log.js";
+import { Storage } from "../../storage/storage.js";
 import { Processes } from "./processes.js";
 
 const TEST_TIMEOUT_MS = 30_000;
@@ -258,42 +259,40 @@ describe("Processes", () => {
             const processId = "persisted-boot-test";
             const processDir = path.join(baseDir, "processes", processId);
             const now = Date.now();
-            const recordPath = path.join(processDir, "record.json");
             await fs.mkdir(processDir, { recursive: true });
-            await fs.writeFile(
-                recordPath,
-                JSON.stringify(
-                    {
-                        version: 2,
-                        id: processId,
-                        name: "persisted-boot-test",
-                        command: `node -e "setInterval(() => {}, 1000)"`,
-                        cwd: workspaceDir,
-                        home: null,
-                        env: {},
-                        packageManagers: [],
-                        allowedDomains: [],
-                        permissions,
-                        keepAlive: false,
-                        desiredState: "running",
-                        status: "running",
-                        pid: 123_456,
-                        bootTimeMs: 1_000,
-                        restartCount: 0,
-                        restartFailureCount: 0,
-                        nextRestartAt: null,
-                        createdAt: now,
-                        updatedAt: now,
-                        lastStartedAt: now,
-                        lastExitedAt: null,
-                        settingsPath: path.join(processDir, "sandbox.json"),
-                        logPath: path.join(processDir, "process.log")
-                    },
-                    null,
-                    2
-                ),
-                "utf8"
-            );
+            const storage = Storage.open(path.join(baseDir, "daycare.db"));
+            try {
+                await storage.processes.create({
+                    id: processId,
+                    userId: "owner",
+                    name: "persisted-boot-test",
+                    command: `node -e "setInterval(() => {}, 1000)"`,
+                    cwd: workspaceDir,
+                    home: null,
+                    env: {},
+                    packageManagers: [],
+                    allowedDomains: [],
+                    allowLocalBinding: false,
+                    permissions,
+                    owner: null,
+                    keepAlive: false,
+                    desiredState: "running",
+                    status: "running",
+                    pid: 123_456,
+                    bootTimeMs: 1_000,
+                    restartCount: 0,
+                    restartFailureCount: 0,
+                    nextRestartAt: null,
+                    settingsPath: path.join(processDir, "sandbox.json"),
+                    logPath: path.join(processDir, "process.log"),
+                    createdAt: now,
+                    updatedAt: now,
+                    lastStartedAt: now,
+                    lastExitedAt: null
+                });
+            } finally {
+                storage.close();
+            }
 
             const manager = await createManager(baseDir, { bootTimeMs: 2_000 });
             const listed = await manager.list();
@@ -303,14 +302,15 @@ describe("Processes", () => {
             expect(item?.pid).toBeNull();
             expect(item?.status).toBe("exited");
 
-            const persisted = JSON.parse(await fs.readFile(recordPath, "utf8")) as {
-                pid: number | null;
-                bootTimeMs: number | null;
-                status: string;
-            };
-            expect(persisted.pid).toBeNull();
-            expect(persisted.bootTimeMs).toBe(2_000);
-            expect(persisted.status).toBe("exited");
+            const persistedStorage = Storage.open(path.join(baseDir, "daycare.db"));
+            try {
+                const persisted = await persistedStorage.processes.findById(processId);
+                expect(persisted?.pid).toBeNull();
+                expect(persisted?.bootTimeMs).toBe(2_000);
+                expect(persisted?.status).toBe("exited");
+            } finally {
+                persistedStorage.close();
+            }
         },
         TEST_TIMEOUT_MS
     );
@@ -355,9 +355,9 @@ describe("Processes", () => {
             expect(byOwnerA).toHaveLength(0);
             expect(byOwnerB.map((entry) => entry.id)).toEqual([ownedB.id]);
 
-            await expect(fs.access(path.join(baseDir, "processes", ownedA1.id, "record.json"))).rejects.toThrow();
-            await expect(fs.access(path.join(baseDir, "processes", ownedA2.id, "record.json"))).rejects.toThrow();
-            await expect(fs.access(path.join(baseDir, "processes", ownedB.id, "record.json"))).resolves.toBeUndefined();
+            await expect(fs.access(path.join(baseDir, "processes", ownedA1.id))).rejects.toThrow();
+            await expect(fs.access(path.join(baseDir, "processes", ownedA2.id))).rejects.toThrow();
+            await expect(fs.access(path.join(baseDir, "processes", ownedB.id))).resolves.toBeUndefined();
         },
         TEST_TIMEOUT_MS
     );

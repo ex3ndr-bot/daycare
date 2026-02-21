@@ -1,10 +1,11 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
 import { configResolve } from "../../config/configResolve.js";
+import { Storage } from "../../storage/storage.js";
 import { ConfigModule } from "../config/configModule.js";
 import { EngineEventBus } from "../ipc/events.js";
 import { Exposes } from "./exposes.js";
@@ -50,15 +51,7 @@ describe("Exposes", () => {
             expect(updatedEnabled.endpoint.auth).not.toBeNull();
             expect(updatedEnabled.password).toBeTruthy();
 
-            const persistedPath = path.join(
-                path.dirname(path.join(dir, "settings.json")),
-                "expose",
-                "endpoints",
-                `${created.endpoint.id}.json`
-            );
-            const persisted = JSON.parse(await readFile(persistedPath, "utf8")) as {
-                auth: { passwordHash: string } | null;
-            };
+            const persisted = exposeEndpointRowRead(dir, created.endpoint.id);
             expect(persisted.auth?.passwordHash).toBeTruthy();
             expect(persisted.auth?.passwordHash).not.toBe(updatedEnabled.password);
 
@@ -283,15 +276,7 @@ describe("Exposes", () => {
             const listed = await exposes.list();
             expect(listed[0]?.domain).toBe("reactivated.a.example.com");
 
-            const persistedPath = path.join(
-                path.dirname(path.join(dir, "settings.json")),
-                "expose",
-                "endpoints",
-                `${created.endpoint.id}.json`
-            );
-            const persisted = JSON.parse(await readFile(persistedPath, "utf8")) as {
-                domain: string;
-            };
+            const persisted = exposeEndpointRowRead(dir, created.endpoint.id);
             expect(persisted.domain).toBe("reactivated.a.example.com");
 
             await exposes.stop();
@@ -374,4 +359,29 @@ function providerBuild(options: { instanceId: string; domain: string; domains: s
         createTunnel,
         destroyTunnel
     };
+}
+
+function exposeEndpointRowRead(
+    rootDir: string,
+    endpointId: string
+): { domain: string; auth: { passwordHash: string } | null } {
+    const config = configResolve(
+        {
+            engine: { dataDir: path.join(rootDir, ".daycare") },
+            assistant: { workspaceDir: rootDir }
+        },
+        path.join(rootDir, "settings.json")
+    );
+    const storage = Storage.open(config.dbPath);
+    try {
+        const row = storage.db
+            .prepare("SELECT domain, auth FROM expose_endpoints WHERE id = ? LIMIT 1")
+            .get(endpointId) as { domain?: string; auth?: string | null } | undefined;
+        return {
+            domain: row?.domain ?? "",
+            auth: row?.auth ? (JSON.parse(row.auth) as { passwordHash: string }) : null
+        };
+    } finally {
+        storage.close();
+    }
 }

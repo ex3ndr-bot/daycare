@@ -1,10 +1,11 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 import type { Signal } from "@/types";
+import { databaseOpen } from "../../storage/databaseOpen.js";
 import { EngineEventBus } from "../ipc/events.js";
 import { Signals } from "./signals.js";
 
@@ -20,7 +21,6 @@ describe("Signals", () => {
                 events.push({ type: event.type, payload: event.payload });
             });
 
-            await signals.ensureDir();
             const signal = await signals.generate({
                 type: "build.completed",
                 source: { type: "process", id: "main-runtime" },
@@ -38,10 +38,6 @@ describe("Signals", () => {
             expect(generated).toBeDefined();
             expect(generated?.payload as Signal).toEqual(signal);
 
-            const filePath = path.join(dir, "signals", "events.jsonl");
-            const raw = await readFile(filePath, "utf8");
-            expect(raw.includes('"type":"build.completed"')).toBe(true);
-
             const recent = await signals.listRecent(10);
             expect(recent).toHaveLength(1);
             expect(recent[0]?.id).toBe(signal.id);
@@ -49,6 +45,14 @@ describe("Signals", () => {
             const all = await signals.listAll();
             expect(all).toHaveLength(1);
             expect(all[0]?.id).toBe(signal.id);
+
+            const db = databaseOpen(path.join(dir, "daycare.db"));
+            try {
+                const rows = db.prepare("SELECT type FROM signals_events").all() as Array<{ type: string }>;
+                expect(rows.map((row) => row.type)).toEqual(["build.completed"]);
+            } finally {
+                db.close();
+            }
         } finally {
             await rm(dir, { recursive: true, force: true });
         }
@@ -61,7 +65,6 @@ describe("Signals", () => {
                 eventBus: new EngineEventBus(),
                 configDir: dir
             });
-            await signals.ensureDir();
             await signals.generate({ type: "event.one", source: { type: "system" }, data: { n: 1 } });
             await signals.generate({ type: "event.two", source: { type: "system" }, data: { n: 2 } });
 
@@ -99,11 +102,15 @@ describe("Signals", () => {
                     });
                 }
             });
-            await signals.ensureDir();
 
-            signals.subscribe({ userId: "user-1", agentId: "agent-a", pattern: "build:*:done", silent: true });
-            signals.subscribe({ userId: "user-1", agentId: "agent-b", pattern: "build:*:done", silent: false });
-            signals.subscribe({ userId: "user-2", agentId: "agent-c", pattern: "other:*" });
+            await signals.subscribe({ userId: "user-1", agentId: "agent-a", pattern: "build:*:done", silent: true });
+            await signals.subscribe({
+                userId: "user-1",
+                agentId: "agent-b",
+                pattern: "build:*:done",
+                silent: false
+            });
+            await signals.subscribe({ userId: "user-2", agentId: "agent-c", pattern: "other:*" });
 
             await signals.generate({
                 type: "build:alpha:done",
@@ -132,15 +139,14 @@ describe("Signals", () => {
                     delivered.push(...subscriptions.map((subscription) => subscription.agentId));
                 }
             });
-            await signals.ensureDir();
 
-            signals.subscribe({
+            await signals.subscribe({
                 userId: "user-1",
                 agentId: "agent-a",
                 pattern: "build:*:done",
                 silent: true
             });
-            const removed = signals.unsubscribe({
+            const removed = await signals.unsubscribe({
                 userId: "user-1",
                 agentId: "agent-a",
                 pattern: "build:*:done"
@@ -153,7 +159,9 @@ describe("Signals", () => {
             });
 
             expect(delivered).toEqual([]);
-            expect(signals.unsubscribe({ userId: "user-1", agentId: "agent-a", pattern: "build:*:done" })).toBe(false);
+            await expect(
+                signals.unsubscribe({ userId: "user-1", agentId: "agent-a", pattern: "build:*:done" })
+            ).resolves.toBe(false);
         } finally {
             await rm(dir, { recursive: true, force: true });
         }
@@ -175,10 +183,9 @@ describe("Signals", () => {
                     );
                 }
             });
-            await signals.ensureDir();
 
-            signals.subscribe({ userId: "user-a", agentId: "agent-a", pattern: "build:*", silent: true });
-            signals.subscribe({ userId: "user-b", agentId: "agent-b", pattern: "build:*", silent: true });
+            await signals.subscribe({ userId: "user-a", agentId: "agent-a", pattern: "build:*", silent: true });
+            await signals.subscribe({ userId: "user-b", agentId: "agent-b", pattern: "build:*", silent: true });
             await signals.generate({
                 type: "build:alpha",
                 source: { type: "agent", id: "agent-origin", userId: "user-a" }

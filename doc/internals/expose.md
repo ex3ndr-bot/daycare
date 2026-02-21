@@ -9,8 +9,8 @@ Core pieces:
 - Provider plugins: `tailscale`, `cloudflare-tunnel`, `custom-tunnel`, `local-expose`
 - Core tools: `expose_create`, `expose_update`, `expose_remove`, `expose_list`
 
-Endpoint state persists under:
-- `configDir/expose/endpoints/<endpointId>.json`
+Endpoint state persists in SQLite table:
+- `expose_endpoints` (with mandatory `user_id`)
 
 ## Runtime flow
 ```mermaid
@@ -35,10 +35,9 @@ sequenceDiagram
 
   Engine->>Plugins: reload()
   Plugins->>Exposes: registerProvider(...)
-  Engine->>Exposes: ensureDir()
   Engine->>Exposes: start()
   Exposes->>Proxy: start(127.0.0.1:0)
-  Exposes->>Exposes: load endpoint files
+  Exposes->>Exposes: load endpoints from expose_endpoints
   Exposes->>Plugins: createTunnel(proxyPort, mode)
   Exposes->>Proxy: addRoute(domain, target, passwordHash?)
 
@@ -51,7 +50,7 @@ sequenceDiagram
 - Endpoint auth is optional.
 - When enabled, username is fixed to `daycare`.
 - Password is randomly generated and returned once to the caller.
-- Only bcrypt hash is persisted in endpoint JSON.
+- Only bcrypt hash is persisted in `expose_endpoints.auth`.
 - `expose_update` regenerates a password whenever auth is enabled.
 - For auth-protected routes, `Authorization` is consumed by proxy auth and removed before upstream forwarding.
 

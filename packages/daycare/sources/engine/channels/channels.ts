@@ -1,74 +1,92 @@
-import { promises as fs } from "node:fs";
 import path from "node:path";
-
 import { createId } from "@paralleldrive/cuid2";
 
 import type { AgentInboxItem, AgentPostTarget, Channel, ChannelMessage, ChannelSignalData, Signal } from "@/types";
 import { getLogger } from "../../log.js";
+import type { ChannelMessagesRepository } from "../../storage/channelMessagesRepository.js";
+import type { ChannelsRepository } from "../../storage/channelsRepository.js";
+import { Storage } from "../../storage/storage.js";
 import type { AgentSystem } from "../agents/agentSystem.js";
 import type { Signals } from "../signals/signals.js";
-import {
-    channelAppendMessage,
-    channelLoad,
-    channelNameNormalize,
-    channelReadHistory,
-    channelSave
-} from "./channelStore.js";
+import { channelNameNormalize } from "./channelNameNormalize.js";
 
 const logger = getLogger("channel.facade");
 const HISTORY_CONTEXT_LIMIT = 12;
 
+type ChannelRuntimeRecord = Channel & { userId: string };
+
 export type ChannelsOptions = {
-    configDir: string;
     signals: Pick<Signals, "subscribe" | "unsubscribe">;
     agentSystem: Pick<AgentSystem, "agentExists" | "post" | "agentContextForAgentId">;
-};
+} & (
+    | {
+          channels: Pick<
+              ChannelsRepository,
+              "create" | "findByName" | "findMany" | "update" | "delete" | "addMember" | "removeMember" | "findMembers"
+          >;
+          channelMessages: Pick<ChannelMessagesRepository, "create" | "findRecent">;
+      }
+    | {
+          configDir: string;
+      }
+);
 
 export class Channels {
-    private readonly baseDir: string;
+    private readonly channels: Pick<
+        ChannelsRepository,
+        "create" | "findByName" | "findMany" | "update" | "delete" | "addMember" | "removeMember" | "findMembers"
+    >;
+    private readonly channelMessages: Pick<ChannelMessagesRepository, "create" | "findRecent">;
     private readonly signals: Pick<Signals, "subscribe" | "unsubscribe">;
     private readonly agentSystem: Pick<AgentSystem, "agentExists" | "post" | "agentContextForAgentId">;
-    private readonly items = new Map<string, Channel>();
+    private readonly items = new Map<string, ChannelRuntimeRecord>();
 
     constructor(options: ChannelsOptions) {
-        this.baseDir = path.join(options.configDir, "channels");
+        if ("channels" in options) {
+            this.channels = options.channels;
+            this.channelMessages = options.channelMessages;
+        } else {
+            const storage = Storage.open(path.join(options.configDir, "daycare.db"));
+            this.channels = storage.channels;
+            this.channelMessages = storage.channelMessages;
+        }
         this.signals = options.signals;
         this.agentSystem = options.agentSystem;
     }
 
     async ensureDir(): Promise<void> {
-        await fs.mkdir(this.baseDir, { recursive: true });
+        return Promise.resolve();
     }
 
     /**
-     * Loads channels from disk and replays signal subscriptions for members.
-     * Expects: channel config directory is writable by the process.
+     * Loads channels from SQLite and replays signal subscriptions for members.
      */
     async load(): Promise<void> {
-        await this.ensureDir();
         this.items.clear();
-        const entries = await fs.readdir(this.baseDir, { withFileTypes: true });
-        for (const entry of entries) {
-            if (!entry.isDirectory()) {
-                continue;
-            }
-            let channel: Channel | null = null;
-            try {
-                channel = await channelLoad(this.baseDir, entry.name);
-            } catch (error) {
-                logger.warn({ channelName: entry.name, error }, "skip: Channel restore skipped");
-                continue;
-            }
-            if (!channel) {
-                continue;
-            }
-            this.items.set(channel.name, cloneChannel(channel));
+        const channels = await this.channels.findMany();
+        for (const channelRecord of channels) {
+            const members = await this.channels.findMembers(channelRecord.id);
+            const channel: ChannelRuntimeRecord = {
+                id: channelRecord.id,
+                name: channelRecord.name,
+                leader: channelRecord.leader,
+                userId: channelRecord.userId,
+                members: members.map((member) => ({
+                    agentId: member.agentId,
+                    username: member.username,
+                    joinedAt: member.joinedAt
+                })),
+                createdAt: channelRecord.createdAt,
+                updatedAt: channelRecord.updatedAt
+            };
+            this.items.set(channel.name, cloneRuntimeChannel(channel));
+
             for (const member of channel.members) {
                 const memberContext = await this.agentSystem.agentContextForAgentId(member.agentId);
                 if (!memberContext) {
                     continue;
                 }
-                this.signals.subscribe({
+                await this.signals.subscribe({
                     userId: memberContext.userId,
                     agentId: member.agentId,
                     pattern: channelPatternBuild(channel.name),
@@ -105,18 +123,32 @@ export class Channels {
         if (this.items.has(channelName)) {
             throw new Error(`Channel already exists: ${channelName}`);
         }
+
+        const leaderContext = await this.agentSystem.agentContextForAgentId(leader);
+        if (!leaderContext) {
+            throw new Error(`Leader agent not found: ${leader}`);
+        }
+
         const now = Date.now();
-        const channel: Channel = {
+        const channel: ChannelRuntimeRecord = {
             id: createId(),
             name: channelName,
             leader,
+            userId: leaderContext.userId,
             members: [],
             createdAt: now,
             updatedAt: now
         };
-        await channelSave(this.baseDir, channel);
-        this.items.set(channelName, cloneChannel(channel));
-        return channel;
+        await this.channels.create({
+            id: channel.id,
+            userId: channel.userId,
+            name: channel.name,
+            leader: channel.leader,
+            createdAt: channel.createdAt,
+            updatedAt: channel.updatedAt
+        });
+        this.items.set(channelName, cloneRuntimeChannel(channel));
+        return cloneChannel(channel);
     }
 
     async delete(name: string): Promise<boolean> {
@@ -125,18 +157,20 @@ export class Channels {
         if (!channel) {
             return false;
         }
+
         for (const member of channel.members) {
             const memberContext = await this.agentSystem.agentContextForAgentId(member.agentId);
             if (!memberContext) {
                 continue;
             }
-            this.signals.unsubscribe({
+            await this.signals.unsubscribe({
                 userId: memberContext.userId,
                 agentId: member.agentId,
                 pattern: channelPatternBuild(channelName)
             });
         }
-        await fs.rm(path.join(this.baseDir, channelName), { recursive: true, force: true });
+
+        await this.channels.delete(channel.id);
         this.items.delete(channelName);
         return true;
     }
@@ -151,6 +185,14 @@ export class Channels {
         const exists = await this.agentSystem.agentExists(normalizedAgentId);
         if (!exists) {
             throw new Error(`Agent not found: ${normalizedAgentId}`);
+        }
+
+        const memberContext = await this.agentSystem.agentContextForAgentId(normalizedAgentId);
+        if (!memberContext) {
+            throw new Error(`Agent not found: ${normalizedAgentId}`);
+        }
+        if (memberContext.userId !== channel.userId) {
+            throw new Error(`Agent user scope mismatch for #${channel.name}: ${normalizedAgentId}`);
         }
 
         const taken = channel.members.find(
@@ -178,13 +220,16 @@ export class Channels {
         }
 
         channel.updatedAt = now;
-        await channelSave(this.baseDir, channel);
-        this.items.set(channel.name, cloneChannel(channel));
-        const memberContext = await this.agentSystem.agentContextForAgentId(normalizedAgentId);
-        if (!memberContext) {
-            throw new Error(`Agent not found: ${normalizedAgentId}`);
-        }
-        this.signals.subscribe({
+        await this.channels.addMember(channel.id, {
+            userId: memberContext.userId,
+            agentId: normalizedAgentId,
+            username: normalizedUsername,
+            joinedAt: channel.members.find((entry) => entry.agentId === normalizedAgentId)?.joinedAt ?? now
+        });
+        await this.channels.update(channel.id, { updatedAt: channel.updatedAt });
+        this.items.set(channel.name, cloneRuntimeChannel(channel));
+
+        await this.signals.subscribe({
             userId: memberContext.userId,
             agentId: normalizedAgentId,
             pattern: channelPatternBuild(channel.name),
@@ -200,15 +245,18 @@ export class Channels {
         if (nextMembers.length === channel.members.length) {
             return false;
         }
+
         channel.members = nextMembers;
         channel.updatedAt = Date.now();
-        await channelSave(this.baseDir, channel);
-        this.items.set(channel.name, cloneChannel(channel));
+        await this.channels.removeMember(channel.id, normalizedAgentId);
+        await this.channels.update(channel.id, { updatedAt: channel.updatedAt });
+        this.items.set(channel.name, cloneRuntimeChannel(channel));
+
         const memberContext = await this.agentSystem.agentContextForAgentId(normalizedAgentId);
         if (!memberContext) {
             return true;
         }
-        this.signals.unsubscribe({
+        await this.signals.unsubscribe({
             userId: memberContext.userId,
             agentId: normalizedAgentId,
             pattern: channelPatternBuild(channel.name)
@@ -239,22 +287,33 @@ export class Channels {
             createdAt
         };
 
-        await channelAppendMessage(this.baseDir, channel.name, message);
+        await this.channelMessages.create({
+            id: message.id,
+            channelId: channel.id,
+            userId: channel.userId,
+            senderUsername: message.senderUsername,
+            text: message.text,
+            mentions: [...message.mentions],
+            createdAt: message.createdAt
+        });
+
         channel.updatedAt = createdAt;
-        await channelSave(this.baseDir, channel);
-        this.items.set(channel.name, cloneChannel(channel));
+        await this.channels.update(channel.id, { updatedAt: channel.updatedAt });
+        this.items.set(channel.name, cloneRuntimeChannel(channel));
 
         const mentionTargets = channel.members
             .filter((member) => normalizedMentions.includes(member.username))
             .map((member) => member.agentId);
         const deliveredAgentIds = Array.from(new Set([channel.leader, ...mentionTargets]));
-        const history = await channelReadHistory(this.baseDir, channel.name, HISTORY_CONTEXT_LIMIT);
+        const history = await this.getHistory(channel.name, HISTORY_CONTEXT_LIMIT);
         const signalType = channelSignalTypeBuild(channel.name);
         const senderMember = channel.members.find((member) => member.username === sender) ?? null;
         const signal: Signal = {
             id: createId(),
             type: signalType,
-            source: senderMember ? { type: "agent", id: senderMember.agentId } : { type: "system" },
+            source: senderMember
+                ? { type: "agent", id: senderMember.agentId, userId: channel.userId }
+                : { type: "system", userId: channel.userId },
             data: channelSignalDataBuild(message, history),
             createdAt
         };
@@ -290,10 +349,18 @@ export class Channels {
 
     async getHistory(channelName: string, limit?: number): Promise<ChannelMessage[]> {
         const channel = this.channelRequire(channelName);
-        return channelReadHistory(this.baseDir, channel.name, limit);
+        const rows = await this.channelMessages.findRecent(channel.id, limit);
+        return rows.map((row) => ({
+            id: row.id,
+            channelName: channel.name,
+            senderUsername: row.senderUsername,
+            text: row.text,
+            mentions: [...row.mentions],
+            createdAt: row.createdAt
+        }));
     }
 
-    private channelRequire(name: string): Channel {
+    private channelRequire(name: string): ChannelRuntimeRecord {
         const channelName = channelNameNormalize(name);
         const channel = this.items.get(channelName);
         if (!channel) {
@@ -342,9 +409,20 @@ function channelSignalDataBuild(message: ChannelMessage, history: ChannelMessage
     };
 }
 
-function cloneChannel(channel: Channel): Channel {
+function cloneRuntimeChannel(channel: ChannelRuntimeRecord): ChannelRuntimeRecord {
     return {
         ...channel,
         members: channel.members.map((member) => ({ ...member }))
+    };
+}
+
+function cloneChannel(channel: ChannelRuntimeRecord): Channel {
+    return {
+        id: channel.id,
+        name: channel.name,
+        leader: channel.leader,
+        members: channel.members.map((member) => ({ ...member })),
+        createdAt: channel.createdAt,
+        updatedAt: channel.updatedAt
     };
 }

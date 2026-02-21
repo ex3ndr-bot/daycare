@@ -107,7 +107,7 @@ export function buildProcessStartTool(processes: Processes): ToolDefinition {
         execute: async (args, toolContext, toolCall) => {
             const payload = args as ProcessStartArgs;
             const permissions = await resolveProcessPermissions(toolContext.permissions, payload.permissions);
-            const processInfo = await processes.create(payload, permissions);
+            const processInfo = await processes.create(payload, permissions, toolContext.agentContext?.userId);
             const text = [
                 `Process started: ${processInfo.id}`,
                 `name: ${processInfo.name}`,

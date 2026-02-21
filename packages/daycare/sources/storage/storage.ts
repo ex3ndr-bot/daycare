@@ -1,13 +1,20 @@
 import type { AgentHistoryRecord } from "@/types";
 import { AsyncLock } from "../util/lock.js";
 import { AgentsRepository } from "./agentsRepository.js";
+import { ChannelMessagesRepository } from "./channelMessagesRepository.js";
+import { ChannelsRepository } from "./channelsRepository.js";
 import { CronTasksRepository } from "./cronTasksRepository.js";
 import { databaseOpen } from "./databaseOpen.js";
 import type { CreateAgentInput, CreateUserInput, UserWithConnectorKeysDbRecord } from "./databaseTypes.js";
+import { DelayedSignalsRepository } from "./delayedSignalsRepository.js";
+import { ExposeEndpointsRepository } from "./exposeEndpointsRepository.js";
 import { HeartbeatTasksRepository } from "./heartbeatTasksRepository.js";
 import { HistoryRepository } from "./historyRepository.js";
 import { migrationRun } from "./migrations/migrationRun.js";
+import { ProcessesRepository } from "./processesRepository.js";
 import { SessionsRepository } from "./sessionsRepository.js";
+import { SignalEventsRepository } from "./signalEventsRepository.js";
+import { SignalSubscriptionsRepository } from "./signalSubscriptionsRepository.js";
 import { UsersRepository } from "./usersRepository.js";
 
 /**
@@ -21,6 +28,13 @@ export class Storage {
     readonly history: HistoryRepository;
     readonly cronTasks: CronTasksRepository;
     readonly heartbeatTasks: HeartbeatTasksRepository;
+    readonly signalEvents: SignalEventsRepository;
+    readonly signalSubscriptions: SignalSubscriptionsRepository;
+    readonly delayedSignals: DelayedSignalsRepository;
+    readonly channels: ChannelsRepository;
+    readonly channelMessages: ChannelMessagesRepository;
+    readonly exposeEndpoints: ExposeEndpointsRepository;
+    readonly processes: ProcessesRepository;
 
     private readonly connection: ReturnType<typeof databaseOpen>;
     private readonly connectorKeyLocks = new Map<string, AsyncLock>();
@@ -33,6 +47,13 @@ export class Storage {
         this.history = new HistoryRepository(connection);
         this.cronTasks = new CronTasksRepository(connection);
         this.heartbeatTasks = new HeartbeatTasksRepository(connection);
+        this.signalEvents = new SignalEventsRepository(connection);
+        this.signalSubscriptions = new SignalSubscriptionsRepository(connection);
+        this.delayedSignals = new DelayedSignalsRepository(connection);
+        this.channels = new ChannelsRepository(connection);
+        this.channelMessages = new ChannelMessagesRepository(connection);
+        this.exposeEndpoints = new ExposeEndpointsRepository(connection);
+        this.processes = new ProcessesRepository(connection);
     }
 
     static open(dbPath: string): Storage {

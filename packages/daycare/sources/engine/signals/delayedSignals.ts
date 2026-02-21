@@ -1,8 +1,4 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
-
 import { createId } from "@paralleldrive/cuid2";
-import { z } from "zod";
 import type {
     DelayedSignal,
     DelayedSignalCancelRepeatKeyInput,
@@ -11,59 +7,25 @@ import type {
     SignalSource
 } from "@/types";
 import { getLogger } from "../../log.js";
-import { atomicWrite } from "../../util/atomicWrite.js";
+import type { DelayedSignalDbRecord } from "../../storage/databaseTypes.js";
+import type { DelayedSignalsRepository } from "../../storage/delayedSignalsRepository.js";
+import { Storage } from "../../storage/storage.js";
 import { AsyncLock } from "../../util/lock.js";
 import type { ConfigModule } from "../config/configModule.js";
 import type { EngineEventBus } from "../ipc/events.js";
 import type { Signals } from "./signals.js";
 
 const logger = getLogger("signal.delayed");
+type DelayedRuntimeSignal = DelayedSignal & { userId: string };
 
-const sourceSchema = z.discriminatedUnion("type", [
-    z
-        .object({
-            type: z.literal("system")
-        })
-        .strict(),
-    z
-        .object({
-            type: z.literal("agent"),
-            id: z.string().min(1)
-        })
-        .strict(),
-    z
-        .object({
-            type: z.literal("webhook"),
-            id: z.string().min(1).optional()
-        })
-        .strict(),
-    z
-        .object({
-            type: z.literal("process"),
-            id: z.string().min(1).optional()
-        })
-        .strict()
-]);
+type DelayedSignalsRepositoryOptions = {
+    delayedSignals: Pick<DelayedSignalsRepository, "create" | "findDue" | "findMany" | "delete" | "deleteByRepeatKey">;
+    fallbackUserIdResolve: () => Promise<string>;
+};
 
-const delayedSignalSchema = z
-    .object({
-        id: z.string().min(1),
-        type: z.string().min(1),
-        deliverAt: z.number().int().nonnegative(),
-        source: sourceSchema,
-        data: z.unknown().optional(),
-        repeatKey: z.string().min(1).optional(),
-        createdAt: z.number().int().nonnegative(),
-        updatedAt: z.number().int().nonnegative()
-    })
-    .strict();
-
-const delayedSignalStoreSchema = z
-    .object({
-        version: z.literal(1),
-        events: z.array(delayedSignalSchema)
-    })
-    .strict();
+type DelayedSignalsLegacyOptions = {
+    config: ConfigModule;
+};
 
 export type DelayedSignalsOptions = {
     config: ConfigModule;
@@ -71,21 +33,25 @@ export type DelayedSignalsOptions = {
     signals: Pick<Signals, "generate">;
     failureRetryMs?: number;
     maxTimerMs?: number;
-};
+} & (DelayedSignalsRepositoryOptions | DelayedSignalsLegacyOptions);
 
 /**
  * Manages persistent delayed signal scheduling by wall-time (unix milliseconds).
- * Expects: `ensureDir()` is called before `start()` and scheduling operations.
+ * Expects: delayed signals are persisted in SQLite.
  */
 export class DelayedSignals {
     private readonly config: ConfigModule;
     private readonly eventBus: EngineEventBus;
     private readonly signals: Pick<Signals, "generate">;
-    private readonly storePath: string;
+    private readonly delayedSignals: Pick<
+        DelayedSignalsRepository,
+        "create" | "findDue" | "findMany" | "delete" | "deleteByRepeatKey"
+    >;
+    private readonly fallbackUserIdResolve: () => Promise<string>;
     private readonly failureRetryMs: number;
     private readonly maxTimerMs: number;
     private readonly lock = new AsyncLock();
-    private readonly events = new Map<string, DelayedSignal>();
+    private readonly events = new Map<string, DelayedRuntimeSignal>();
     private loaded = false;
     private timer: NodeJS.Timeout | null = null;
     private started = false;
@@ -96,14 +62,22 @@ export class DelayedSignals {
         this.config = options.config;
         this.eventBus = options.eventBus;
         this.signals = options.signals;
-        this.storePath = path.join(this.config.current.configDir, "signals", "delayed.json");
+        if ("delayedSignals" in options) {
+            this.delayedSignals = options.delayedSignals;
+            this.fallbackUserIdResolve = options.fallbackUserIdResolve;
+        } else {
+            const storage = Storage.open(options.config.current.dbPath);
+            this.delayedSignals = storage.delayedSignals;
+            this.fallbackUserIdResolve = async () => {
+                const owner = await storage.users.findOwner();
+                return owner?.id ?? "owner";
+            };
+        }
         this.failureRetryMs = Math.max(10, Math.floor(options.failureRetryMs ?? 1_000));
         this.maxTimerMs = Math.max(1_000, Math.floor(options.maxTimerMs ?? 60_000));
     }
 
     async ensureDir(): Promise<void> {
-        const basePath = path.dirname(this.storePath);
-        await fs.mkdir(basePath, { recursive: true });
         await this.lock.inLock(async () => this.loadUnlocked());
     }
 
@@ -131,7 +105,7 @@ export class DelayedSignals {
      * Returns all scheduled delayed signals sorted by wall-time.
      */
     list(): DelayedSignal[] {
-        return delayedSignalsSort(Array.from(this.events.values()));
+        return delayedSignalsSort(Array.from(this.events.values()).map((event) => delayedSignalPublicClone(event)));
     }
 
     /**
@@ -141,29 +115,38 @@ export class DelayedSignals {
     async schedule(input: DelayedSignalScheduleInput): Promise<DelayedSignal> {
         const normalized = delayedSignalScheduleNormalize(input);
         const now = Date.now();
+        const userId = normalized.source.userId ?? (await this.fallbackUserIdResolve());
+
         const created = await this.lock.inLock(async () => {
             await this.loadUnlocked();
+
             if (normalized.repeatKey) {
-                for (const existing of this.events.values()) {
-                    if (existing.type === normalized.type && existing.repeatKey === normalized.repeatKey) {
-                        this.events.delete(existing.id);
+                await this.delayedSignals.deleteByRepeatKey(userId, normalized.type, normalized.repeatKey);
+                for (const [delayedId, delayed] of this.events.entries()) {
+                    if (
+                        delayed.type === normalized.type &&
+                        delayed.repeatKey === normalized.repeatKey &&
+                        delayed.userId === userId
+                    ) {
+                        this.events.delete(delayedId);
                     }
                 }
             }
 
-            const next: DelayedSignal = {
+            const next: DelayedRuntimeSignal = {
                 id: createId(),
+                userId,
                 type: normalized.type,
                 deliverAt: normalized.deliverAt,
                 source: normalized.source,
-                data: normalized.data,
-                repeatKey: normalized.repeatKey,
+                ...(normalized.data === undefined ? {} : { data: normalized.data }),
+                ...(normalized.repeatKey ? { repeatKey: normalized.repeatKey } : {}),
                 createdAt: now,
                 updatedAt: now
             };
-            this.events.set(next.id, next);
-            await this.persistUnlocked();
-            return { ...next };
+            await this.delayedSignals.create(delayedSignalRecordBuild(next, userId));
+            this.events.set(next.id, delayedSignalRuntimeClone(next));
+            return delayedSignalPublicClone(next);
         });
 
         this.eventBus.emit("signal.delayed.scheduled", created);
@@ -179,15 +162,20 @@ export class DelayedSignals {
         const normalized = delayedSignalCancelNormalize(input);
         const removed = await this.lock.inLock(async () => {
             await this.loadUnlocked();
+            const targets = Array.from(this.events.values()).filter(
+                (entry) => entry.type === normalized.type && entry.repeatKey === normalized.repeatKey
+            );
+            if (targets.length === 0) {
+                return 0;
+            }
+
             let count = 0;
-            for (const existing of this.events.values()) {
-                if (existing.type === normalized.type && existing.repeatKey === normalized.repeatKey) {
-                    this.events.delete(existing.id);
+            for (const target of targets) {
+                const removedFromDb = await this.delayedSignals.delete(target.id);
+                if (removedFromDb) {
                     count += 1;
                 }
-            }
-            if (count > 0) {
-                await this.persistUnlocked();
+                this.events.delete(target.id);
             }
             return count;
         });
@@ -247,10 +235,8 @@ export class DelayedSignals {
 
     private async deliverDue(): Promise<boolean> {
         const now = Date.now();
-        const due = await this.lock.inLock(async () => {
-            await this.loadUnlocked();
-            return delayedSignalsSort(Array.from(this.events.values()).filter((entry) => entry.deliverAt <= now));
-        });
+        const dueRecords = await this.delayedSignals.findDue(now);
+        const due = dueRecords.map((record) => delayedSignalRuntimeBuild(record));
         if (due.length === 0) {
             return false;
         }
@@ -260,7 +246,7 @@ export class DelayedSignals {
             const input: SignalGenerateInput = {
                 type: delayed.type,
                 source: delayed.source,
-                data: delayed.data
+                ...(delayed.data === undefined ? {} : { data: delayed.data })
             };
             try {
                 await this.signals.generate(input);
@@ -280,8 +266,7 @@ export class DelayedSignals {
                     return;
                 }
                 this.events.delete(delayed.id);
-                await this.persistUnlocked();
-                removed = true;
+                removed = await this.delayedSignals.delete(delayed.id);
             });
 
             if (removed) {
@@ -302,30 +287,13 @@ export class DelayedSignals {
             return;
         }
         this.loaded = true;
-        let raw: string;
-        try {
-            raw = await fs.readFile(this.storePath, "utf8");
-        } catch (error) {
-            if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-                this.events.clear();
-                return;
-            }
-            throw error;
-        }
-
-        const parsed = delayedSignalStoreSchema.parse(JSON.parse(raw));
         this.events.clear();
-        for (const item of parsed.events) {
-            this.events.set(item.id, item);
-        }
-    }
 
-    private async persistUnlocked(): Promise<void> {
-        const payload = {
-            version: 1 as const,
-            events: delayedSignalsSort(Array.from(this.events.values()))
-        };
-        await atomicWrite(this.storePath, `${JSON.stringify(payload, null, 2)}\n`);
+        const records = await this.delayedSignals.findMany();
+        for (const record of records) {
+            const delayed = delayedSignalRuntimeBuild(record);
+            this.events.set(delayed.id, delayedSignalRuntimeClone(delayed));
+        }
     }
 }
 
@@ -381,22 +349,34 @@ function signalSourceNormalize(source?: SignalSource): SignalSource {
         return { type: "system" };
     }
     if (source.type === "system") {
-        return { type: "system" };
+        const userId = signalSourceUserIdNormalize(source.userId);
+        return userId ? { type: "system", userId } : { type: "system" };
     }
     if (source.type === "agent") {
         const id = source.id.trim();
         if (!id) {
             throw new Error("Agent signal source id is required");
         }
-        return { type: "agent", id };
+        const userId = signalSourceUserIdNormalize(source.userId);
+        return userId ? { type: "agent", id, userId } : { type: "agent", id };
     }
     if (source.type === "webhook") {
         const id = source.id?.trim();
-        return { type: "webhook", ...(id ? { id } : {}) };
+        const userId = signalSourceUserIdNormalize(source.userId);
+        return {
+            type: "webhook",
+            ...(id ? { id } : {}),
+            ...(userId ? { userId } : {})
+        };
     }
     if (source.type === "process") {
         const id = source.id?.trim();
-        return { type: "process", ...(id ? { id } : {}) };
+        const userId = signalSourceUserIdNormalize(source.userId);
+        return {
+            type: "process",
+            ...(id ? { id } : {}),
+            ...(userId ? { userId } : {})
+        };
     }
     throw new Error(`Unsupported signal source type: ${(source as { type?: unknown }).type}`);
 }
@@ -425,4 +405,55 @@ function delayedSignalNext(events: Iterable<DelayedSignal>): DelayedSignal | nul
         }
     }
     return next;
+}
+
+function signalSourceUserIdNormalize(userId?: string): string | undefined {
+    if (typeof userId !== "string") {
+        return undefined;
+    }
+    const normalized = userId.trim();
+    return normalized.length > 0 ? normalized : undefined;
+}
+
+function delayedSignalRecordBuild(signal: DelayedRuntimeSignal, userId: string): DelayedSignalDbRecord {
+    return {
+        id: signal.id,
+        userId,
+        type: signal.type,
+        deliverAt: signal.deliverAt,
+        source: signal.source,
+        data: signal.data,
+        repeatKey: signal.repeatKey ?? null,
+        createdAt: signal.createdAt,
+        updatedAt: signal.updatedAt
+    };
+}
+
+function delayedSignalRuntimeBuild(record: DelayedSignalDbRecord): DelayedRuntimeSignal {
+    return {
+        id: record.id,
+        userId: record.userId,
+        type: record.type,
+        deliverAt: record.deliverAt,
+        source: record.source,
+        ...(record.data === undefined ? {} : { data: record.data }),
+        ...(record.repeatKey ? { repeatKey: record.repeatKey } : {}),
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt
+    };
+}
+
+function delayedSignalRuntimeClone(signal: DelayedRuntimeSignal): DelayedRuntimeSignal {
+    return {
+        ...signal,
+        source: JSON.parse(JSON.stringify(signal.source)) as DelayedSignal["source"],
+        ...(signal.data === undefined ? {} : { data: JSON.parse(JSON.stringify(signal.data)) as unknown })
+    };
+}
+
+function delayedSignalPublicClone(signal: DelayedRuntimeSignal): DelayedSignal {
+    const base = delayedSignalRuntimeClone(signal);
+    const { userId, ...rest } = base;
+    void userId;
+    return rest;
 }

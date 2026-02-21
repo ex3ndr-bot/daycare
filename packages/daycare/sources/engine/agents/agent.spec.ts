@@ -420,14 +420,14 @@ describe("Agent", () => {
             if (!agentContext) {
                 throw new Error("Missing agent context");
             }
-            signals.subscribe({
+            await signals.subscribe({
                 userId: agentContext.userId,
                 agentId,
                 pattern: "build:*:done",
                 silent: true
             });
             await signals.generate({ type: "build:alpha:done", source: { type: "system" } });
-            signals.unsubscribe({ userId: agentContext.userId, agentId, pattern: "build:*:done" });
+            await signals.unsubscribe({ userId: agentContext.userId, agentId, pattern: "build:*:done" });
 
             await agentSystem.start();
             await agentSystem.postAndAwait({ agentId }, { type: "reset", message: "flush queue" });
@@ -478,15 +478,15 @@ describe("Agent", () => {
             if (!agentContext) {
                 throw new Error("Missing agent context");
             }
-            signals.subscribe({
+            await signals.subscribe({
                 userId: agentContext.userId,
                 agentId,
                 pattern: "build:*:done",
                 silent: true
             });
             await signals.generate({ type: "build:alpha:done", source: { type: "system" } });
-            signals.unsubscribe({ userId: agentContext.userId, agentId, pattern: "build:*:done" });
-            signals.subscribe({
+            await signals.unsubscribe({ userId: agentContext.userId, agentId, pattern: "build:*:done" });
+            await signals.subscribe({
                 userId: agentContext.userId,
                 agentId,
                 pattern: "build:*:done",
@@ -551,13 +551,13 @@ describe("Agent", () => {
             if (!sourceAgentContext || !peerAgentContext) {
                 throw new Error("Missing signal test agent contexts");
             }
-            signals.subscribe({
+            await signals.subscribe({
                 userId: sourceAgentContext.userId,
                 agentId: sourceAgentId,
                 pattern: "build:*:done",
                 silent: true
             });
-            signals.subscribe({
+            await signals.subscribe({
                 userId: peerAgentContext.userId,
                 agentId: peerAgentId,
                 pattern: "build:*:done",

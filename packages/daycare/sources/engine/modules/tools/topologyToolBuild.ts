@@ -67,7 +67,7 @@ export function topologyTool(
                 toolContext.heartbeats.listTasks(),
                 exposes.list()
             ]);
-            const signalSubscriptions = signals.listSubscriptions();
+            const signalSubscriptions = await signals.listSubscriptions();
             const channelEntries = channels.list();
 
             const agents = agentEntries

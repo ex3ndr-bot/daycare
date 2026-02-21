@@ -1,12 +1,15 @@
-import { promises as fs } from "node:fs";
 import path from "node:path";
-
 import { createId } from "@paralleldrive/cuid2";
 
 import { getLogger } from "../../log.js";
-import { AsyncLock } from "../../util/lock.js";
+import type {
+    SignalEventDbRecord,
+    SignalSubscriptionDbRecord
+} from "../../storage/databaseTypes.js";
+import type { SignalEventsRepository } from "../../storage/signalEventsRepository.js";
+import type { SignalSubscriptionsRepository } from "../../storage/signalSubscriptionsRepository.js";
+import { Storage } from "../../storage/storage.js";
 import type { EngineEventBus } from "../ipc/events.js";
-import { signalTypeMatchesPattern } from "./signalTypeMatchesPattern.js";
 import type {
     Signal,
     SignalGenerateInput,
@@ -18,29 +21,54 @@ import type {
 
 const logger = getLogger("signal.facade");
 
+type SignalsRepositoryOptions = {
+    signalEvents: Pick<SignalEventsRepository, "create" | "findMany" | "findRecent">;
+    signalSubscriptions: Pick<
+        SignalSubscriptionsRepository,
+        "create" | "delete" | "findByUserAndAgent" | "findMany" | "findMatching"
+    >;
+    fallbackUserIdResolve: () => Promise<string>;
+};
+
+type SignalsLegacyOptions = {
+    configDir: string;
+};
+
 export type SignalsOptions = {
     eventBus: EngineEventBus;
-    configDir: string;
     onDeliver?: (signal: Signal, subscriptions: SignalSubscription[]) => Promise<void> | void;
-};
+} & (SignalsRepositoryOptions | SignalsLegacyOptions);
 
 export class Signals {
     private readonly eventBus: EngineEventBus;
-    private readonly signalsDir: string;
-    private readonly eventsPath: string;
-    private readonly appendLock = new AsyncLock();
+    private readonly signalEvents: Pick<SignalEventsRepository, "create" | "findMany" | "findRecent">;
+    private readonly signalSubscriptions: Pick<
+        SignalSubscriptionsRepository,
+        "create" | "delete" | "findByUserAndAgent" | "findMany" | "findMatching"
+    >;
+    private readonly fallbackUserIdResolve: () => Promise<string>;
     private readonly onDeliver: SignalsOptions["onDeliver"];
-    private readonly subscriptions = new Map<string, SignalSubscription>();
 
     constructor(options: SignalsOptions) {
         this.eventBus = options.eventBus;
-        this.signalsDir = path.join(options.configDir, "signals");
-        this.eventsPath = path.join(this.signalsDir, "events.jsonl");
+        if ("signalEvents" in options) {
+            this.signalEvents = options.signalEvents;
+            this.signalSubscriptions = options.signalSubscriptions;
+            this.fallbackUserIdResolve = options.fallbackUserIdResolve;
+        } else {
+            const storage = Storage.open(path.join(options.configDir, "daycare.db"));
+            this.signalEvents = storage.signalEvents;
+            this.signalSubscriptions = storage.signalSubscriptions;
+            this.fallbackUserIdResolve = async () => {
+                const owner = await storage.users.findOwner();
+                return owner?.id ?? "owner";
+            };
+        }
         this.onDeliver = options.onDeliver;
     }
 
     async ensureDir(): Promise<void> {
-        await fs.mkdir(this.signalsDir, { recursive: true });
+        return Promise.resolve();
     }
 
     /**
@@ -54,6 +82,7 @@ export class Signals {
         }
 
         const source = signalSourceNormalize(input.source);
+        const userId = source.userId ?? (await this.fallbackUserIdResolve());
 
         const signal: Signal = {
             id: createId(),
@@ -63,9 +92,11 @@ export class Signals {
             createdAt: Date.now()
         };
 
-        await this.signalAppend(signal);
+        await this.signalEvents.create(signalRecordBuild(signal, userId));
         this.eventBus.emit("signal.generated", signal);
-        const subscriptions = this.signalSubscriptionsMatch(signal);
+        const subscriptions = (await this.signalSubscriptions.findMatching(signal.type, signal.source.userId)).map(
+            (record) => signalSubscriptionBuild(record)
+        );
         if (subscriptions.length > 0) {
             await this.signalDeliver(signal, subscriptions);
         }
@@ -82,14 +113,13 @@ export class Signals {
         return signal;
     }
 
-    subscribe(input: SignalSubscribeInput): SignalSubscription {
+    async subscribe(input: SignalSubscribeInput): Promise<SignalSubscription> {
         const { userId, pattern, agentId } = signalSubscriptionInputNormalize(input);
-        const key = signalSubscriptionKeyBuild(userId, agentId, pattern);
         const now = Date.now();
-        const existing = this.subscriptions.get(key);
+        const existing = await this.signalSubscriptions.findByUserAndAgent(userId, agentId, pattern);
         const subscription: SignalSubscription = existing
             ? {
-                  ...existing,
+                  ...signalSubscriptionBuild(existing),
                   silent: input.silent ?? existing.silent,
                   updatedAt: now
               }
@@ -101,97 +131,56 @@ export class Signals {
                   createdAt: now,
                   updatedAt: now
               };
-        this.subscriptions.set(key, subscription);
-        return subscription;
+        await this.signalSubscriptions.create({
+            id: existing?.id ?? createId(),
+            userId: subscription.userId,
+            agentId: subscription.agentId,
+            pattern: subscription.pattern,
+            silent: subscription.silent,
+            createdAt: subscription.createdAt,
+            updatedAt: subscription.updatedAt
+        });
+        return { ...subscription };
     }
 
     /**
      * Returns a subscription for an exact agent + pattern pair when present.
      * Returns: null when no subscription exists.
      */
-    subscriptionGet(input: SignalUnsubscribeInput): SignalSubscription | null {
+    async subscriptionGet(input: SignalUnsubscribeInput): Promise<SignalSubscription | null> {
         const { userId, pattern, agentId } = signalSubscriptionInputNormalize(input);
-        const key = signalSubscriptionKeyBuild(userId, agentId, pattern);
-        const subscription = this.subscriptions.get(key);
-        return subscription ? { ...subscription } : null;
+        const subscription = await this.signalSubscriptions.findByUserAndAgent(userId, agentId, pattern);
+        return subscription ? signalSubscriptionBuild(subscription) : null;
     }
 
     /**
      * Removes an existing signal subscription for agent + pattern.
      * Returns: true when a subscription existed and was removed.
      */
-    unsubscribe(input: SignalUnsubscribeInput): boolean {
+    async unsubscribe(input: SignalUnsubscribeInput): Promise<boolean> {
         const { userId, pattern, agentId } = signalSubscriptionInputNormalize(input);
-        const key = signalSubscriptionKeyBuild(userId, agentId, pattern);
-        return this.subscriptions.delete(key);
+        return this.signalSubscriptions.delete(userId, agentId, pattern);
     }
 
     /**
      * Returns all active signal subscriptions as a snapshot array.
      */
-    listSubscriptions(): SignalSubscription[] {
-        return Array.from(this.subscriptions.values());
+    async listSubscriptions(): Promise<SignalSubscription[]> {
+        const subscriptions = await this.signalSubscriptions.findMany();
+        return subscriptions.map((subscription) => signalSubscriptionBuild(subscription));
     }
 
     /**
      * Returns all persisted signal events in append order.
      */
     async listAll(): Promise<Signal[]> {
-        return this.appendLock.inLock(async () => {
-            try {
-                const raw = await fs.readFile(this.eventsPath, "utf8");
-                return signalLinesParse(raw);
-            } catch (error) {
-                if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-                    return [];
-                }
-                throw error;
-            }
-        });
+        const events = await this.signalEvents.findMany();
+        return events.map((event) => signalBuild(event));
     }
 
     async listRecent(limit = 200): Promise<Signal[]> {
-        const normalizedLimit = signalLimitNormalize(limit);
-        return this.appendLock.inLock(async () => {
-            try {
-                const raw = await fs.readFile(this.eventsPath, "utf8");
-                const events = signalLinesParse(raw);
-                if (events.length <= normalizedLimit) {
-                    return events;
-                }
-                return events.slice(events.length - normalizedLimit);
-            } catch (error) {
-                if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-                    return [];
-                }
-                throw error;
-            }
-        });
-    }
-
-    private async signalAppend(signal: Signal): Promise<void> {
-        const line = `${JSON.stringify(signal)}\n`;
-        await this.appendLock.inLock(async () => {
-            await fs.mkdir(this.signalsDir, { recursive: true });
-            await fs.appendFile(this.eventsPath, line, "utf8");
-        });
-    }
-
-    private signalSubscriptionsMatch(signal: Signal): SignalSubscription[] {
-        const matches: SignalSubscription[] = [];
-        const sourceUserId =
-            typeof signal.source.userId === "string" && signal.source.userId.trim().length > 0
-                ? signal.source.userId.trim()
-                : null;
-        for (const subscription of this.subscriptions.values()) {
-            if (sourceUserId && subscription.userId !== sourceUserId) {
-                continue;
-            }
-            if (signalTypeMatchesPattern(signal.type, subscription.pattern)) {
-                matches.push(subscription);
-            }
-        }
-        return matches;
+        const events = await this.signalEvents.findRecent(signalLimitNormalize(limit));
+        return events.map((event) => signalBuild(event));
     }
 
     private async signalDeliver(signal: Signal, subscriptions: SignalSubscription[]): Promise<void> {
@@ -248,22 +237,36 @@ function signalLimitNormalize(limit: number): number {
     return Math.min(1000, Math.max(1, Math.floor(limit)));
 }
 
-function signalLinesParse(content: string): Signal[] {
-    const lines = content.split("\n").filter((line) => line.trim().length > 0);
-    const events: Signal[] = [];
-    for (const line of lines) {
-        try {
-            const parsed = JSON.parse(line) as Signal;
-            events.push(parsed);
-        } catch {
-            // Ignore malformed lines to keep dashboard reads resilient.
-        }
-    }
-    return events;
+function signalBuild(record: SignalEventDbRecord): Signal {
+    return {
+        id: record.id,
+        type: record.type,
+        source: record.source,
+        ...(record.data === undefined ? {} : { data: record.data }),
+        createdAt: record.createdAt
+    };
 }
 
-function signalSubscriptionKeyBuild(userId: string, agentId: string, pattern: string): string {
-    return `${userId}::${agentId}::${pattern}`;
+function signalRecordBuild(signal: Signal, userId: string): SignalEventDbRecord {
+    return {
+        id: signal.id,
+        userId,
+        type: signal.type,
+        source: signal.source,
+        data: signal.data,
+        createdAt: signal.createdAt
+    };
+}
+
+function signalSubscriptionBuild(record: SignalSubscriptionDbRecord): SignalSubscription {
+    return {
+        userId: record.userId,
+        agentId: record.agentId,
+        pattern: record.pattern,
+        silent: record.silent,
+        createdAt: record.createdAt,
+        updatedAt: record.updatedAt
+    };
 }
 
 function signalSubscriptionInputNormalize(input: { userId: string; agentId: string; pattern: string }): {

@@ -5,7 +5,7 @@ Daycare now includes durable shell process tools that behave like a lightweight 
 ## Goals
 
 - Start commands as detached managed processes.
-- Persist process state (pid, desired state, restart policy) on disk.
+- Persist process state (pid, desired state, restart policy) in SQLite.
 - Rehydrate managed process state after engine restart.
 - Allow explicit stop operations (`process_stop`, `process_stop_all`).
 - Expose absolute process log filenames via `process_list` and `process_get`.
@@ -14,13 +14,13 @@ Daycare now includes durable shell process tools that behave like a lightweight 
 
 ## Storage Model
 
-Managed process state is stored per process in engine data:
+Managed process state is split between SQLite and per-process runtime files:
 
-- `processes/<id>/record.json`
+- SQLite table `processes`
 - `processes/<id>/sandbox.json`
 - `processes/<id>/process.log`
 
-`record.json` is the source of truth for durable state, including:
+`processes` table is the source of truth for durable state, including:
 
 - runtime pid (`pid`)
 - boot identity (`bootTimeMs`) to detect stale pids after host reboot
@@ -40,12 +40,12 @@ flowchart TD
   A0 --> A2z[Use zero write/network + read-all scope]
   A2 --> B
   A2z --> B
-  B --> C[Persist record.json + sandbox.json]
+  B --> C[Persist process row + write sandbox.json]
   C --> D[Spawn detached sandbox runtime process]
   D --> E[Append stdout/stderr to process.log]
-  D --> F[Update pid/status in record.json]
+  D --> F[Update pid/status in processes table]
   G[Engine restart] --> H[Engine Processes load]
-  H --> I[Read process records from disk]
+  H --> I[Read process rows from SQLite]
   I --> J{bootTime matches record?}
   J -- no --> K[Clear persisted pid as stale]
   J -- yes --> L{pid running?}

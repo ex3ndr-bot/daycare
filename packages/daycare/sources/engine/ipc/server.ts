@@ -182,7 +182,7 @@ export async function startEngineServer(options: EngineServerOptions): Promise<E
 
     app.get("/v1/engine/signals/subscriptions", async (_request, reply) => {
         logger.debug("event: GET /v1/engine/signals/subscriptions");
-        const subscriptions = options.runtime.signals.listSubscriptions();
+        const subscriptions = await options.runtime.signals.listSubscriptions();
         logger.debug(`event: Signal subscriptions retrieved count=${subscriptions.length}`);
         return reply.send({ ok: true, subscriptions });
     });
